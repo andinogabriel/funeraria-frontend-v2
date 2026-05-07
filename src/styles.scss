@@ -1,0 +1,54 @@
+// =============================================================================
+// Global stylesheet
+//
+// Pipeline order matters:
+//   1. Tailwind v4 — utility classes available everywhere; resets `*` and html
+//      defaults (background, color, font-family) which is fine because Material's
+//      M3 system variables override the relevant ones below.
+//   2. Angular Material M3 theme — defines `--mat-sys-*` CSS custom properties
+//      consumed by Material components and our own utility-styled wrappers.
+//   3. Custom theme tokens — Inter typography + selected M3 system overrides.
+// =============================================================================
+
+@use '@angular/material' as mat;
+
+@import 'tailwindcss';
+
+// -----------------------------------------------------------------------------
+// Material 3 theme: azure as primary keeps the funeral-home tone restrained;
+// the secondary palette stays at the schematics default for now and can be
+// swapped to a brand color once the design language is defined.
+// -----------------------------------------------------------------------------
+html {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: (
+        plain-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        brand-family: 'Inter, system-ui, sans-serif',
+      ),
+      density: 0,
+    )
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Base body resets that play nicely with both Tailwind's preflight and
+// Material's surface tokens. Using the system variables (instead of hardcoded
+// hex) means a future light/dark toggle requires no further work here.
+// -----------------------------------------------------------------------------
+body {
+  color-scheme: light;
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+}

@@ -1,0 +1,13 @@
+/* TypeScript configuration for Vitest specs.
+ * The `vitest/globals` types make `describe`, `it`, `expect`, `vi`, etc. available without
+ * imports inside spec files; `node` types are included because Vitest runs on Node and lets
+ * tests use Node-only APIs (e.g. for fixture loading).
+ */
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "types": ["vitest/globals", "node"]
+  },
+  "include": ["src/**/*.d.ts", "src/**/*.spec.ts", "src/test-setup.ts"]
+}
