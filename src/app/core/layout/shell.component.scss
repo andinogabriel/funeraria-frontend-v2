@@ -1,0 +1,11 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+// Disable the Material list-item ripple bleeding past the rounded corner Tailwind paints.
+::ng-deep .mat-mdc-list-item {
+  border-radius: 8px;
+  margin: 2px 8px;
+  width: auto;
+}

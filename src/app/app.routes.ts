@@ -1,3 +1,33 @@
 import { Routes } from '@angular/router';
 
-export const routes: Routes = [];
+import { authGuard } from './core/auth/auth.guard';
+
+/**
+ * Top-level route table. Every entry uses `loadComponent` for lazy code-splitting at the
+ * feature boundary, which means a fresh visitor downloads the login bundle only and the
+ * shell + dashboard arrive as separate chunks after authentication.
+ *
+ * The shell route owns the authenticated experience: anything that needs the persistent
+ * navigation surface goes inside its `children` array. Public-facing routes (login, the
+ * eventual public landing page) sit at the top level so they never see the shell.
+ */
+export const routes: Routes = [
+  {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
+  },
+  {
+    path: '',
+    canActivate: [authGuard],
+    loadComponent: () => import('./core/layout/shell.component').then((m) => m.ShellComponent),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage),
+      },
+    ],
+  },
+  { path: '**', redirectTo: '' },
+];
