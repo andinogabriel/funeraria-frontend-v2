@@ -1,18 +1,15 @@
 // =============================================================================
-// Global stylesheet
+// Sass entry — Material 3 theming + custom tokens.
 //
-// Pipeline order matters:
-//   1. Tailwind v4 — utility classes available everywhere; resets `*` and html
-//      defaults (background, color, font-family) which is fine because Material's
-//      M3 system variables override the relevant ones below.
-//   2. Angular Material M3 theme — defines `--mat-sys-*` CSS custom properties
-//      consumed by Material components and our own utility-styled wrappers.
-//   3. Custom theme tokens — Inter typography + selected M3 system overrides.
+// Tailwind v4's `@import "tailwindcss"` lives in `styles.css` (a plain CSS
+// sibling registered alongside this file in angular.json), because Sass's
+// own `@import` directive intercepts the URL and tries to resolve it as a
+// Sass module — it doesn't exist as one, so the statement is discarded
+// silently and Tailwind never reaches the bundle. Splitting the entry
+// points keeps each pipeline doing what it was designed to do.
 // =============================================================================
 
 @use '@angular/material' as mat;
-
-@import 'tailwindcss';
 
 // -----------------------------------------------------------------------------
 // Material 3 theme: azure as primary keeps the funeral-home tone restrained;
