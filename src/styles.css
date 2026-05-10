@@ -1,0 +1,11 @@
+/*
+ * Plain CSS entry — Tailwind v4 import.
+ *
+ * Kept separate from styles.scss because Sass's `@import` directive intercepts
+ * the URL before PostCSS sees it and silently discards anything that does not
+ * resolve to a Sass module. With Tailwind v4 there is no `_tailwindcss.scss`
+ * to find, so the import had to leave the Sass pipeline. PostCSS is configured
+ * via `.postcssrc.json` to apply `@tailwindcss/postcss` to every CSS asset —
+ * that is the plugin that expands this single line into the full utility set.
+ */
+@import 'tailwindcss';
