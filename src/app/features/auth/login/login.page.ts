@@ -49,6 +49,25 @@ export class LoginPage {
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /**
+   * Optional contextual banner rendered above the form when the user was redirected
+   * here by the error interceptor. The interceptor sets `?reason=expired` for the
+   * general "session no longer valid" case and `?reason=blocked` when the backend's
+   * threat-protection adapter rejected the refresh (typically because too many
+   * failed-auth attempts blacklisted the principal — recoverable by waiting an hour
+   * or by restarting the backend in development).
+   */
+  protected readonly contextMessage = ((): string | null => {
+    const reason = this.route.snapshot.queryParamMap.get('reason');
+    if (reason === 'blocked') {
+      return 'Tu sesión fue bloqueada por seguridad. Reintentá el login en unos minutos.';
+    }
+    if (reason === 'expired') {
+      return 'Tu sesión expiró. Ingresá de nuevo para continuar.';
+    }
+    return null;
+  })();
+
   protected onSubmit(): void {
     if (this.form.invalid || this.submitting()) {
       this.form.markAllAsTouched();
