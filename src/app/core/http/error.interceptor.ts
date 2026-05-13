@@ -30,8 +30,22 @@ import { AuthStore } from '../auth/auth.store';
  * `HttpInterceptorFn` is invoked inside an injection context — Angular wraps the call so
  * `inject()` works directly in the function body. RxJS callbacks (`catchError`,
  * `switchMap`, …) run outside that context, so injecting from inside `handleUnauthorized`
- * fails with NG0203. Resolving the three collaborators here once per request and passing
+ * fails with NG0203. Resolving the four collaborators here once per request and passing
  * them into the helper keeps the chain in injection-context-free territory.
+ *
+ * <h3>User-visible feedback when the session breaks</h3>
+ *
+ * Earlier versions navigated to `/login` silently on refresh failure. That made the
+ * "I was just here and now I'm at the login page" jump confusing. We now redirect to
+ * `/login?reason=expired` (or `?reason=blocked` when the backend's threat protection
+ * kicks in) so the login page can render a contextual banner. The redirect also emits
+ * a structured `auth.refresh.failed` console record with the original correlation id
+ * so an incident can be tied back to the matching backend log line.
+ *
+ * Why not a snackbar: importing `MatSnackBar` here pulled the entire
+ * `@angular/material/snack-bar` package into the initial bundle (the interceptor is
+ * registered in `app.config.ts`), pushing the gzipped transfer past the 100 KB
+ * comfort range. The query-param redirect keeps the interceptor light.
  */
 let inFlightRefresh: Observable<unknown> | null = null;
 
@@ -75,8 +89,28 @@ function handleUnauthorized(
   if (!inFlightRefresh) {
     inFlightRefresh = auth.refresh().pipe(
       catchError((refreshError: unknown) => {
+        // Capture diagnostics before wiping the session so the operator (and any future
+        // grep through DevTools) can correlate the logout with the matching backend log.
+        const correlationId = original.headers.get('X-Correlation-Id');
+        const refreshStatus =
+          refreshError instanceof HttpErrorResponse ? refreshError.status : undefined;
+        console.warn('auth.refresh.failed', {
+          refreshStatus,
+          originalUrl: original.url,
+          correlationId,
+        });
+
         store.clear();
-        void router.navigate(['/login']);
+        // Reset so the next login does not skip the refresh attempt because the chain
+        // remembered a stale failure.
+        inFlightRefresh = null;
+        // `reason=blocked` means the threat-protection adapter rejected the refresh
+        // (typically because too many failed-auth attempts blacklisted the principal);
+        // `reason=expired` covers every other refresh failure shape. The login page
+        // reads the query param and renders an explanatory banner.
+        void router.navigate(['/login'], {
+          queryParams: { reason: refreshStatus === 403 ? 'blocked' : 'expired' },
+        });
         return throwError(() => refreshError);
       }),
     );

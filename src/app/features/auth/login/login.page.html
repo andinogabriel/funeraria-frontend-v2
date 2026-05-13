@@ -13,6 +13,14 @@
     </mat-card-header>
 
     <mat-card-content>
+      @if (contextMessage) {
+        <div
+          role="status"
+          class="mb-4 rounded-md p-3 text-sm bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
+        >
+          {{ contextMessage }}
+        </div>
+      }
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
         <mat-form-field appearance="outline">
           <mat-label>Email</mat-label>
