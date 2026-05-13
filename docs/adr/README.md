@@ -7,6 +7,7 @@ every PR description.
 | #    | Title                                              | Touches                                                         |
 | ---- | -------------------------------------------------- | --------------------------------------------------------------- |
 | [0001](0001-modern-angular-stack.md) | Modern Angular 20 stack bootstrap | Standalone, signals, zoneless, Material 20 + Tailwind v4, Vitest, ESLint flat, CI |
+| [0002](0002-feature-types-and-service-pattern.md) | Per-slice domain types + signal-based API service pattern | `core/api/` (Page, ProblemDetail, http-helpers), `features/<slice>/*.types.ts` + `*.service.ts` |
 
 ## When to add a new ADR
 
