@@ -1,0 +1,115 @@
+<div class="flex flex-col gap-6 max-w-3xl">
+  <header class="flex items-center gap-3">
+    <a mat-icon-button routerLink="/afiliados" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <h1 class="text-2xl font-semibold m-0">{{ title() }}</h1>
+  </header>
+
+  <form
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+    class="flex flex-col gap-4 bg-[var(--mat-sys-surface-container-low)] rounded-md p-6"
+  >
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <mat-form-field appearance="outline">
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="firstName" autocomplete="given-name" maxlength="60" />
+        @if (form.controls.firstName.touched && form.controls.firstName.hasError('required')) {
+          <mat-error>El nombre es obligatorio.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Apellido</mat-label>
+        <input matInput formControlName="lastName" autocomplete="family-name" maxlength="60" />
+        @if (form.controls.lastName.touched && form.controls.lastName.hasError('required')) {
+          <mat-error>El apellido es obligatorio.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>DNI</mat-label>
+        <input
+          matInput
+          type="number"
+          formControlName="dni"
+          autocomplete="off"
+          inputmode="numeric"
+          min="1000000"
+          max="99999999"
+        />
+        @if (form.controls.dni.touched && form.controls.dni.hasError('required')) {
+          <mat-error>El DNI es obligatorio.</mat-error>
+        }
+        @if (
+          form.controls.dni.touched &&
+          (form.controls.dni.hasError('min') || form.controls.dni.hasError('max'))
+        ) {
+          <mat-error>Ingresá un DNI válido (7 u 8 dígitos).</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Fecha de nacimiento</mat-label>
+        <input
+          matInput
+          [matDatepicker]="picker"
+          formControlName="birthDate"
+          [max]="today"
+          readonly
+        />
+        <mat-datepicker-toggle matIconSuffix [for]="picker" />
+        <mat-datepicker #picker startView="multi-year" />
+        @if (form.controls.birthDate.touched && form.controls.birthDate.hasError('required')) {
+          <mat-error>Seleccioná una fecha de nacimiento.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Género</mat-label>
+        <mat-select formControlName="genderId">
+          @for (gender of genders() ?? []; track gender.id) {
+            <mat-option [value]="gender.id">{{ gender.name }}</mat-option>
+          }
+        </mat-select>
+        @if (form.controls.genderId.touched && form.controls.genderId.hasError('required')) {
+          <mat-error>Seleccioná un género.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Parentesco</mat-label>
+        <mat-select formControlName="relationshipId">
+          @for (rel of relationships() ?? []; track rel.id) {
+            <mat-option [value]="rel.id">{{ rel.name }}</mat-option>
+          }
+        </mat-select>
+        @if (
+          form.controls.relationshipId.touched && form.controls.relationshipId.hasError('required')
+        ) {
+          <mat-error>Seleccioná un parentesco.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    @if (errorMessage(); as message) {
+      <p class="text-sm text-[var(--mat-sys-error)] m-0" role="alert">{{ message }}</p>
+    }
+
+    <div class="flex gap-2 justify-end">
+      <a mat-stroked-button routerLink="/afiliados">Cancelar</a>
+      <button
+        type="submit"
+        mat-flat-button
+        color="primary"
+        [disabled]="submitting() || !catalogsReady()"
+      >
+        @if (submitting()) {
+          <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+        }
+        {{ mode() === 'edit' ? 'Guardar cambios' : 'Crear afiliado' }}
+      </button>
+    </div>
+  </form>
+</div>

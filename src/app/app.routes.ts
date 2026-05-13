@@ -27,6 +27,32 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage),
       },
+      {
+        path: 'afiliados',
+        loadComponent: () =>
+          import('./features/affiliates/pages/affiliate-list.page').then(
+            (m) => m.AffiliateListPage,
+          ),
+      },
+      {
+        path: 'afiliados/nuevo',
+        loadComponent: () =>
+          import('./features/affiliates/pages/affiliate-form.page').then(
+            (m) => m.AffiliateFormPage,
+          ),
+        // Route-level provider would normally feed `mode` through DI, but the form page
+        // uses `input.required<'create' | 'edit'>()` which the router binds via
+        // `withComponentInputBinding()` from the `data` map below.
+        data: { mode: 'create' },
+      },
+      {
+        path: 'afiliados/:dni/editar',
+        loadComponent: () =>
+          import('./features/affiliates/pages/affiliate-form.page').then(
+            (m) => m.AffiliateFormPage,
+          ),
+        data: { mode: 'edit' },
+      },
     ],
   },
   { path: '**', redirectTo: '' },

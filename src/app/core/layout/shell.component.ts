@@ -44,6 +44,7 @@ export class ShellComponent {
    * once the feature count starts to make hand-curated maintenance painful. */
   protected readonly navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/afiliados', label: 'Afiliados', icon: 'group' },
   ] as const;
 
   protected onLogout(): void {
