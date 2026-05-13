@@ -6,6 +6,7 @@ import {
 import { provideRouter, withComponentInputBinding, withViewTransitions } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 
 import { authInterceptor } from './core/http/auth.interceptor';
 import { correlationIdInterceptor } from './core/http/correlation-id.interceptor';
@@ -33,5 +34,11 @@ export const appConfig: ApplicationConfig = {
       withInterceptors([correlationIdInterceptor, authInterceptor, errorInterceptor]),
     ),
     provideAnimationsAsync(),
+    // Material datepicker needs a date adapter. `provideNativeDateAdapter` uses the JS
+    // `Date` type and is enough for birth-date inputs; if a feature later needs timezone-
+    // aware date math, swap to `@angular/material-date-fns-adapter` (date-fns is already
+    // a planned dep).
+    provideNativeDateAdapter(),
+    { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
   ],
 };

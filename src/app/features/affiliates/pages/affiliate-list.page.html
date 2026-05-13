@@ -1,0 +1,111 @@
+<div class="flex flex-col gap-6 max-w-6xl">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      group
+    </mat-icon>
+    <h1 class="text-2xl font-semibold m-0">Afiliados</h1>
+    <span class="flex-1"></span>
+
+    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+      Actualizar
+    </button>
+    <a mat-flat-button color="primary" routerLink="/afiliados/nuevo">
+      <mat-icon class="material-symbols-outlined">add</mat-icon>
+      Nuevo afiliado
+    </a>
+  </header>
+
+  <mat-form-field appearance="outline" class="w-full max-w-sm">
+    <mat-label>Buscar por nombre, apellido o DNI</mat-label>
+    <input matInput type="search" [formControl]="search" autocomplete="off" />
+    <mat-icon matSuffix class="material-symbols-outlined">search</mat-icon>
+  </mat-form-field>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  @if (loading() && filtered().length === 0) {
+    <div class="flex items-center justify-center p-10">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (filtered().length === 0) {
+    <div
+      class="rounded-md p-8 text-center bg-[var(--mat-sys-surface-container)] text-[var(--mat-sys-on-surface-variant)]"
+    >
+      No hay afiliados que coincidan con la búsqueda.
+    </div>
+  } @else {
+    <div class="rounded-md overflow-hidden bg-[var(--mat-sys-surface-container-low)]">
+      <table mat-table [dataSource]="paginated()" class="w-full">
+        <ng-container matColumnDef="dni">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium">DNI</th>
+          <td mat-cell *matCellDef="let affiliate">{{ affiliate.dni }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="lastName">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium">Apellido</th>
+          <td mat-cell *matCellDef="let affiliate">{{ affiliate.lastName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="firstName">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium">Nombre</th>
+          <td mat-cell *matCellDef="let affiliate">{{ affiliate.firstName }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="birthDate">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium">Nacimiento</th>
+          <td mat-cell *matCellDef="let affiliate">{{ affiliate.birthDate }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="relationship">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium">Parentesco</th>
+          <td mat-cell *matCellDef="let affiliate">{{ affiliate.relationship.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="gender">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium">Género</th>
+          <td mat-cell *matCellDef="let affiliate">{{ affiliate.gender.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef class="!font-medium text-right">Acciones</th>
+          <td mat-cell *matCellDef="let affiliate" class="text-right">
+            <a
+              mat-icon-button
+              [routerLink]="['/afiliados', affiliate.dni, 'editar']"
+              aria-label="Editar"
+            >
+              <mat-icon class="material-symbols-outlined">edit</mat-icon>
+            </a>
+            <button
+              mat-icon-button
+              color="warn"
+              (click)="onDelete(affiliate)"
+              [attr.aria-label]="'Eliminar afiliado ' + affiliate.firstName"
+            >
+              <mat-icon class="material-symbols-outlined">delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="filtered().length"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 25, 50]"
+        [pageIndex]="pageIndex()"
+        showFirstLastButtons
+      />
+    </div>
+  }
+</div>
