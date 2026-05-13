@@ -19,7 +19,9 @@ Angular 20 frontend for [`backend-funeraria-app`](https://github.com/andinogabri
 | Top-level routes | `src/app/app.routes.ts` |
 | HTTP interceptors (auth, error, correlation id) | `src/app/core/http/*.interceptor.ts` (PR1+) |
 | Functional guards | `src/app/core/guards/*.guard.ts` (PR1+) |
-| Domain types | `src/app/features/<slice>/<slice>.types.ts` (PR2+) |
+| Shared API infra | `src/app/core/api/` — `Page<T>`, `ProblemDetail`, `toQueryParams` / `toPageQueryParams` |
+| Domain types | `src/app/features/<slice>/<slice>.types.ts` (mirrors backend OpenAPI; one file per slice) |
+| Feature service shape | `features/audit/audit.service.ts` is the reference; ADR-0002 describes the pattern |
 | Feature components | `src/app/features/<slice>/` |
 | Shared UI primitives | `src/app/shared/` |
 | Material M3 theme + Tailwind import | `src/styles.scss` |
