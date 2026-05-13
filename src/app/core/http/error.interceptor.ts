@@ -24,17 +24,29 @@ import { AuthStore } from '../auth/auth.store';
  * A module-scoped `inFlightRefresh` ensures concurrent 401s share the same rotation —
  * otherwise each parallel request would fire its own refresh and only one would actually
  * succeed against the backend's rotating refresh-token semantics.
+ *
+ * <h3>Why inject() at the top of the interceptor function</h3>
+ *
+ * `HttpInterceptorFn` is invoked inside an injection context — Angular wraps the call so
+ * `inject()` works directly in the function body. RxJS callbacks (`catchError`,
+ * `switchMap`, …) run outside that context, so injecting from inside `handleUnauthorized`
+ * fails with NG0203. Resolving the three collaborators here once per request and passing
+ * them into the helper keeps the chain in injection-context-free territory.
  */
 let inFlightRefresh: Observable<unknown> | null = null;
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  const auth = inject(AuthService);
+  const store = inject(AuthStore);
+  const router = inject(Router);
+
   return next(req).pipe(
     catchError((error: unknown) => {
       if (!(error instanceof HttpErrorResponse)) {
         return throwError(() => error);
       }
       if (error.status === 401 && shouldAttemptRefresh(req)) {
-        return handleUnauthorized(req, next);
+        return handleUnauthorized(req, next, auth, store, router);
       }
       return throwError(() => error);
     }),
@@ -56,11 +68,10 @@ function shouldAttemptRefresh(req: HttpRequest<unknown>): boolean {
 function handleUnauthorized(
   original: HttpRequest<unknown>,
   next: HttpHandlerFn,
+  auth: AuthService,
+  store: AuthStore,
+  router: Router,
 ): Observable<HttpEvent<unknown>> {
-  const auth = inject(AuthService);
-  const store = inject(AuthStore);
-  const router = inject(Router);
-
   if (!inFlightRefresh) {
     inFlightRefresh = auth.refresh().pipe(
       catchError((refreshError: unknown) => {

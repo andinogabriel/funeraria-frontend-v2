@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import {
   FormControl,
   NonNullableFormBuilder,
@@ -13,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
@@ -24,9 +24,15 @@ import type { AffiliateRequest } from '../affiliate.types';
 /**
  * Single component for both create and edit because the form layout is identical and
  * the differences (submit method, page title, prefilled values) collapse to two
- * conditionals. The `mode` input is driven by the route: `/afiliados/nuevo` mounts
- * with `mode='create'`; `/afiliados/:dni/editar` mounts with `mode='edit'` and a `dni`
- * input bound by `withComponentInputBinding()` (configured at app bootstrap).
+ * conditionals. The mode + edit DNI are read from the route snapshot in the field
+ * initializer; both are available synchronously before the constructor runs so the
+ * form can hydrate without an extra effect or a `null` placeholder.
+ *
+ * Previous iteration used `input.required<'create' | 'edit'>()` plus
+ * `withComponentInputBinding()` to push route `data: { mode: 'create' }` into the
+ * component, but that binding fires AFTER the constructor — the field initializer
+ * tripped Angular's NG0950 "required input no value yet" error. The route snapshot
+ * is the canonical read of static route data in this layout.
  *
  * <h3>Catalog selects</h3>
  *
@@ -54,17 +60,26 @@ import type { AffiliateRequest } from '../affiliate.types';
   styleUrl: './affiliate-form.page.scss',
 })
 export class AffiliateFormPage {
-  /** Drives create vs. edit. Resolved by the routing table. */
-  readonly mode = input.required<'create' | 'edit'>();
-
-  /** Provided only in edit mode by the route segment. */
-  readonly dni = input<string | undefined>(undefined);
-
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly catalogs = inject(CatalogsService);
   private readonly service = inject(AffiliateService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
+
+  /**
+   * Drives create vs. edit. Read from the static route data at construction time.
+   * Defensive default of `'create'` so a typo in the routing table does not crash the
+   * page; `'edit'` only kicks in when the route explicitly sets it.
+   */
+  protected readonly mode: 'create' | 'edit' =
+    this.route.snapshot.data['mode'] === 'edit' ? 'edit' : 'create';
+
+  /**
+   * DNI of the affiliate being edited. Parsed from the `:dni` path segment; `null`
+   * when in create mode or when the segment is missing/malformed.
+   */
+  private readonly editDni: number | null = this.parseEditDni();
 
   protected readonly genders = this.catalogs.genders;
   protected readonly relationships = this.catalogs.relationships;
@@ -72,9 +87,7 @@ export class AffiliateFormPage {
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
-  protected readonly title = computed(() =>
-    this.mode() === 'create' ? 'Nuevo afiliado' : 'Editar afiliado',
-  );
+  protected readonly title = this.mode === 'create' ? 'Nuevo afiliado' : 'Editar afiliado';
 
   protected readonly catalogsReady = computed(
     () => this.genders() !== null && this.relationships() !== null,
@@ -112,14 +125,13 @@ export class AffiliateFormPage {
     // mount, so when the user navigates from there to edit the affiliate is already in
     // memory; if a user deep-links to /afiliados/:dni/editar with a cold cache we kick
     // off a load.
-    const editDni = this.computedEditDni();
-    if (editDni !== null) {
-      const cached = this.service.findByDni(editDni);
+    if (this.editDni !== null) {
+      const cached = this.service.findByDni(this.editDni);
       if (cached) {
         this.patchFrom(cached);
       } else {
         this.service.loadActive().subscribe(() => {
-          const fresh = this.service.findByDni(editDni);
+          const fresh = this.service.findByDni(this.editDni as number);
           if (fresh) {
             this.patchFrom(fresh);
           } else {
@@ -155,15 +167,15 @@ export class AffiliateFormPage {
     this.submitting.set(true);
     this.errorMessage.set(null);
     const observable =
-      this.mode() === 'edit' && this.computedEditDni() !== null
-        ? this.service.update(this.computedEditDni() as number, request)
+      this.mode === 'edit' && this.editDni !== null
+        ? this.service.update(this.editDni, request)
         : this.service.create(request);
 
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
         this.snackBar.open(
-          this.mode() === 'edit' ? 'Afiliado actualizado' : 'Afiliado creado',
+          this.mode === 'edit' ? 'Afiliado actualizado' : 'Afiliado creado',
           'OK',
           { duration: 3000 },
         );
@@ -177,15 +189,16 @@ export class AffiliateFormPage {
   }
 
   /**
-   * Parses the route's `dni` input into a number. Centralised so every read of the
-   * edit dni goes through one parse and one `NaN` guard.
+   * Parses the `:dni` path segment into a number. Returns `null` when we are in create
+   * mode (no segment) or when the segment is missing/malformed; the caller treats
+   * `null` as "no edit target".
    */
-  private computedEditDni(): number | null {
-    if (this.mode() !== 'edit') {
+  private parseEditDni(): number | null {
+    if (this.route.snapshot.data['mode'] !== 'edit') {
       return null;
     }
-    const raw = this.dni();
-    if (raw === undefined) {
+    const raw = this.route.snapshot.paramMap.get('dni');
+    if (raw === null) {
       return null;
     }
     const parsed = Number(raw);
