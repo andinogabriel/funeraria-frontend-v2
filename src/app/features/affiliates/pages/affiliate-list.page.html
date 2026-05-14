@@ -43,15 +43,17 @@
     class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
   >
     <!--
-      Toolbar layout: explicit column on mobile (search on top, action row
-      below right-aligned), single row on `sm+`. The previous `flex-wrap`
-      fallback let the buttons drift onto a new line with no horizontal
-      anchor so they read as misaligned on narrow viewports.
+      Single-row toolbar. On mobile the search shares the row with three
+      compact icon-only buttons; the `!min-w-0 !px-2` overrides on each
+      button collapse Material's default `mat-stroked-button` width so all
+      four controls fit a 430-px iPhone viewport. On `sm+` the buttons
+      expand to their usual padding and pick up the `Detalle / Editar /
+      Eliminar` text labels alongside the icons.
     -->
     <div
-      class="flex flex-col gap-3 sm:flex-row sm:items-center px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
     >
-      <div class="w-full sm:w-80">
+      <div class="flex-1 min-w-0 sm:flex-none sm:w-80">
         <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
           <mat-label>Buscar por nombre, apellido o DNI</mat-label>
           <input matInput type="search" [formControl]="search" autocomplete="off" />
@@ -60,9 +62,10 @@
 
       <span class="hidden sm:block flex-1"></span>
 
-      <div class="flex items-center gap-2 justify-end self-stretch sm:self-auto">
+      <div class="flex items-center gap-1 sm:gap-2 shrink-0">
         <button
           mat-stroked-button
+          class="!min-w-0 !px-2 sm:!px-4"
           [disabled]="!hasSelection()"
           (click)="onShowDetail()"
           matTooltip="Ver detalle"
@@ -73,6 +76,7 @@
         </button>
         <button
           mat-stroked-button
+          class="!min-w-0 !px-2 sm:!px-4"
           [disabled]="!hasSelection()"
           (click)="onEdit()"
           matTooltip="Editar afiliado"
@@ -84,6 +88,7 @@
         <button
           mat-stroked-button
           color="warn"
+          class="!min-w-0 !px-2 sm:!px-4"
           [disabled]="!hasSelection()"
           (click)="onDelete()"
           matTooltip="Eliminar afiliado"

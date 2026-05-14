@@ -7,11 +7,13 @@ import { provideRouter, withComponentInputBinding, withViewTransitions } from '@
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
+import { MatPaginatorIntl } from '@angular/material/paginator';
 
 import { authInterceptor } from './core/http/auth.interceptor';
 import { correlationIdInterceptor } from './core/http/correlation-id.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
 import { routes } from './app.routes';
+import { PaginatorIntlEs } from './shared/paginator-intl.es';
 
 /**
  * Root application configuration. Wires the modern Angular 20 surface:
@@ -40,5 +42,9 @@ export const appConfig: ApplicationConfig = {
     // a planned dep).
     provideNativeDateAdapter(),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
+    // Spanish paginator labels for every `<mat-paginator>` in the app — "1 of 2"
+    // → "1 – 1 de 2", "Items per page" → "Filas por página", etc. See
+    // {@link PaginatorIntlEs} for the full label set.
+    { provide: MatPaginatorIntl, useClass: PaginatorIntlEs },
   ],
 };
