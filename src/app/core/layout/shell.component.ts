@@ -93,12 +93,24 @@ export class ShellComponent {
     this.isHandset() ? false : !this.desktopCollapsed(),
   );
 
+  /**
+   * Toggles the drawer for both layouts. `MatSidenav.opened` is reactive on input
+   * binding but only reacts to changes detected through Angular's regular CD cycle
+   * — a desktop-collapse signal flipped from a click handler was not always picked
+   * up reliably (mat-sidenav reads the input once on init and otherwise relies on
+   * its imperative `toggle`/`open`/`close` API). Calling `.toggle()` directly is
+   * the canonical Material way and works identically across modes.
+   *
+   * We still mirror the state into `desktopCollapsed` after the toggle settles so
+   * `sidenavOpened()` (used as the initial input on first render and after a
+   * breakpoint switch) stays consistent with what the drawer actually shows.
+   */
   protected onMenuClick(sidenav: MatSidenav): void {
-    if (this.isHandset()) {
-      void sidenav.toggle();
-    } else {
-      this.desktopCollapsed.update((c) => !c);
-    }
+    void sidenav.toggle().then((result) => {
+      if (!this.isHandset()) {
+        this.desktopCollapsed.set(result === 'close');
+      }
+    });
   }
 
   protected onLogout(): void {
