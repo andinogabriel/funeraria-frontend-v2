@@ -29,6 +29,10 @@ interface Row {
       [initialPageSize]="initialPageSize"
       [padToPageSize]="padToPageSize"
       [selectable]="selectable"
+      [serverSide]="serverSide"
+      [totalElements]="totalElements"
+      (sortChange)="lastSortChange = $event"
+      (pageChange)="lastPageChange = $event"
     />
   `,
 })
@@ -40,6 +44,10 @@ class HostComponent {
   initialPageSize = 50;
   padToPageSize = false;
   selectable = false;
+  serverSide = false;
+  totalElements = 0;
+  lastSortChange: { active: string; direction: 'asc' | 'desc' | '' } | null | undefined = undefined;
+  lastPageChange: { pageIndex: number; pageSize: number } | undefined = undefined;
 
   @ViewChild(DataTableComponent) table!: DataTableComponent<Row>;
 }
@@ -250,5 +258,89 @@ describe('DataTableComponent', () => {
 
     table.onRowClick(null);
     expect(table.selectedRow()).toBeNull();
+  });
+
+  describe('server-side mode', () => {
+    it('renders data as-is without applying internal sort', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 42;
+      f.detectChanges();
+
+      const table = f.componentInstance.table as unknown as {
+        sortState: { set: (s: { active: string; direction: 'asc' | 'desc' | '' }) => void };
+        sortedData: () => readonly Row[];
+      };
+
+      // Setting a sort signal would normally re-order client-side; in server-side
+      // mode the rows must come through untouched (parent is responsible for
+      // sorting the page on the server before passing it in).
+      table.sortState.set({ active: 'name', direction: 'asc' });
+      f.detectChanges();
+
+      expect(table.sortedData()).toEqual(rows);
+    });
+
+    it('does not slice data into pages — the parent owns the page', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 100;
+      f.componentInstance.initialPageSize = 2;
+      f.detectChanges();
+
+      const table = f.componentInstance.table as unknown as {
+        pagedData: () => readonly (Row | null)[];
+      };
+
+      // Even with pageSize=2 and 3 rows, server-side should render all 3 because
+      // the parent supposedly hand-picked exactly this page.
+      expect(table.pagedData()).toHaveLength(rows.length);
+    });
+
+    it('uses totalElements for paginatorLength instead of data.length', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows; // 3 rows in the page
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 248;
+      f.detectChanges();
+
+      const table = f.componentInstance.table as unknown as { paginatorLength: () => number };
+      expect(table.paginatorLength()).toBe(248);
+    });
+
+    it('emits sortChange with the new sort and resets to page 0 with a pageChange', async () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 50;
+      f.componentInstance.initialPageSize = 10;
+      f.detectChanges();
+
+      // Drive the MatSort stream the same way the user would by clicking a header.
+      // We reach into the view-child reference and emit a Sort event manually so
+      // the test does not depend on DOM interaction plumbing.
+      const internal = f.componentInstance.table as unknown as {
+        sort: {
+          sortChange: { emit: (s: { active: string; direction: 'asc' | 'desc' | '' }) => void };
+        };
+      };
+      internal.sort.sortChange.emit({ active: 'name', direction: 'desc' });
+
+      expect(f.componentInstance.lastSortChange).toEqual({ active: 'name', direction: 'desc' });
+      expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 10 });
+    });
+  });
+
+  it('still applies internal sort in client-side mode (default)', () => {
+    host.table['sortState'].set({ active: 'name', direction: 'asc' });
+    fixture.detectChanges();
+
+    expect(host.table['sortedData']().map((r) => r.name)).toEqual(['alfa', 'Bravo', 'Carla']);
   });
 });

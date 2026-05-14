@@ -149,7 +149,7 @@
   -->
   <mat-paginator
     class="sticky bottom-0 z-10 !bg-[var(--mat-sys-surface)]"
-    [length]="sortedData().length"
+    [length]="paginatorLength()"
     [pageSize]="pageSize()"
     [pageSizeOptions]="pageSizeOptions()"
     [pageIndex]="pageIndex()"
