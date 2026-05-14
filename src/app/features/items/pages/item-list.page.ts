@@ -162,9 +162,9 @@ export class ItemListPage {
       this.service.delete(item.code).subscribe({
         next: () => {
           this.selectedItem.set(null);
-          this.snackBar.open('Item eliminado', 'OK', { duration: 3000 });
+          this.snackBar.open('Item eliminado', 'Cerrar');
         },
-        error: () => this.snackBar.open('No se pudo eliminar el item', 'OK', { duration: 5000 }),
+        error: () => this.snackBar.open('No se pudo eliminar el item', 'Cerrar'),
       });
     });
   }

@@ -33,6 +33,10 @@ describe('ItemService', () => {
       itemImageLink: null,
       brand: null,
       category: null,
+      createdAt: '2026-05-01T10:00:00Z',
+      createdBy: 'admin@funeraria.local',
+      updatedAt: null,
+      updatedBy: null,
       ...overrides,
     };
   }

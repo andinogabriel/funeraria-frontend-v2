@@ -121,10 +121,9 @@ export class CategoryListPage {
       this.service.delete(category.id).subscribe({
         next: () => {
           this.selectedCategory.set(null);
-          this.snackBar.open('Categoría eliminada', 'OK', { duration: 3000 });
+          this.snackBar.open('Categoría eliminada', 'Cerrar');
         },
-        error: () =>
-          this.snackBar.open('No se pudo eliminar la categoría', 'OK', { duration: 5000 }),
+        error: () => this.snackBar.open('No se pudo eliminar la categoría', 'Cerrar'),
       });
     });
   }

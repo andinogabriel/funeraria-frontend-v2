@@ -88,8 +88,7 @@ export class CategoryFormPage {
         this.submitting.set(false);
         this.snackBar.open(
           this.mode === 'edit' ? 'Categoría actualizada' : 'Categoría creada',
-          'OK',
-          { duration: 3000 },
+          'Cerrar',
         );
         void this.router.navigate(['/categorias']);
       },

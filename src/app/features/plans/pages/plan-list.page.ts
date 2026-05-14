@@ -199,9 +199,9 @@ export class PlanListPage {
       this.service.delete(plan.id).subscribe({
         next: () => {
           this.selectedPlan.set(null);
-          this.snackBar.open('Plan eliminado', 'OK', { duration: 3000 });
+          this.snackBar.open('Plan eliminado', 'Cerrar');
         },
-        error: () => this.snackBar.open('No se pudo eliminar el plan', 'OK', { duration: 5000 }),
+        error: () => this.snackBar.open('No se pudo eliminar el plan', 'Cerrar'),
       });
     });
   }
