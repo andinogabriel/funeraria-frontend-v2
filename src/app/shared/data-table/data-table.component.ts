@@ -10,6 +10,7 @@ import {
   input,
   model,
   OnInit,
+  output,
   signal,
   TemplateRef,
   ViewChild,
@@ -43,13 +44,24 @@ import { TablePreferencesService } from './table-preferences.service';
  * - Optional persistence of (visible columns, sort, page size) to localStorage when
  *   the caller passes a `storageKey`.
  *
- * <h3>What it doesn't own (yet)</h3>
+ * <h3>Client-side vs server-side</h3>
  *
- * - Server-side mode: a follow-up PR adds a `serverSide` input and matching outputs
- *   `(sortChange)`/`(pageChange)`/`(filterChange)`. For now the table is purely
- *   client-side and consumes the full `data` array.
- * - Text filter: each page owns its own search input (its UX is page-specific) and
- *   passes the already-filtered data through `[data]`.
+ * Default (`serverSide=false`): the table consumes the full dataset through
+ * `data` and applies sort + pagination internally. Best for small datasets
+ * that fit in memory comfortably.
+ *
+ * Server-side (`serverSide=true`): the parent owns sort + paging state. The
+ * table:
+ * - Renders `data` as-is — no internal sort, no internal slicing.
+ * - Uses `totalElements` instead of `data.length` for the paginator length so
+ *   the prev/next arrows reflect the full dataset.
+ * - Emits `sortChange` and `pageChange` so the parent can re-fetch the
+ *   matching page from the server.
+ * - Skips persisting page state — the page index is volatile across
+ *   navigations and persisting it would surprise users on return.
+ *
+ * Text filter is always parent-owned (each page's UX is page-specific) and
+ * filtered rows arrive through `data`.
  *
  * <h3>Action column</h3>
  *
@@ -135,6 +147,44 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    */
   readonly selectedRow = model<T | null>(null);
 
+  /**
+   * Switches the table from client-side mode (default) to server-side. In
+   * server-side mode the table:
+   * - Does NOT sort `data` locally; it renders the array as-is.
+   * - Does NOT slice `data` to a single page; the parent is expected to pass
+   *   only the current page's rows.
+   * - Uses {@link totalElements} for the paginator's total count instead of
+   *   the `data.length` fallback.
+   * - Emits `(sortChange)` / `(pageChange)` so the parent can re-fetch.
+   * - Skips persisting page state through `storageKey` (sort + visible columns
+   *   are still persisted — those are stable preferences worth restoring).
+   */
+  readonly serverSide = input<boolean>(false);
+
+  /**
+   * Total number of rows in the dataset when `serverSide` is on. Used as the
+   * paginator's `length` so prev/next arrows reflect the full server-side
+   * dataset, not just the current page. Ignored when `serverSide=false`.
+   */
+  readonly totalElements = input<number>(0);
+
+  /**
+   * Fires when the user changes the sort header in server-side mode. The
+   * emitted value matches the internal sort signal so the parent can pass it
+   * straight to a `Pageable` request without further translation. Also fires
+   * in client-side mode if a parent wants to observe sort changes — the
+   * component does not gate the emission on `serverSide`, so the contract is
+   * "subscribe if you care, ignore if you don't".
+   */
+  readonly sortChange = output<DataTableSort | null>();
+
+  /**
+   * Fires when the user navigates pages or changes the page size. Shape mirrors
+   * Material's {@link PageEvent} pared down to the fields a `Pageable`-style
+   * server request actually needs.
+   */
+  readonly pageChange = output<{ pageIndex: number; pageSize: number }>();
+
   /** Label of the trailing action column when an `actions` template is projected. */
   readonly actionsLabel = input<string>('Acciones');
 
@@ -169,9 +219,18 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = signal(10);
 
-  /** Sorted view over `data()` using the column accessor for comparison. */
+  /**
+   * Sorted view over `data()`. In server-side mode the parent is responsible
+   * for ordering before passing the rows in, so we render the array verbatim;
+   * applying a second local sort would re-order an already-sorted page in
+   * surprising ways. In client-side mode we run the column accessor through
+   * a locale-aware comparator and keep nullish values at the bottom.
+   */
   protected readonly sortedData = computed<readonly T[]>(() => {
     const rows = this.data();
+    if (this.serverSide()) {
+      return rows;
+    }
     const current = this.sortState();
     if (!current || current.direction === '') {
       return rows;
@@ -196,16 +255,20 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   });
 
   /**
-   * Sliced page over `sortedData()` that MatTable actually renders. When
-   * `padToPageSize` is enabled, the slice is right-padded with `null` placeholders
-   * so the rendered row count always matches the page size. Cell and action
-   * templates skip `null` rows (no `value` accessor is invoked for them) so the
-   * placeholder visuals are blank.
+   * Rows MatTable actually renders. In server-side mode `data()` already IS
+   * the current page, so we render it as-is (after optional null padding).
+   * In client-side mode we slice the sorted view to the current page bounds.
+   *
+   * When `padToPageSize` is enabled, the result is right-padded with `null`
+   * placeholders so the rendered row count always matches the page size.
+   * Cell and action templates skip `null` rows (no `value` accessor is
+   * invoked for them) so the placeholder visuals are blank.
    */
   protected readonly pagedData = computed<readonly (T | null)[]>(() => {
     const all = this.sortedData();
-    const start = this.pageIndex() * this.pageSize();
-    const slice = all.slice(start, start + this.pageSize());
+    const slice = this.serverSide()
+      ? all
+      : all.slice(this.pageIndex() * this.pageSize(), (this.pageIndex() + 1) * this.pageSize());
     if (!this.padToPageSize()) {
       return slice;
     }
@@ -215,6 +278,15 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     }
     return [...slice, ...(Array(missing).fill(null) as null[])];
   });
+
+  /**
+   * Total dataset length the paginator should show. Server-side mode uses the
+   * caller-provided `totalElements`; client-side falls back to the locally
+   * sorted dataset length.
+   */
+  protected readonly paginatorLength = computed<number>(() =>
+    this.serverSide() ? this.totalElements() : this.sortedData().length,
+  );
 
   /** Full display order = visible config columns + action column when projected. */
   protected readonly displayedColumns = computed<readonly string[]>(() => {
@@ -231,6 +303,10 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     // Persist on every relevant change once we're past the initial hydration. We guard
     // against the first run with a signal so we don't overwrite the user's existing
     // preferences with the page-default values during construction.
+    // Note: we persist `sort`, `visibleColumns` and `pageSize` regardless of mode —
+    // those are stable user preferences. `pageIndex` is intentionally not persisted
+    // (volatile across navigations); server-side parents that need to remember it
+    // can stash it themselves in route state.
     effect(() => {
       if (!this.hydrated()) {
         return;
@@ -259,17 +335,27 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   ngAfterViewInit(): void {
     // Wire MatSort's stream into our signal so the computed view stays in sync. We do
     // this in AfterViewInit because the directive is queried with @ViewChild.
+    // We also emit `sortChange` so server-side parents can re-fetch — the emission
+    // is unconditional (client-side parents that subscribe just get a notification
+    // they're free to ignore).
     this.sort?.sortChange.subscribe((next: Sort) => {
-      this.sortState.set({
+      const nextSort: DataTableSort = {
         active: next.active,
         direction: next.direction,
-      });
+      };
+      this.sortState.set(nextSort);
       this.pageIndex.set(0);
+      this.sortChange.emit(nextSort);
+      // Reset to page 0 also notifies server-side parents that the page changed.
+      if (this.serverSide()) {
+        this.pageChange.emit({ pageIndex: 0, pageSize: this.pageSize() });
+      }
     });
 
     this.paginator?.page.subscribe((event) => {
       this.pageIndex.set(event.pageIndex);
       this.pageSize.set(event.pageSize);
+      this.pageChange.emit({ pageIndex: event.pageIndex, pageSize: event.pageSize });
     });
   }
 
