@@ -28,44 +28,42 @@
       everything else holding still.
   -->
   @if (isHandset()) {
-    <mat-card class="!rounded-xl">
+    <!--
+      Stable wizard card. The previous attempt pinned a `min-h` on each step's
+      content wrapper — but Material's `mat-step-content` clips height during
+      its expand/collapse animation, so the inner min-h never made it to the
+      visible layout and the card silently snapped to the active step's
+      intrinsic height between transitions. Pinning the min-h on the outer
+      `<mat-card>` instead keeps the *container* size constant regardless of
+      which step is active, which is what QA asked for ("que sólo cambien los
+      campos del formulario en el wizard, todo lo demás se mantiene igual").
+      720px covers the taller step (Datos personales) with a small margin so
+      both steps fit comfortably with empty space below.
+    -->
+    <mat-card class="!rounded-xl min-h-[720px]">
       <mat-card-content class="!p-4 sm:!p-6">
         <mat-stepper #stepper [linear]="true" orientation="vertical">
           <!--
-            The default stepper indicator icons (`done`, `edit`) ship as ligatures
-            that resolve against the plain Material Icons font, which is NOT
-            registered in this app — only `Material Symbols Outlined` is. Without
-            an explicit override the indicator renders as raw ligature text ("done",
-            "edit"). We supply the three slots the stepper looks up so completed
-            steps show a clean check, editable steps show a pencil, and pending
-            steps fall back to the step number from `index`.
+            The default stepper indicator icons (`done`, `edit`) ship as
+            ligatures that resolve against the plain Material Icons font, which
+            this app does NOT register — only `Material Symbols Outlined` is
+            available. We supply ONLY the two icon slots here and let the
+            default `number` slot keep its native styling (centred white digit
+            on the coloured indicator circle); overriding `number` with bare
+            `{{ index + 1 }}` flattened the digit to unstyled black text and
+            QA reported "no se logra ver el numero 1 en Datos personales".
           -->
-          <ng-template matStepperIcon="done" let-index="index">
+          <ng-template matStepperIcon="done">
             <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4">check</mat-icon>
           </ng-template>
-          <ng-template matStepperIcon="edit" let-index="index">
+          <ng-template matStepperIcon="edit">
             <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4">edit</mat-icon>
           </ng-template>
-          <ng-template matStepperIcon="number" let-index="index">{{ index + 1 }}</ng-template>
 
           <mat-step [stepControl]="personal" label="Datos personales">
-            <!--
-              `min-h-[480px]` reserves a stable content area inside the step so
-              both steps render at the same height. Without this, step 2 (which
-              has fewer fields than step 1) made the whole wizard card snap to a
-              smaller height when the user pressed "Siguiente" — visually jarring
-              and the only feedback QA flagged on the mobile wizard.
-            -->
-            <div class="flex flex-col min-h-[480px]">
+            <div class="flex flex-col">
               <ng-container *ngTemplateOutlet="personalFields" />
 
-              <!--
-                Buttons sit right after the active step's fields (no `mt-auto`).
-                The reserved `min-h` on the wrapper still keeps the wizard card
-                from shrinking when the second step has fewer fields — empty
-                space just falls BELOW the buttons instead of in-between, which
-                is the behaviour QA asked for.
-              -->
               <div class="flex flex-col-reverse gap-2 pt-4">
                 <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
                 <button
@@ -86,7 +84,7 @@
           </mat-step>
 
           <mat-step [stepControl]="classification" label="Clasificación">
-            <div class="flex flex-col min-h-[480px]">
+            <div class="flex flex-col">
               <ng-container *ngTemplateOutlet="classificationFields" />
 
               @if (errorMessage(); as message) {
@@ -98,13 +96,6 @@
                 </p>
               }
 
-              <!--
-                Buttons sit right after the active step's fields (no `mt-auto`).
-                The reserved `min-h` on the wrapper still keeps the wizard card
-                from shrinking when the second step has fewer fields — empty
-                space just falls BELOW the buttons instead of in-between, which
-                is the behaviour QA asked for.
-              -->
               <div class="flex flex-col-reverse gap-2 pt-4">
                 <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
                   <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>

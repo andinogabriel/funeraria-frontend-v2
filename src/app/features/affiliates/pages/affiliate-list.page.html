@@ -46,56 +46,67 @@
       </span>
     </div>
 
-    @if (loading() && filtered().length === 0) {
-      <div class="flex items-center justify-center p-12">
-        <mat-spinner diameter="32" />
-      </div>
-    } @else if (filtered().length === 0) {
-      <div
-        class="flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
-      >
-        <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12">person_search</mat-icon>
-        <p class="m-0 text-base">No hay afiliados que coincidan con la búsqueda.</p>
-        <p class="m-0 text-sm">Probá con otro criterio o sumá un nuevo afiliado.</p>
-      </div>
-    } @else {
-      <!--
-        Affiliates grid is locked to 10 rows per page with no chooser and no
-        page-size selector — QA wanted a predictable layout. `padToPageSize`
-        keeps the table footprint stable even when the dataset is shorter than
-        a full page (the missing rows render as empty placeholders).
-      -->
-      <app-data-table
-        [data]="filtered()"
-        [columns]="columns"
-        [trackBy]="trackByDni"
-        storageKey="affiliates.list"
-        [initialSort]="{ active: 'lastName', direction: 'asc' }"
-        [initialPageSize]="10"
-        [hideColumnChooser]="true"
-        [hidePageSizeSelector]="true"
-        [padToPageSize]="true"
-      >
-        <ng-template #actions let-affiliate>
-          <a
-            mat-icon-button
-            [routerLink]="['/afiliados', affiliate.dni, 'editar']"
-            aria-label="Editar"
-            matTooltip="Editar"
-          >
-            <mat-icon class="material-symbols-outlined">edit</mat-icon>
-          </a>
-          <button
-            mat-icon-button
-            color="warn"
-            (click)="onDelete(affiliate)"
-            [attr.aria-label]="'Eliminar afiliado ' + affiliate.firstName"
-            matTooltip="Eliminar"
-          >
-            <mat-icon class="material-symbols-outlined">delete</mat-icon>
-          </button>
-        </ng-template>
-      </app-data-table>
-    }
+    <!--
+      All three states (loading / empty / table) share the same min-height so
+      the page card never visibly resizes when the user types into the search
+      input and the result count flips between "X resultados" and "0
+      resultados". 632px ≈ header (56) + 10 rows × 52 + paginator (56) which
+      matches the locked 10-row data-table footprint configured below.
+    -->
+    <div class="min-h-[632px] flex flex-col">
+      @if (loading() && filtered().length === 0) {
+        <div class="flex-1 flex items-center justify-center">
+          <mat-spinner diameter="32" />
+        </div>
+      } @else if (filtered().length === 0) {
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
+        >
+          <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12">
+            person_search
+          </mat-icon>
+          <p class="m-0 text-base">No hay afiliados que coincidan con la búsqueda.</p>
+          <p class="m-0 text-sm">Probá con otro criterio o sumá un nuevo afiliado.</p>
+        </div>
+      } @else {
+        <!--
+          Affiliates grid is locked to 10 rows per page with no chooser and no
+          page-size selector — QA wanted a predictable layout. `padToPageSize`
+          keeps the table footprint stable even when the dataset is shorter
+          than a full page (the missing rows render as empty placeholders).
+        -->
+        <app-data-table
+          [data]="filtered()"
+          [columns]="columns"
+          [trackBy]="trackByDni"
+          storageKey="affiliates.list"
+          [initialSort]="{ active: 'lastName', direction: 'asc' }"
+          [initialPageSize]="10"
+          [hideColumnChooser]="true"
+          [hidePageSizeSelector]="true"
+          [padToPageSize]="true"
+        >
+          <ng-template #actions let-affiliate>
+            <a
+              mat-icon-button
+              [routerLink]="['/afiliados', affiliate.dni, 'editar']"
+              aria-label="Editar"
+              matTooltip="Editar"
+            >
+              <mat-icon class="material-symbols-outlined">edit</mat-icon>
+            </a>
+            <button
+              mat-icon-button
+              color="warn"
+              (click)="onDelete(affiliate)"
+              [attr.aria-label]="'Eliminar afiliado ' + affiliate.firstName"
+              matTooltip="Eliminar"
+            >
+              <mat-icon class="material-symbols-outlined">delete</mat-icon>
+            </button>
+          </ng-template>
+        </app-data-table>
+      }
+    </div>
   </mat-card>
 </div>
