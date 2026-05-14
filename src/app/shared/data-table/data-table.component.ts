@@ -346,14 +346,19 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * Computes the class list applied to each rendered row. We keep the logic in
    * TS so the template can stay declarative and `:hover` styles still flow
    * through Tailwind utilities without leaking into the component's own SCSS.
+   *
+   * The `!` modifier on the selected-row background forces `!important` because
+   * Material's `mat-mdc-row` ships its own background-color rule at the same
+   * selector specificity — without `!important` the highlight silently lost
+   * the cascade and the user could not tell which row was active.
    */
   protected rowClasses(row: T | null): string {
     if (!this.selectable() || row === null) {
       return '';
     }
     return this.selectedRow() === row
-      ? 'cursor-pointer bg-[var(--mat-sys-secondary-container)]'
-      : 'cursor-pointer hover:bg-[var(--mat-sys-surface-container-high)]';
+      ? 'cursor-pointer !bg-[var(--mat-sys-primary-container)] !text-[var(--mat-sys-on-primary-container)] font-medium'
+      : 'cursor-pointer hover:!bg-[var(--mat-sys-surface-container-high)]';
   }
 
   private hydrateFromPreferences(): void {
