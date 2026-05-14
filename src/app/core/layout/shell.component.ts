@@ -1,5 +1,12 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,23 +22,31 @@ import { AuthStore } from '../auth/auth.store';
 
 /**
  * Authenticated application shell. Renders the persistent navigation surface (sidenav +
- * toolbar) and a `<router-outlet />` for the active feature. Mounted only inside
- * `authGuard`-protected routes, so it can assume a session exists; the logout action
- * delegates to `AuthService` and routes back to `/login` regardless of server outcome.
+ * toolbar) and a `<router-outlet />` for the active feature.
  *
  * <h3>Responsive behavior</h3>
  *
- * The shell adapts to two layouts:
+ * - **Handset** (< 960 px): sidenav in `over` mode, starts closed; toolbar's menu
+ *   button toggles it; selecting a nav item auto-closes it.
+ * - **Tablet/desktop** (≥ 960 px): sidenav in `side` mode, open by default. The
+ *   menu button collapses it so reports / wide tables can claim the room.
  *
- * - **Handset** (< 960 px): sidenav uses `mode="over"` and starts closed. A hamburger
- *   button on the toolbar toggles it; selecting a nav item auto-closes it.
- * - **Tablet/desktop** (≥ 960 px): sidenav uses `mode="side"`. It is open by default
- *   and the user can collapse it by clicking the toolbar's menu button — a screen
- *   recovery pattern that lets reports / wide tables breathe when needed.
+ * <h3>Why the state is tracked through (openedChange) instead of pure [opened]</h3>
  *
- * The desktop-open / desktop-collapsed split is owned by a local signal that resets
- * to `open` whenever the breakpoint switches (so a user that collapsed it on a 14''
- * laptop and then docks to a 27'' monitor gets the sidenav back without ceremony).
+ * `MatSidenav.opened` is a two-way-capable input but the imperative `.toggle()`
+ * fight back against any reactive `[opened]` binding driven from a separate
+ * signal: while the close animation is running, Angular re-evaluates the
+ * binding (still `true`) and the sidenav reopens itself. Three earlier
+ * attempts to thread this needle (signal flip before `.toggle()`, signal flip
+ * after the resolved Promise, computed input only) all left the toggle either
+ * unreliable or no-op depending on the order of CD ticks.
+ *
+ * The pattern that actually works: keep `[opened]` bound to the canonical
+ * `sidenavOpened()` signal (so breakpoint switches still flip the initial
+ * state), but make the click handler call `sidenav.toggle()` and update the
+ * tracking signal exclusively from the `(openedChange)` event that the
+ * sidenav itself emits. Source of truth = sidenav, mirrored locally so the
+ * input binding never drifts and Angular's CD never undoes the toggle.
  */
 @Component({
   selector: 'app-shell',
@@ -57,16 +72,11 @@ export class ShellComponent {
 
   protected readonly store = inject(AuthStore);
 
-  /** Top-level navigation entries. */
   protected readonly navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/afiliados', label: 'Afiliados', icon: 'group' },
   ] as const;
 
-  /**
-   * `true` while the viewport is in the Material "Handset" range (phones + small
-   * tablets, < 960 px). Drives the sidenav `mode` in the template.
-   */
   protected readonly isHandset = toSignal(
     this.breakpointObserver
       .observe([Breakpoints.Handset, Breakpoints.TabletPortrait])
@@ -75,42 +85,46 @@ export class ShellComponent {
   );
 
   /**
-   * Desktop-side collapse flag. Independent from the handset state so a user who
-   * minimises the sidenav on desktop does not interfere with the auto-open/auto-close
-   * behaviour on phones.
+   * Canonical "is the drawer currently open?" signal. Read by the template via
+   * `sidenavOpened()` and written ONLY from `(openedChange)` so MatSidenav stays
+   * the source of truth and never gets a contradictory binding mid-animation.
    */
-  protected readonly desktopCollapsed = signal(false);
+  protected readonly sidenavOpened = signal(true);
 
+  /**
+   * Sidenav mode. `over` floats over the content (handset); `side` reserves room
+   * for the drawer (desktop).
+   */
   protected readonly sidenavMode = computed<'over' | 'side'>(() =>
     this.isHandset() ? 'over' : 'side',
   );
 
-  /**
-   * Final `opened` state. On handset the drawer is closed by default and the user
-   * opens it from the hamburger; on desktop it is open unless the user collapsed it.
-   */
-  protected readonly sidenavOpened = computed(() =>
-    this.isHandset() ? false : !this.desktopCollapsed(),
-  );
+  constructor() {
+    // On a breakpoint switch we re-align the drawer's open state with what the
+    // mode implies: closed on handset (drawer should float in only on demand),
+    // open on desktop (drawer is the default). Without this, a user that
+    // collapsed the desktop drawer and then resizes down to mobile would still
+    // see a stuck `over` drawer; conversely, a mobile user that opened the
+    // drawer and resized up would see it floating on top of the page.
+    effect(() => {
+      this.sidenavOpened.set(!this.isHandset());
+    });
+  }
 
   /**
-   * Toggles the drawer for both layouts. `MatSidenav.opened` is reactive on input
-   * binding but only reacts to changes detected through Angular's regular CD cycle
-   * — a desktop-collapse signal flipped from a click handler was not always picked
-   * up reliably (mat-sidenav reads the input once on init and otherwise relies on
-   * its imperative `toggle`/`open`/`close` API). Calling `.toggle()` directly is
-   * the canonical Material way and works identically across modes.
-   *
-   * We still mirror the state into `desktopCollapsed` after the toggle settles so
-   * `sidenavOpened()` (used as the initial input on first render and after a
-   * breakpoint switch) stays consistent with what the drawer actually shows.
+   * Toolbar menu click. We toggle the drawer imperatively and let
+   * `(openedChange)` update `sidenavOpened()` once the sidenav has actually
+   * committed the new state. Doing it the other way around (flipping the
+   * signal first and relying on `[opened]` binding) was the source of the
+   * "menu button does nothing" bug.
    */
   protected onMenuClick(sidenav: MatSidenav): void {
-    void sidenav.toggle().then((result) => {
-      if (!this.isHandset()) {
-        this.desktopCollapsed.set(result === 'close');
-      }
-    });
+    void sidenav.toggle();
+  }
+
+  /** Tracks the sidenav's own state into our local signal. */
+  protected onOpenedChange(opened: boolean): void {
+    this.sidenavOpened.set(opened);
   }
 
   protected onLogout(): void {
@@ -119,11 +133,7 @@ export class ShellComponent {
     });
   }
 
-  /**
-   * Closes the sidenav after selecting a nav item, but only on handset. On desktop
-   * the user explicitly chooses when to collapse, so jumping between pages should
-   * not steal that decision from them.
-   */
+  /** Auto-close after navigation but only on handset (over-mode courtesy). */
   protected closeIfHandset(sidenav: MatSidenav): void {
     if (this.isHandset()) {
       void sidenav.close();

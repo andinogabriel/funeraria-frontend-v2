@@ -1,4 +1,5 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
@@ -10,6 +11,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -56,12 +58,14 @@ import type { AffiliateRequest } from '../affiliate.types';
     MatButtonModule,
     MatCardModule,
     MatDatepickerModule,
+    MatDividerModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatStepperModule,
+    NgTemplateOutlet,
     ReactiveFormsModule,
     RouterLink,
   ],
@@ -119,15 +123,16 @@ export class AffiliateFormPage {
   });
 
   /**
-   * Stepper orientation. The CDK Handset/TabletPortrait range covers what we treat as
-   * "small viewport" for this form: horizontal step labels look cramped there and the
-   * vertical layout reads better.
+   * `true` on phones / small tablets. Drives the wizard-vs-single-card layout
+   * decision: the wizard is great for narrow viewports (one step at a time
+   * keeps the keyboard from covering half the form) but on desktop the form
+   * is short enough that a single card with two sections is a less clicky UX.
    */
-  protected readonly stepperOrientation = toSignal(
+  protected readonly isHandset = toSignal(
     this.breakpointObserver
       .observe([Breakpoints.Handset, Breakpoints.TabletPortrait])
-      .pipe(map((state): 'vertical' | 'horizontal' => (state.matches ? 'vertical' : 'horizontal'))),
-    { initialValue: 'horizontal' as const },
+      .pipe(map((state) => state.matches)),
+    { initialValue: false },
   );
 
   constructor() {
