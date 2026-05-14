@@ -68,11 +68,18 @@
               host styles on `mat-horizontal-stepper-content` (which set
               `height: auto` for the active panel), so the floor actually
               survives the cascade.
+
+              `pt-4` gives the first field room to breathe under the stepper
+              indicator row, and `mt-auto` on the actions wrapper pins the
+              buttons to the bottom of the reserved 480 px area on both
+              steps — that way step 2 (shorter content) keeps the same
+              buttons-near-the-bottom rhythm as step 1, instead of leaving
+              empty space below the buttons.
             -->
-            <div class="flex flex-col" [style.minHeight.px]="480">
+            <div class="flex flex-col pt-4" [style.minHeight.px]="480">
               <ng-container *ngTemplateOutlet="personalFields" />
 
-              <div class="flex flex-col-reverse gap-2 pt-4">
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
                 <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
                 <button
                   type="button"
@@ -92,7 +99,7 @@
           </mat-step>
 
           <mat-step [stepControl]="classification" label="Clasificación">
-            <div class="flex flex-col" [style.minHeight.px]="480">
+            <div class="flex flex-col pt-4" [style.minHeight.px]="480">
               <ng-container *ngTemplateOutlet="classificationFields" />
 
               @if (errorMessage(); as message) {
@@ -104,7 +111,7 @@
                 </p>
               }
 
-              <div class="flex flex-col-reverse gap-2 pt-4">
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
                 <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
                   <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
                   Atrás
