@@ -1,57 +1,65 @@
-<mat-sidenav-container class="h-screen" autosize>
-  <mat-sidenav
-    #sidenav
-    [mode]="sidenavMode()"
-    [opened]="sidenavOpened()"
-    (openedChange)="onOpenedChange($event)"
-    [fixedInViewport]="isHandset()"
-    class="w-64 border-r"
-  >
-    <div class="flex items-center gap-2 px-4 py-5">
-      <mat-icon class="material-symbols-outlined">local_florist</mat-icon>
-      <span class="font-semibold text-lg">Funeraria</span>
-    </div>
+<!--
+  Top-app-bar pattern: a full-width toolbar at the very top of the viewport with
+  the hamburger anchored at the start. The sidenav-container lives BELOW the
+  toolbar, so the menu button visually sits in the same column as the sidenav
+  body — clicking it has a clear "this controls the drawer right below" mapping.
+  Previous iteration mounted the toolbar inside `<mat-sidenav-content>`, which
+  pushed the hamburger to the right of the sidenav and read as "floating outside
+  the drawer".
+-->
+<div class="flex flex-col h-screen">
+  <mat-toolbar class="!bg-[var(--mat-sys-surface-container)] border-b shrink-0">
+    <button
+      mat-icon-button
+      (click)="onMenuClick(sidenav)"
+      [attr.aria-label]="sidenavOpened() ? 'Ocultar menú' : 'Mostrar menú'"
+      [matTooltip]="sidenavOpened() ? 'Ocultar menú' : 'Mostrar menú'"
+    >
+      <mat-icon class="material-symbols-outlined">menu</mat-icon>
+    </button>
+    <mat-icon class="material-symbols-outlined !ml-1 !mr-2">local_florist</mat-icon>
+    <span class="font-semibold text-lg">Funeraria</span>
+    <span class="flex-1"></span>
+    <button mat-icon-button (click)="onLogout()" aria-label="Cerrar sesión" matTooltip="Salir">
+      <mat-icon class="material-symbols-outlined">logout</mat-icon>
+    </button>
+  </mat-toolbar>
 
-    <mat-nav-list>
-      @for (item of navItems; track item.path) {
-        <a
-          mat-list-item
-          [routerLink]="item.path"
-          routerLinkActive="bg-[var(--mat-sys-secondary-container)]"
-          [routerLinkActiveOptions]="{ exact: false }"
-          (click)="closeIfHandset(sidenav)"
-        >
-          <mat-icon matListItemIcon class="material-symbols-outlined">{{ item.icon }}</mat-icon>
-          <span matListItemTitle>{{ item.label }}</span>
-        </a>
-      }
-    </mat-nav-list>
-  </mat-sidenav>
+  <mat-sidenav-container class="flex-1 min-h-0" autosize>
+    <mat-sidenav
+      #sidenav
+      [mode]="sidenavMode()"
+      [opened]="sidenavOpened()"
+      (openedChange)="onOpenedChange($event)"
+      [fixedInViewport]="false"
+      class="w-64 border-r"
+    >
+      <mat-nav-list>
+        @for (item of navItems; track item.path) {
+          <a
+            mat-list-item
+            [routerLink]="item.path"
+            routerLinkActive="bg-[var(--mat-sys-secondary-container)]"
+            [routerLinkActiveOptions]="{ exact: false }"
+            (click)="closeIfHandset(sidenav)"
+          >
+            <mat-icon matListItemIcon class="material-symbols-outlined">{{ item.icon }}</mat-icon>
+            <span matListItemTitle>{{ item.label }}</span>
+          </a>
+        }
+      </mat-nav-list>
+    </mat-sidenav>
 
-  <!--
-    `min-w-0` keeps flex children (tables with their own `min-w-[720px]`) from
-    forcing the parent to overflow horizontally and produce a phantom scrollbar.
-  -->
-  <mat-sidenav-content class="flex flex-col min-w-0">
-    <mat-toolbar class="!bg-[var(--mat-sys-surface-container)] border-b">
-      <button
-        mat-icon-button
-        (click)="onMenuClick(sidenav)"
-        [attr.aria-label]="sidenavOpened() ? 'Ocultar menú' : 'Mostrar menú'"
-        [matTooltip]="sidenavOpened() ? 'Ocultar menú' : 'Mostrar menú'"
-      >
-        <mat-icon class="material-symbols-outlined">menu</mat-icon>
-      </button>
-      <span class="flex-1"></span>
-      <button mat-icon-button (click)="onLogout()" aria-label="Cerrar sesión" matTooltip="Salir">
-        <mat-icon class="material-symbols-outlined">logout</mat-icon>
-      </button>
-    </mat-toolbar>
-
-    <main class="flex-1 overflow-auto bg-[var(--mat-sys-surface)]">
-      <div class="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <router-outlet />
-      </div>
-    </main>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+    <!--
+      `min-w-0` keeps flex children (tables with their own `min-w-[720px]`) from
+      forcing the parent to overflow horizontally and produce a phantom scrollbar.
+    -->
+    <mat-sidenav-content class="min-w-0">
+      <main class="h-full overflow-auto bg-[var(--mat-sys-surface)]">
+        <div class="mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+          <router-outlet />
+        </div>
+      </main>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+</div>
