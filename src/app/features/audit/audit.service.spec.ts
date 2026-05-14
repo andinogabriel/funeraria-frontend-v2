@@ -53,16 +53,29 @@ describe('AuditService', () => {
     };
   }
 
-  it('issues a GET to /api/v1/audit-events with page + size + filters', () => {
+  it('issues a GET to /api/v1/audit-events with 1-based page + size + filters', () => {
     service.search({ action: 'USER_ROLE_GRANTED' }, DEFAULT_PAGE_REQUEST).subscribe();
 
     const req = http.expectOne(
       (request) => request.url === '/api/v1/audit-events' && request.method === 'GET',
     );
-    expect(req.request.params.get('page')).toBe('0');
+    // The 0-based `DEFAULT_PAGE_REQUEST.page` is translated to 1-based on the wire
+    // because the audit endpoint deviates from the Spring Data convention used by
+    // the rest of the API.
+    expect(req.request.params.get('page')).toBe('1');
     expect(req.request.params.get('size')).toBe('25');
     expect(req.request.params.get('action')).toBe('USER_ROLE_GRANTED');
     expect(req.request.params.has('actorEmail')).toBe(false);
+    req.flush(pageOf([event()]));
+  });
+
+  it('translates 0-based page indices to 1-based on the wire', () => {
+    service.search({}, { page: 2, size: 25 }).subscribe();
+
+    const req = http.expectOne(
+      (request) => request.url === '/api/v1/audit-events' && request.method === 'GET',
+    );
+    expect(req.request.params.get('page')).toBe('3');
     req.flush(pageOf([event()]));
   });
 
@@ -71,7 +84,7 @@ describe('AuditService', () => {
     expect(service.loading()).toBe(true);
     expect(service.page()).toBeNull();
 
-    const req = http.expectOne('/api/v1/audit-events?page=0&size=25');
+    const req = http.expectOne('/api/v1/audit-events?page=1&size=25');
     const payload = pageOf([event(), event({ id: 2 })]);
     req.flush(payload);
 

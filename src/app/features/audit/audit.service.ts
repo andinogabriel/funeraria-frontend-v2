@@ -52,6 +52,17 @@ export class AuditService {
    * Issues a paginated search. The current signals (`page`, `loading`, `error`) update as
    * the request progresses. The returned observable emits the same payload so callers that
    * prefer reactive composition over signal binding stay first-class citizens.
+   *
+   * <h3>Audit endpoint paging quirk</h3>
+   *
+   * `AuditEventController` uses 1-based pages on its query string (defaults to `page=1`)
+   * while the rest of the app — and the `PageRequest` contract in `pagination.types.ts`
+   * — uses Spring Data's canonical 0-based pages. To keep callers blissfully unaware,
+   * we translate at this boundary: `pageRequest.page` is taken as 0-based and the wire
+   * value is `pageRequest.page + 1`. The response `Page<T>.number` we get back is still
+   * 0-based (Spring's PageImpl serialises that way regardless of the controller's input
+   * convention), so callers can compare incoming `number` against their stored
+   * `pageIndex` without translation.
    */
   search(
     filter: AuditEventFilter = {},
@@ -60,7 +71,12 @@ export class AuditService {
     this._loading.set(true);
     this._error.set(null);
 
-    const params = toPageQueryParams(pageRequest, {
+    const wirePageRequest: PageRequest = {
+      ...pageRequest,
+      page: pageRequest.page + 1,
+    };
+
+    const params = toPageQueryParams(wirePageRequest, {
       actorEmail: filter.actorEmail,
       action: filter.action,
       targetType: filter.targetType,

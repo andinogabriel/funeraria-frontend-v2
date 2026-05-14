@@ -1,0 +1,138 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      policy
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Auditoría</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Registro de operaciones sensibles. Solo lectura.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+
+    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+      Actualizar
+    </button>
+  </header>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  <mat-card
+    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
+  >
+    <!--
+      Filter form. Six fields laid out in a 1 / 2 / 3 column grid by breakpoint
+      so the toolbar stays scannable on every viewport. Form changes are
+      debounced inside the component class — keystrokes do not flood the
+      backend. The detail / reset action row sits at the right end of the
+      toolbar on `sm+` and below the grid on phones.
+    -->
+    <div
+      class="flex flex-col gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+      [formGroup]="filters"
+    >
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <mat-form-field appearance="fill" subscriptSizing="dynamic">
+          <mat-label>Actor (email)</mat-label>
+          <input matInput type="search" formControlName="actorEmail" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" subscriptSizing="dynamic">
+          <mat-label>Acción</mat-label>
+          <mat-select formControlName="action">
+            <mat-option value="">Cualquiera</mat-option>
+            @for (action of actionOptions; track action) {
+              <mat-option [value]="action">{{ action }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" subscriptSizing="dynamic">
+          <mat-label>Tipo objetivo</mat-label>
+          <input matInput type="search" formControlName="targetType" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" subscriptSizing="dynamic">
+          <mat-label>ID objetivo</mat-label>
+          <input matInput type="search" formControlName="targetId" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" subscriptSizing="dynamic">
+          <mat-label>Desde</mat-label>
+          <input matInput [matDatepicker]="fromPicker" formControlName="from" readonly />
+          <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+          <mat-datepicker #fromPicker />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" subscriptSizing="dynamic">
+          <mat-label>Hasta</mat-label>
+          <input matInput [matDatepicker]="toPicker" formControlName="to" readonly />
+          <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+          <mat-datepicker #toPicker />
+        </mat-form-field>
+      </div>
+
+      <div class="flex items-center gap-2 justify-end">
+        <button mat-stroked-button type="button" (click)="onResetFilters()">
+          <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
+          <span class="hidden sm:inline">Limpiar filtros</span>
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          [disabled]="!hasSelection()"
+          (click)="onShowDetail()"
+          matTooltip="Ver detalle"
+          aria-label="Ver detalle"
+        >
+          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
+          <span class="hidden sm:inline">Detalle</span>
+        </button>
+      </div>
+    </div>
+
+    <!--
+      Server-side table. `serverSide=true` makes the data-table skip local
+      sort/slicing; `totalElements` drives the paginator's prev/next math.
+      `(pageChange)` brings the new offset back to this page, which fires the
+      next fetch through the AuditService.
+    -->
+    <div class="min-h-[480px] flex flex-col">
+      @if (loading() && events().length === 0) {
+        <div class="flex-1 flex items-center justify-center">
+          <mat-spinner diameter="32" />
+        </div>
+      } @else if (events().length === 0) {
+        <div
+          class="flex-1 flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
+        >
+          <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12"> inventory_2 </mat-icon>
+          <p class="m-0 text-base">No hay eventos para los filtros aplicados.</p>
+          <p class="m-0 text-sm">Probá con otro criterio o ampliá el rango de fechas.</p>
+        </div>
+      } @else {
+        <app-data-table
+          [data]="events()"
+          [columns]="columns"
+          [trackBy]="trackById"
+          [serverSide]="true"
+          [totalElements]="totalElements()"
+          [initialPageSize]="25"
+          [pageSizeOptions]="[10, 25, 50, 100]"
+          [selectable]="true"
+          [(selectedRow)]="selectedEvent"
+          (pageChange)="onPageChange($event)"
+        />
+      }
+    </div>
+  </mat-card>
+</div>

@@ -1,0 +1,61 @@
+<h2 mat-dialog-title class="flex items-center gap-3 !pb-2">
+  <mat-icon class="material-symbols-outlined text-[var(--mat-sys-primary)]">policy</mat-icon>
+  Evento de auditoría · #{{ data.id }}
+</h2>
+
+<mat-dialog-content class="!min-w-[320px] sm:!min-w-[480px]">
+  <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha</dt>
+    <dd class="text-sm m-0 tabular-nums">{{ occurredAtLabel }}</dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Actor</dt>
+    <dd class="text-sm m-0">
+      {{ data.actorEmail }}
+      @if (data.actorId !== null) {
+        <span class="text-[var(--mat-sys-on-surface-variant)]">· #{{ data.actorId }}</span>
+      }
+    </dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Acción</dt>
+    <dd class="text-sm m-0">
+      <span
+        class="inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
+      >
+        {{ data.action }}
+      </span>
+    </dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Objetivo</dt>
+    <dd class="text-sm m-0">
+      {{ data.targetType }}
+      @if (data.targetId) {
+        <span class="text-[var(--mat-sys-on-surface-variant)]">· {{ data.targetId }}</span>
+      }
+    </dd>
+
+    @if (data.traceId) {
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Trace id</dt>
+      <dd class="text-sm m-0 font-mono break-all">{{ data.traceId }}</dd>
+    }
+
+    @if (data.correlationId) {
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Correlation id</dt>
+      <dd class="text-sm m-0 font-mono break-all">{{ data.correlationId }}</dd>
+    }
+  </dl>
+
+  @if (prettyPayload(); as payload) {
+    <section class="mt-6">
+      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+        Payload
+      </h3>
+      <pre
+        class="text-xs font-mono whitespace-pre-wrap break-words m-0 p-3 rounded-md bg-[var(--mat-sys-surface-container)] text-[var(--mat-sys-on-surface)] max-h-[40vh] overflow-auto"
+      ><code>{{ payload }}</code></pre>
+    </section>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cerrar</button>
+</mat-dialog-actions>
