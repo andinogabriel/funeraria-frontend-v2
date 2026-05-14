@@ -101,14 +101,15 @@
         }
 
         <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+          <!--
+            Plain outlined fields without leading icons. An earlier iteration used
+            `matIconPrefix` with the `material-symbols-outlined` glyph font, but the
+            resulting slot did not collapse the floating label notch correctly and
+            the field read as visually broken in QA. Decoration is delegated to the
+            field labels and the brand panel instead.
+          -->
           <mat-form-field appearance="outline">
             <mat-label>Email</mat-label>
-            <!--
-              `matIconPrefix` reserves the proper leading slot in the outlined field
-              so the label/input never overlaps the icon. Plain `matPrefix` is for
-              text/elements and forces us to fight the layout with manual margins.
-            -->
-            <mat-icon matIconPrefix class="material-symbols-outlined">mail</mat-icon>
             <input
               matInput
               type="email"
@@ -126,7 +127,6 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Contraseña</mat-label>
-            <mat-icon matIconPrefix class="material-symbols-outlined">lock</mat-icon>
             <input
               matInput
               type="password"

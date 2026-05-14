@@ -15,160 +15,195 @@
     </div>
   </header>
 
-  <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-6">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Section: personal data -->
-      <mat-card class="!rounded-xl">
-        <mat-card-header class="!pt-5 !px-6">
-          <mat-card-title class="!text-lg !font-semibold">Datos personales</mat-card-title>
-          <mat-card-subtitle>
-            Identificación y datos de nacimiento del afiliado.
-          </mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content class="!pt-4 !px-6 !pb-6">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <mat-form-field appearance="outline">
-              <mat-label>Nombre</mat-label>
-              <input
-                matInput
-                formControlName="firstName"
-                autocomplete="given-name"
-                maxlength="60"
-              />
-              @if (
-                form.controls.firstName.touched && form.controls.firstName.hasError('required')
-              ) {
-                <mat-error>El nombre es obligatorio.</mat-error>
-              }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Apellido</mat-label>
-              <input
-                matInput
-                formControlName="lastName"
-                autocomplete="family-name"
-                maxlength="60"
-              />
-              @if (form.controls.lastName.touched && form.controls.lastName.hasError('required')) {
-                <mat-error>El apellido es obligatorio.</mat-error>
-              }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>DNI</mat-label>
-              <input
-                matInput
-                type="number"
-                formControlName="dni"
-                autocomplete="off"
-                inputmode="numeric"
-                min="1000000"
-                max="99999999"
-              />
-              <mat-hint>7 u 8 dígitos sin puntos.</mat-hint>
-              @if (form.controls.dni.touched && form.controls.dni.hasError('required')) {
-                <mat-error>El DNI es obligatorio.</mat-error>
-              }
-              @if (
-                form.controls.dni.touched &&
-                (form.controls.dni.hasError('min') || form.controls.dni.hasError('max'))
-              ) {
-                <mat-error>Ingresá un DNI válido (7 u 8 dígitos).</mat-error>
-              }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Fecha de nacimiento</mat-label>
-              <input
-                matInput
-                [matDatepicker]="picker"
-                formControlName="birthDate"
-                [max]="today"
-                readonly
-              />
-              <mat-datepicker-toggle matIconSuffix [for]="picker" />
-              <mat-datepicker #picker startView="multi-year" />
-              @if (
-                form.controls.birthDate.touched && form.controls.birthDate.hasError('required')
-              ) {
-                <mat-error>Seleccioná una fecha de nacimiento.</mat-error>
-              }
-            </mat-form-field>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Section: relationship + classification -->
-      <mat-card class="!rounded-xl">
-        <mat-card-header class="!pt-5 !px-6">
-          <mat-card-title class="!text-lg !font-semibold">Clasificación</mat-card-title>
-          <mat-card-subtitle>Género y vínculo con el titular.</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content class="!pt-4 !px-6 !pb-6">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <mat-form-field appearance="outline">
-              <mat-label>Género</mat-label>
-              <mat-select formControlName="genderId">
-                @for (gender of genders() ?? []; track gender.id) {
-                  <mat-option [value]="gender.id">{{ gender.name }}</mat-option>
-                }
-              </mat-select>
-              @if (form.controls.genderId.touched && form.controls.genderId.hasError('required')) {
-                <mat-error>Seleccioná un género.</mat-error>
-              }
-            </mat-form-field>
-
-            <mat-form-field appearance="outline">
-              <mat-label>Parentesco</mat-label>
-              <mat-select formControlName="relationshipId">
-                @for (rel of relationships() ?? []; track rel.id) {
-                  <mat-option [value]="rel.id">{{ rel.name }}</mat-option>
-                }
-              </mat-select>
-              @if (
-                form.controls.relationshipId.touched &&
-                form.controls.relationshipId.hasError('required')
-              ) {
-                <mat-error>Seleccioná un parentesco.</mat-error>
-              }
-            </mat-form-field>
-          </div>
-
-          @if (!catalogsReady()) {
-            <p class="text-xs text-[var(--mat-sys-on-surface-variant)] mt-2 m-0">
-              Cargando catálogos…
+  <mat-card class="!rounded-xl">
+    <mat-card-content class="!p-4 sm:!p-6 lg:!p-8">
+      <!--
+        Linear stepper. Wired to `personal` / `classification` FormGroups so each step
+        is locked behind its own validity rules; the orientation flips to vertical on
+        small viewports because horizontal step labels do not survive the squeeze.
+      -->
+      <mat-stepper
+        #stepper
+        [orientation]="stepperOrientation()"
+        [linear]="true"
+        labelPosition="bottom"
+      >
+        <mat-step [stepControl]="personal" label="Datos personales">
+          <form [formGroup]="personal" class="flex flex-col gap-4 pt-4">
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Identificación y datos de nacimiento del afiliado.
             </p>
-          }
-        </mat-card-content>
-      </mat-card>
-    </div>
 
-    @if (errorMessage(); as message) {
-      <p
-        class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
-        role="alert"
-      >
-        {{ message }}
-      </p>
-    }
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <mat-form-field appearance="outline">
+                <mat-label>Nombre</mat-label>
+                <input
+                  matInput
+                  formControlName="firstName"
+                  autocomplete="given-name"
+                  maxlength="60"
+                />
+                @if (
+                  personal.controls.firstName.touched &&
+                  personal.controls.firstName.hasError('required')
+                ) {
+                  <mat-error>El nombre es obligatorio.</mat-error>
+                }
+              </mat-form-field>
 
-    <div
-      class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end items-stretch sm:items-center"
-    >
-      <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
-      <button
-        type="submit"
-        mat-flat-button
-        color="primary"
-        class="!h-11"
-        [disabled]="submitting() || !catalogsReady()"
-      >
-        @if (submitting()) {
-          <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
-        }
-        {{ mode === 'edit' ? 'Guardar cambios' : 'Crear afiliado' }}
-      </button>
-    </div>
-  </form>
+              <mat-form-field appearance="outline">
+                <mat-label>Apellido</mat-label>
+                <input
+                  matInput
+                  formControlName="lastName"
+                  autocomplete="family-name"
+                  maxlength="60"
+                />
+                @if (
+                  personal.controls.lastName.touched &&
+                  personal.controls.lastName.hasError('required')
+                ) {
+                  <mat-error>El apellido es obligatorio.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>DNI</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="dni"
+                  autocomplete="off"
+                  inputmode="numeric"
+                  min="1000000"
+                  max="99999999"
+                />
+                <mat-hint>7 u 8 dígitos sin puntos.</mat-hint>
+                @if (personal.controls.dni.touched && personal.controls.dni.hasError('required')) {
+                  <mat-error>El DNI es obligatorio.</mat-error>
+                }
+                @if (
+                  personal.controls.dni.touched &&
+                  (personal.controls.dni.hasError('min') || personal.controls.dni.hasError('max'))
+                ) {
+                  <mat-error>Ingresá un DNI válido (7 u 8 dígitos).</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Fecha de nacimiento</mat-label>
+                <input
+                  matInput
+                  [matDatepicker]="picker"
+                  formControlName="birthDate"
+                  [max]="today"
+                  readonly
+                />
+                <mat-datepicker-toggle matIconSuffix [for]="picker" />
+                <mat-datepicker #picker startView="multi-year" />
+                @if (
+                  personal.controls.birthDate.touched &&
+                  personal.controls.birthDate.hasError('required')
+                ) {
+                  <mat-error>Seleccioná una fecha de nacimiento.</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+              <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
+              <button
+                type="button"
+                mat-flat-button
+                color="primary"
+                class="!h-11"
+                matStepperNext
+                [disabled]="personal.invalid"
+              >
+                Siguiente
+                <mat-icon iconPositionEnd class="material-symbols-outlined">arrow_forward</mat-icon>
+              </button>
+            </div>
+          </form>
+        </mat-step>
+
+        <mat-step [stepControl]="classification" label="Clasificación">
+          <form [formGroup]="classification" class="flex flex-col gap-4 pt-4">
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Género y vínculo con el titular.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <mat-form-field appearance="outline">
+                <mat-label>Género</mat-label>
+                <mat-select formControlName="genderId">
+                  @for (gender of genders() ?? []; track gender.id) {
+                    <mat-option [value]="gender.id">{{ gender.name }}</mat-option>
+                  }
+                </mat-select>
+                @if (
+                  classification.controls.genderId.touched &&
+                  classification.controls.genderId.hasError('required')
+                ) {
+                  <mat-error>Seleccioná un género.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Parentesco</mat-label>
+                <mat-select formControlName="relationshipId">
+                  @for (rel of relationships() ?? []; track rel.id) {
+                    <mat-option [value]="rel.id">{{ rel.name }}</mat-option>
+                  }
+                </mat-select>
+                @if (
+                  classification.controls.relationshipId.touched &&
+                  classification.controls.relationshipId.hasError('required')
+                ) {
+                  <mat-error>Seleccioná un parentesco.</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            @if (!catalogsReady()) {
+              <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
+                Cargando catálogos…
+              </p>
+            }
+
+            @if (errorMessage(); as message) {
+              <p
+                class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+                role="alert"
+              >
+                {{ message }}
+              </p>
+            }
+
+            <div class="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2">
+              <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
+                <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+                Atrás
+              </button>
+              <button
+                type="button"
+                mat-flat-button
+                color="primary"
+                class="!h-11"
+                (click)="onSubmit()"
+                [disabled]="
+                  submitting() || !catalogsReady() || personal.invalid || classification.invalid
+                "
+              >
+                @if (submitting()) {
+                  <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+                }
+                {{ mode === 'edit' ? 'Guardar cambios' : 'Crear afiliado' }}
+              </button>
+            </div>
+          </form>
+        </mat-step>
+      </mat-stepper>
+    </mat-card-content>
+  </mat-card>
 </div>

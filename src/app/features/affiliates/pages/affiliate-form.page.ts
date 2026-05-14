@@ -1,4 +1,6 @@
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   NonNullableFormBuilder,
@@ -14,8 +16,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import type { Gender, Relationship } from '../../catalogs/catalogs.types';
@@ -29,19 +33,21 @@ import type { AffiliateRequest } from '../affiliate.types';
  * initializer; both are available synchronously before the constructor runs so the
  * form can hydrate without an extra effect or a `null` placeholder.
  *
- * Previous iteration used `input.required<'create' | 'edit'>()` plus
- * `withComponentInputBinding()` to push route `data: { mode: 'create' }` into the
- * component, but that binding fires AFTER the constructor — the field initializer
- * tripped Angular's NG0950 "required input no value yet" error. The route snapshot
- * is the canonical read of static route data in this layout.
+ * <h3>Two-step wizard</h3>
+ *
+ * The form is split into two FormGroups (`personal` and `classification`) hosted by a
+ * {@link MatStepperModule} stepper so the user is guided through a clear "this then
+ * that" flow on every viewport. The stepper orientation is wired to the CDK
+ * BreakpointObserver: horizontal on tablet+ (better use of desktop's horizontal real
+ * estate) and vertical on phones (where horizontal step labels would wrap or get
+ * cropped). `linear` is enabled so the user cannot fast-forward to step 2 with an
+ * invalid step 1.
  *
  * <h3>Catalog selects</h3>
  *
  * Gender and relationship dropdowns read from the shared {@link CatalogsService}
- * cache. The form does not block on the catalogs — if the user opens the page before
- * the cache fills, the selects appear empty for a heartbeat and then populate; the
- * submit button is disabled until both catalogs resolve so we never POST a half-set
- * payload.
+ * cache. The submit button on the last step stays disabled until both catalogs
+ * resolve so we never POST a half-set payload.
  */
 @Component({
   selector: 'app-affiliate-form-page',
@@ -55,6 +61,7 @@ import type { AffiliateRequest } from '../affiliate.types';
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    MatStepperModule,
     ReactiveFormsModule,
     RouterLink,
   ],
@@ -68,19 +75,13 @@ export class AffiliateFormPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly breakpointObserver = inject(BreakpointObserver);
 
-  /**
-   * Drives create vs. edit. Read from the static route data at construction time.
-   * Defensive default of `'create'` so a typo in the routing table does not crash the
-   * page; `'edit'` only kicks in when the route explicitly sets it.
-   */
+  /** Drives create vs. edit. Read from the static route data at construction time. */
   protected readonly mode: 'create' | 'edit' =
     this.route.snapshot.data['mode'] === 'edit' ? 'edit' : 'create';
 
-  /**
-   * DNI of the affiliate being edited. Parsed from the `:dni` path segment; `null`
-   * when in create mode or when the segment is missing/malformed.
-   */
+  /** DNI of the affiliate being edited (or `null` in create mode / malformed segment). */
   private readonly editDni: number | null = this.parseEditDni();
 
   protected readonly genders = this.catalogs.genders;
@@ -95,38 +96,47 @@ export class AffiliateFormPage {
     () => this.genders() !== null && this.relationships() !== null,
   );
 
-  /**
-   * Upper bound for the birth-date picker. Computed once at construction; affiliates
-   * cannot be in the future and a forward-dated record is always a typo.
-   */
+  /** Upper bound for the birth-date picker — affiliates cannot be in the future. */
   protected readonly today = new Date();
 
   /**
-   * Typed reactive form. `dni` is an integer; the control is typed as `number` and the
-   * matching `<input type="number">` keeps the binding straightforward. `birthDate` is
-   * typed as `Date | null` because the Material datepicker emits `Date` and the form
-   * is reset to `null` after a successful submit — the service converts to ISO
-   * `yyyy-MM-dd` at the boundary.
+   * Step 1: personal data. Kept as its own FormGroup so the linear stepper can
+   * validate the step in isolation (`[stepControl]="personal"`).
    */
-  protected readonly form = this.fb.group({
+  protected readonly personal = this.fb.group({
     firstName: this.fb.control('', { validators: [Validators.required, Validators.maxLength(60)] }),
     lastName: this.fb.control('', { validators: [Validators.required, Validators.maxLength(60)] }),
     dni: this.fb.control<number | null>(null, {
       validators: [Validators.required, Validators.min(1_000_000), Validators.max(99_999_999)],
     }),
     birthDate: this.fb.control<Date | null>(null, { validators: [Validators.required] }),
+  });
+
+  /** Step 2: classification. Same FormGroup-per-step pattern as `personal`. */
+  protected readonly classification = this.fb.group({
     genderId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
     relationshipId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
   });
+
+  /**
+   * Stepper orientation. The CDK Handset/TabletPortrait range covers what we treat as
+   * "small viewport" for this form: horizontal step labels look cramped there and the
+   * vertical layout reads better.
+   */
+  protected readonly stepperOrientation = toSignal(
+    this.breakpointObserver
+      .observe([Breakpoints.Handset, Breakpoints.TabletPortrait])
+      .pipe(map((state): 'vertical' | 'horizontal' => (state.matches ? 'vertical' : 'horizontal'))),
+    { initialValue: 'horizontal' as const },
+  );
 
   constructor() {
     // Load catalogs in parallel; the form selects bind to the resulting signals.
     forkJoin([this.catalogs.loadGenders(), this.catalogs.loadRelationships()]).subscribe();
 
-    // If we're in edit mode, hydrate from the service cache. The list page loads on
-    // mount, so when the user navigates from there to edit the affiliate is already in
-    // memory; if a user deep-links to /afiliados/:dni/editar with a cold cache we kick
-    // off a load.
+    // If we're in edit mode, hydrate from the service cache. If the cache is cold
+    // (deep-link to /afiliados/:dni/editar with no prior list visit), we kick off a
+    // load and try again.
     if (this.editDni !== null) {
       const cached = this.service.findByDni(this.editDni);
       if (cached) {
@@ -138,7 +148,8 @@ export class AffiliateFormPage {
             this.patchFrom(fresh);
           } else {
             this.errorMessage.set('No se encontró el afiliado solicitado.');
-            this.form.disable();
+            this.personal.disable();
+            this.classification.disable();
           }
         });
       }
@@ -146,22 +157,25 @@ export class AffiliateFormPage {
   }
 
   protected onSubmit(): void {
-    if (this.form.invalid || this.submitting() || !this.catalogsReady()) {
-      this.form.markAllAsTouched();
+    const formValid = this.personal.valid && this.classification.valid;
+    if (!formValid || this.submitting() || !this.catalogsReady()) {
+      this.personal.markAllAsTouched();
+      this.classification.markAllAsTouched();
       return;
     }
-    const value = this.form.getRawValue();
-    const gender = this.findGender(value.genderId);
-    const relationship = this.findRelationship(value.relationshipId);
-    if (!gender || !relationship || !value.dni || !value.birthDate) {
+    const personal = this.personal.getRawValue();
+    const classification = this.classification.getRawValue();
+    const gender = this.findGender(classification.genderId);
+    const relationship = this.findRelationship(classification.relationshipId);
+    if (!gender || !relationship || !personal.dni || !personal.birthDate) {
       return;
     }
 
     const request: AffiliateRequest = {
-      firstName: value.firstName.trim(),
-      lastName: value.lastName.trim(),
-      dni: value.dni,
-      birthDate: toIsoDate(value.birthDate),
+      firstName: personal.firstName.trim(),
+      lastName: personal.lastName.trim(),
+      dni: personal.dni,
+      birthDate: toIsoDate(personal.birthDate),
       gender: { id: gender.id, name: gender.name },
       relationship: { id: relationship.id, name: relationship.name },
     };
@@ -190,11 +204,6 @@ export class AffiliateFormPage {
     });
   }
 
-  /**
-   * Parses the `:dni` path segment into a number. Returns `null` when we are in create
-   * mode (no segment) or when the segment is missing/malformed; the caller treats
-   * `null` as "no edit target".
-   */
   private parseEditDni(): number | null {
     if (this.route.snapshot.data['mode'] !== 'edit') {
       return null;
@@ -215,17 +224,18 @@ export class AffiliateFormPage {
     gender: Gender;
     relationship: Relationship;
   }): void {
-    this.form.patchValue({
+    this.personal.patchValue({
       firstName: affiliate.firstName,
       lastName: affiliate.lastName,
       dni: affiliate.dni,
       birthDate: parseIsoDate(affiliate.birthDate),
+    });
+    this.classification.patchValue({
       genderId: affiliate.gender.id,
       relationshipId: affiliate.relationship.id,
     });
-    // DNI is the natural key for an affiliate — once saved we never change it. The
-    // backend enforces uniqueness on insert, and our route is keyed on it.
-    (this.form.controls.dni as FormControl).disable();
+    // DNI is the natural key — once saved we never change it.
+    (this.personal.controls.dni as FormControl).disable();
   }
 
   private findGender(id: number | null): Gender | undefined {
@@ -277,6 +287,5 @@ function parseIsoDate(value: string): Date | null {
     return null;
   }
   const [, year, month, day] = match;
-  // Constructing with explicit Y/M/D avoids the UTC midnight quirk of `new Date(string)`.
   return new Date(Number(year), Number(month) - 1, Number(day));
 }
