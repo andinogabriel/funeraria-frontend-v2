@@ -27,15 +27,24 @@
     </mat-nav-list>
   </mat-sidenav>
 
-  <mat-sidenav-content class="flex flex-col">
+  <!--
+    `min-w-0` on the content side stops flex children (the inner table with its own
+    `min-w-[720px]`) from forcing the parent to overflow horizontally. Without this
+    the dashboard / list pages show a phantom horizontal scrollbar on viewports where
+    the sidenav + content width hit just shy of the table's intrinsic min-width.
+  -->
+  <mat-sidenav-content class="flex flex-col min-w-0">
     <mat-toolbar class="!bg-[var(--mat-sys-surface-container)] border-b">
-      @if (isHandset()) {
-        <button mat-icon-button (click)="sidenav.toggle()" aria-label="Abrir menú">
-          <mat-icon class="material-symbols-outlined">menu</mat-icon>
-        </button>
-      }
+      <button
+        mat-icon-button
+        (click)="onMenuClick(sidenav)"
+        [attr.aria-label]="isHandset() ? 'Abrir menú' : 'Mostrar u ocultar menú'"
+        [matTooltip]="isHandset() ? 'Menú' : sidenavOpened() ? 'Ocultar menú' : 'Mostrar menú'"
+      >
+        <mat-icon class="material-symbols-outlined">menu</mat-icon>
+      </button>
       <span class="flex-1"></span>
-      <button mat-icon-button (click)="onLogout()" aria-label="Cerrar sesión">
+      <button mat-icon-button (click)="onLogout()" aria-label="Cerrar sesión" matTooltip="Salir">
         <mat-icon class="material-symbols-outlined">logout</mat-icon>
       </button>
     </mat-toolbar>

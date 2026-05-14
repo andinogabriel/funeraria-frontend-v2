@@ -1,11 +1,12 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { map } from 'rxjs/operators';
 
@@ -23,13 +24,14 @@ import { AuthStore } from '../auth/auth.store';
  * The shell adapts to two layouts:
  *
  * - **Handset** (< 960 px): sidenav uses `mode="over"` and starts closed. A hamburger
- *   button on the toolbar toggles it; selecting a nav item auto-closes it. This is the
- *   Material recommendation for narrow viewports.
- * - **Tablet/desktop** (≥ 960 px): sidenav uses `mode="side"` and stays open. The
- *   hamburger button is hidden because the sidenav is always visible.
+ *   button on the toolbar toggles it; selecting a nav item auto-closes it.
+ * - **Tablet/desktop** (≥ 960 px): sidenav uses `mode="side"`. It is open by default
+ *   and the user can collapse it by clicking the toolbar's menu button — a screen
+ *   recovery pattern that lets reports / wide tables breathe when needed.
  *
- * The breakpoint is wired through CDK's `BreakpointObserver` and converted to a signal
- * via `toSignal` so the template can read it as `isHandset()` without an async pipe.
+ * The desktop-open / desktop-collapsed split is owned by a local signal that resets
+ * to `open` whenever the breakpoint switches (so a user that collapsed it on a 14''
+ * laptop and then docks to a 27'' monitor gets the sidenav back without ceremony).
  */
 @Component({
   selector: 'app-shell',
@@ -40,6 +42,7 @@ import { AuthStore } from '../auth/auth.store';
     MatListModule,
     MatSidenavModule,
     MatToolbarModule,
+    MatTooltipModule,
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
@@ -54,8 +57,7 @@ export class ShellComponent {
 
   protected readonly store = inject(AuthStore);
 
-  /** Top-level navigation entries. Kept as a plain readonly array — refactor to a registry
-   * once the feature count starts to make hand-curated maintenance painful. */
+  /** Top-level navigation entries. */
   protected readonly navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/afiliados', label: 'Afiliados', icon: 'group' },
@@ -63,8 +65,7 @@ export class ShellComponent {
 
   /**
    * `true` while the viewport is in the Material "Handset" range (phones + small
-   * tablets, < 960 px). Drives the sidenav `mode` and `opened` defaults in the
-   * template.
+   * tablets, < 960 px). Drives the sidenav `mode` in the template.
    */
   protected readonly isHandset = toSignal(
     this.breakpointObserver
@@ -73,11 +74,32 @@ export class ShellComponent {
     { initialValue: false },
   );
 
+  /**
+   * Desktop-side collapse flag. Independent from the handset state so a user who
+   * minimises the sidenav on desktop does not interfere with the auto-open/auto-close
+   * behaviour on phones.
+   */
+  protected readonly desktopCollapsed = signal(false);
+
   protected readonly sidenavMode = computed<'over' | 'side'>(() =>
     this.isHandset() ? 'over' : 'side',
   );
 
-  protected readonly sidenavOpened = computed(() => !this.isHandset());
+  /**
+   * Final `opened` state. On handset the drawer is closed by default and the user
+   * opens it from the hamburger; on desktop it is open unless the user collapsed it.
+   */
+  protected readonly sidenavOpened = computed(() =>
+    this.isHandset() ? false : !this.desktopCollapsed(),
+  );
+
+  protected onMenuClick(sidenav: MatSidenav): void {
+    if (this.isHandset()) {
+      void sidenav.toggle();
+    } else {
+      this.desktopCollapsed.update((c) => !c);
+    }
+  }
 
   protected onLogout(): void {
     this.auth.logout().subscribe({
@@ -86,9 +108,9 @@ export class ShellComponent {
   }
 
   /**
-   * Helper used by the template's nav-item click: closes the sidenav on handset so the
-   * user lands on the new page without the drawer obscuring it. No-op on desktop because
-   * the sidenav stays open there.
+   * Closes the sidenav after selecting a nav item, but only on handset. On desktop
+   * the user explicitly chooses when to collapse, so jumping between pages should
+   * not steal that decision from them.
    */
   protected closeIfHandset(sidenav: MatSidenav): void {
     if (this.isHandset()) {
