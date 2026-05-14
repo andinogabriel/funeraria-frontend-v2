@@ -78,6 +78,18 @@ export class AffiliateListPage {
   private readonly searchTerm = signal('');
 
   /**
+   * Whether the search input currently holds a query. Surfaced as a signal so the
+   * template can drive the clear-button visibility from a *reactive* source — the
+   * previous `@if (search.value)` form read a non-signal getter and, in zoneless
+   * Angular, that meant the button only repainted as a side effect of unrelated
+   * change-detection cycles. Worse, repeatedly attaching/detaching the suffix
+   * `<button>` forced `mat-form-field` to recalculate its layout on every
+   * keystroke. Promoting to a signal lets us drive visibility via CSS without
+   * touching the DOM tree.
+   */
+  protected readonly hasSearchValue = computed(() => this.searchTerm().length > 0);
+
+  /**
    * Currently selected row, two-way bound with the data-table. Drives the enabled
    * state of the Detalle / Editar / Eliminar toolbar buttons.
    */
