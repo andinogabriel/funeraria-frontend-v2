@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -149,6 +156,22 @@ export class AffiliateListPage {
 
     this.search.valueChanges.pipe(debounceTime(150), takeUntilDestroyed()).subscribe((value) => {
       this.searchTerm.set(value);
+    });
+
+    // Clear the selection whenever the currently-selected affiliate falls out of
+    // the visible (filtered) list — typing a search that filters the row away,
+    // a delete that removes it, or a refresh that returns a different set. Once
+    // cleared, `hasSelection()` flips to `false` and the toolbar buttons disable
+    // automatically, so the UI never offers actions on a row the user cannot see.
+    effect(() => {
+      const selected = this.selectedAffiliate();
+      if (selected === null) {
+        return;
+      }
+      const visible = this.filtered();
+      if (!visible.some((affiliate) => affiliate.dni === selected.dni)) {
+        this.selectedAffiliate.set(null);
+      }
     });
   }
 
