@@ -95,11 +95,41 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   /** Page size choices offered in the paginator. */
   readonly pageSizeOptions = input<readonly number[]>([10, 25, 50, 100]);
 
+  /**
+   * Hides the column-chooser button in the toolbar. Useful for tables that ship with
+   * a curated column set and do not want to expose runtime customisation.
+   */
+  readonly hideColumnChooser = input<boolean>(false);
+
+  /**
+   * Hides the page-size selector dropdown inside the paginator while keeping the
+   * navigation arrows. Combine with `initialPageSize` to lock the table at a fixed
+   * page count.
+   */
+  readonly hidePageSizeSelector = input<boolean>(false);
+
+  /**
+   * Pads the rendered page with empty placeholder rows so the table always shows
+   * `pageSize` row heights. Visual goal: the table footprint never shrinks just
+   * because the data is shorter than a full page — useful in dashboards where the
+   * layout is expected to stay stable across data refreshes.
+   */
+  readonly padToPageSize = input<boolean>(false);
+
   /** Label of the trailing action column when an `actions` template is projected. */
   readonly actionsLabel = input<string>('Acciones');
 
   /** Row track-by accessor. Defaults to identity (Angular's default) when unset. */
   readonly trackBy = input<(index: number, row: T) => unknown>((_, row) => row);
+
+  /**
+   * Internal wrapper around the caller's `trackBy` that tolerates `null` placeholder
+   * rows emitted when `padToPageSize` is on. The wrapper short-circuits to a stable
+   * `__placeholder_<index>` id for nulls so MatTable can dedupe placeholder rows
+   * across re-renders without the caller having to know about padding semantics.
+   */
+  protected readonly effectiveTrackBy = (index: number, row: T | null): unknown =>
+    row === null ? `__placeholder_${index}` : this.trackBy()(index, row);
 
   /** Optional content-projected trailing column for row actions. */
   @ContentChild('actions', { read: TemplateRef })
@@ -146,11 +176,25 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     });
   });
 
-  /** Sliced page over `sortedData()` that MatTable actually renders. */
-  protected readonly pagedData = computed<readonly T[]>(() => {
+  /**
+   * Sliced page over `sortedData()` that MatTable actually renders. When
+   * `padToPageSize` is enabled, the slice is right-padded with `null` placeholders
+   * so the rendered row count always matches the page size. Cell and action
+   * templates skip `null` rows (no `value` accessor is invoked for them) so the
+   * placeholder visuals are blank.
+   */
+  protected readonly pagedData = computed<readonly (T | null)[]>(() => {
     const all = this.sortedData();
     const start = this.pageIndex() * this.pageSize();
-    return all.slice(start, start + this.pageSize());
+    const slice = all.slice(start, start + this.pageSize());
+    if (!this.padToPageSize()) {
+      return slice;
+    }
+    const missing = this.pageSize() - slice.length;
+    if (missing <= 0) {
+      return slice;
+    }
+    return [...slice, ...(Array(missing).fill(null) as null[])];
   });
 
   /** Full display order = visible config columns + action column when projected. */

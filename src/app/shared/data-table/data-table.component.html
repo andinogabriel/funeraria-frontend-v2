@@ -1,69 +1,74 @@
 <div class="flex flex-col">
-  <!-- Toolbar row: column chooser. Caller decorates the parent with extra context. -->
-  <div
-    class="flex items-center justify-end gap-2 px-4 sm:px-6 py-2 border-b border-[var(--mat-sys-outline-variant)]"
-  >
-    <button
-      type="button"
-      mat-stroked-button
-      [matMenuTriggerFor]="columnsMenu"
-      (menuOpened)="onChooserOpen()"
-      matTooltip="Configurar columnas"
-      aria-label="Configurar columnas"
+  <!--
+    Toolbar row: column chooser. Hidden entirely when `hideColumnChooser` is set
+    so curated tables (fixed column set) keep a clean header.
+  -->
+  @if (!hideColumnChooser()) {
+    <div
+      class="flex items-center justify-end gap-2 px-4 sm:px-6 py-2 border-b border-[var(--mat-sys-outline-variant)]"
     >
-      <mat-icon class="material-symbols-outlined">view_column</mat-icon>
-      Columnas
-    </button>
+      <button
+        type="button"
+        mat-stroked-button
+        [matMenuTriggerFor]="columnsMenu"
+        (menuOpened)="onChooserOpen()"
+        matTooltip="Configurar columnas"
+        aria-label="Configurar columnas"
+      >
+        <mat-icon class="material-symbols-outlined">view_column</mat-icon>
+        Columnas
+      </button>
 
-    <mat-menu #columnsMenu="matMenu" class="data-table-menu">
-      <!--
-        Plain content (no `mat-menu-item` directives) does not auto-close the menu,
-        so we can render checkboxes + buttons directly. The Apply button carries
-        `matMenuTriggerClose` for the explicit commit step.
-      -->
-      <div class="flex flex-col gap-1 p-3 min-w-[240px]">
-        <p class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)] m-0">
-          Columnas visibles
-        </p>
+      <mat-menu #columnsMenu="matMenu" class="data-table-menu">
+        <!--
+          Plain content (no `mat-menu-item` directives) does not auto-close the menu,
+          so we can render checkboxes + buttons directly. The Apply button carries
+          `matMenuTriggerClose` for the explicit commit step.
+        -->
+        <div class="flex flex-col gap-1 p-3 min-w-[240px]">
+          <p class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)] m-0">
+            Columnas visibles
+          </p>
 
-        <div class="flex flex-col gap-1 max-h-[320px] overflow-auto py-1">
-          @for (column of hideableColumns(); track column.key) {
-            <mat-checkbox
-              [checked]="isDraftChecked(column.key)"
-              (change)="onDraftToggle(column.key, $event.checked)"
+          <div class="flex flex-col gap-1 max-h-[320px] overflow-auto py-1">
+            @for (column of hideableColumns(); track column.key) {
+              <mat-checkbox
+                [checked]="isDraftChecked(column.key)"
+                (change)="onDraftToggle(column.key, $event.checked)"
+              >
+                {{ column.label }}
+              </mat-checkbox>
+            }
+          </div>
+
+          <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
+            {{ draftCount() }} seleccionada{{ draftCount() === 1 ? '' : 's' }}
+          </p>
+
+          <mat-divider class="!my-2" />
+
+          <div class="flex items-center justify-between gap-2">
+            <button type="button" mat-button (click)="onResetColumns()">Restablecer</button>
+            <button
+              type="button"
+              mat-flat-button
+              color="primary"
+              (click)="onApplyColumns()"
+              matMenuTriggerClose
             >
-              {{ column.label }}
-            </mat-checkbox>
-          }
+              Aplicar
+            </button>
+          </div>
         </div>
-
-        <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
-          {{ draftCount() }} seleccionada{{ draftCount() === 1 ? '' : 's' }}
-        </p>
-
-        <mat-divider class="!my-2" />
-
-        <div class="flex items-center justify-between gap-2">
-          <button type="button" mat-button (click)="onResetColumns()">Restablecer</button>
-          <button
-            type="button"
-            mat-flat-button
-            color="primary"
-            (click)="onApplyColumns()"
-            matMenuTriggerClose
-          >
-            Aplicar
-          </button>
-        </div>
-      </div>
-    </mat-menu>
-  </div>
+      </mat-menu>
+    </div>
+  }
 
   <div class="overflow-x-auto">
     <table
       mat-table
       [dataSource]="pagedData()"
-      [trackBy]="trackBy()"
+      [trackBy]="effectiveTrackBy"
       matSort
       [matSortActive]="sortState()?.active ?? ''"
       [matSortDirection]="sortState()?.direction ?? ''"
@@ -87,10 +92,22 @@
             [class.text-right]="column.align === 'end'"
             class="{{ column.cellClass ?? '' }}"
           >
-            @if (column.cellTemplate) {
-              <ng-container *ngTemplateOutlet="column.cellTemplate; context: { $implicit: row }" />
+            <!--
+              Placeholder rows (when `padToPageSize` is set) render as `null` so the
+              accessor is never invoked. `&nbsp;` keeps the cell at the same line
+              height as data rows so the row visually counts toward the reserved
+              height of the table.
+            -->
+            @if (row) {
+              @if (column.cellTemplate) {
+                <ng-container
+                  *ngTemplateOutlet="column.cellTemplate; context: { $implicit: row }"
+                />
+              } @else {
+                {{ column.value(row) ?? '' }}
+              }
             } @else {
-              {{ column.value(row) ?? '' }}
+              &nbsp;
             }
           </td>
         </ng-container>
@@ -102,7 +119,11 @@
             {{ actionsLabel() }}
           </th>
           <td mat-cell *matCellDef="let row" class="text-right">
-            <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row }" />
+            @if (row) {
+              <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row }" />
+            } @else {
+              &nbsp;
+            }
           </td>
         </ng-container>
       }
@@ -117,6 +138,7 @@
     [pageSize]="pageSize()"
     [pageSizeOptions]="pageSizeOptions()"
     [pageIndex]="pageIndex()"
+    [hidePageSize]="hidePageSizeSelector()"
     showFirstLastButtons
   />
 </div>
