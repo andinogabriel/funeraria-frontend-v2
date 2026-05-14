@@ -35,7 +35,7 @@
       class="w-64 border-r"
     >
       <mat-nav-list>
-        @for (item of navItems; track item.path) {
+        @for (item of navItems(); track item.path) {
           <a
             mat-list-item
             [routerLink]="item.path"

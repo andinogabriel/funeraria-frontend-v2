@@ -53,6 +53,17 @@ export const routes: Routes = [
           ),
         data: { mode: 'edit' },
       },
+      {
+        // Admin-only audit log. Backend gates with `ROLE_ADMIN` and returns
+        // 403 for non-admins; the sidenav also hides this entry for non-admins
+        // so a regular user never even sees the route. We intentionally do not
+        // add a route guard — the backend response is the canonical source of
+        // truth, and surfacing the 403 via the service's friendly error keeps
+        // the dev experience honest when role wiring changes server-side.
+        path: 'auditoria',
+        loadComponent: () =>
+          import('./features/audit/pages/audit-event-list.page').then((m) => m.AuditEventListPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

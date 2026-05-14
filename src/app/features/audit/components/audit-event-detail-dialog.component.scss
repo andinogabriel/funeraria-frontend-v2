@@ -1,0 +1,5 @@
+// Modal sizing is handled inline by Tailwind utilities on the dialog content;
+// this stylesheet only carries the encapsulation needed by Angular's CLI.
+:host {
+  display: block;
+}

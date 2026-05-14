@@ -72,10 +72,29 @@ export class ShellComponent {
 
   protected readonly store = inject(AuthStore);
 
-  protected readonly navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/afiliados', label: 'Afiliados', icon: 'group' },
+  /**
+   * Top-level nav entries. `requiresAdmin: true` hides the entry from users
+   * without `ROLE_ADMIN` — backend would 403 them anyway, but offering a link
+   * that always errors is bad UX. `requiresAdmin: false` (or absent) shows
+   * the entry to anyone with an authenticated session.
+   */
+  private readonly allNavItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', requiresAdmin: false },
+    { path: '/afiliados', label: 'Afiliados', icon: 'group', requiresAdmin: false },
+    { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
   ] as const;
+
+  /**
+   * Nav items visible to the current user. Filters the admin-only entries when
+   * the active session lacks `ROLE_ADMIN`. Derived so it reacts to a future
+   * role-switch (refresh token returning new authorities, etc.) without us
+   * having to remount the shell.
+   */
+  protected readonly navItems = computed(() =>
+    this.allNavItems.filter(
+      (item) => !item.requiresAdmin || this.store.authorities().includes('ROLE_ADMIN'),
+    ),
+  );
 
   protected readonly isHandset = toSignal(
     this.breakpointObserver
