@@ -1,0 +1,5 @@
+// Bring the column-chooser menu's internal click handler into the host stylesheet so
+// the cursor reads as interactive even on the padding around the controls.
+:host ::ng-deep .data-table-menu .mat-mdc-menu-content {
+  padding: 0;
+}
