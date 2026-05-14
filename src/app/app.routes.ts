@@ -64,6 +64,23 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/audit/pages/audit-event-list.page').then((m) => m.AuditEventListPage),
       },
+      {
+        path: 'planes',
+        loadComponent: () =>
+          import('./features/plans/pages/plan-list.page').then((m) => m.PlanListPage),
+      },
+      {
+        path: 'planes/nuevo',
+        loadComponent: () =>
+          import('./features/plans/pages/plan-form.page').then((m) => m.PlanFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'planes/:id/editar',
+        loadComponent: () =>
+          import('./features/plans/pages/plan-form.page').then((m) => m.PlanFormPage),
+        data: { mode: 'edit' },
+      },
     ],
   },
   { path: '**', redirectTo: '' },
