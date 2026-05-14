@@ -31,19 +31,54 @@
   }
 
   <mat-card class="!rounded-xl !overflow-hidden">
+    <!--
+      Card toolbar: narrow search field on the left, row-action buttons on the
+      right. The actions stay disabled until the user picks a row in the table
+      below — replacing the per-row action column we shipped earlier, which got
+      lost in dense grids and forced tiny tap targets. With a selected row the
+      buttons reveal Detalle (modal with the fields the grid omits), Editar
+      (routes to the form) and Eliminar (confirm dialog).
+    -->
     <div
       class="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)]"
     >
-      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full sm:w-96">
+      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full sm:w-80">
         <mat-label>Buscar por nombre, apellido o DNI</mat-label>
         <input matInput type="search" [formControl]="search" autocomplete="off" />
       </mat-form-field>
 
       <span class="flex-1"></span>
 
-      <span class="text-sm text-[var(--mat-sys-on-surface-variant)]">
-        {{ filtered().length }} resultado{{ filtered().length === 1 ? '' : 's' }}
-      </span>
+      <div class="flex items-center gap-2">
+        <button
+          mat-stroked-button
+          [disabled]="!hasSelection()"
+          (click)="onShowDetail()"
+          matTooltip="Ver detalle"
+        >
+          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
+          Detalle
+        </button>
+        <button
+          mat-stroked-button
+          [disabled]="!hasSelection()"
+          (click)="onEdit()"
+          matTooltip="Editar afiliado"
+        >
+          <mat-icon class="material-symbols-outlined">edit</mat-icon>
+          Editar
+        </button>
+        <button
+          mat-stroked-button
+          color="warn"
+          [disabled]="!hasSelection()"
+          (click)="onDelete()"
+          matTooltip="Eliminar afiliado"
+        >
+          <mat-icon class="material-symbols-outlined">delete</mat-icon>
+          Eliminar
+        </button>
+      </div>
     </div>
 
     <!--
@@ -69,12 +104,6 @@
           <p class="m-0 text-sm">Probá con otro criterio o sumá un nuevo afiliado.</p>
         </div>
       } @else {
-        <!--
-          Affiliates grid is locked to 10 rows per page with no chooser and no
-          page-size selector — QA wanted a predictable layout. `padToPageSize`
-          keeps the table footprint stable even when the dataset is shorter
-          than a full page (the missing rows render as empty placeholders).
-        -->
         <app-data-table
           [data]="filtered()"
           [columns]="columns"
@@ -85,27 +114,9 @@
           [hideColumnChooser]="true"
           [hidePageSizeSelector]="true"
           [padToPageSize]="true"
-        >
-          <ng-template #actions let-affiliate>
-            <a
-              mat-icon-button
-              [routerLink]="['/afiliados', affiliate.dni, 'editar']"
-              aria-label="Editar"
-              matTooltip="Editar"
-            >
-              <mat-icon class="material-symbols-outlined">edit</mat-icon>
-            </a>
-            <button
-              mat-icon-button
-              color="warn"
-              (click)="onDelete(affiliate)"
-              [attr.aria-label]="'Eliminar afiliado ' + affiliate.firstName"
-              matTooltip="Eliminar"
-            >
-              <mat-icon class="material-symbols-outlined">delete</mat-icon>
-            </button>
-          </ng-template>
-        </app-data-table>
+          [selectable]="true"
+          [(selectedRow)]="selectedAffiliate"
+        />
       }
     </div>
   </mat-card>

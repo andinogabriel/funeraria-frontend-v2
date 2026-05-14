@@ -1,0 +1,8 @@
+// Detail dialog keeps Material defaults; per-page styles live in the template
+// via Tailwind utilities so the visual rhythm matches the rest of the affiliate
+// surface (cards, list rows, form sections) without an extra layer of bespoke
+// CSS to maintain.
+:host {
+  display: block;
+  min-width: 320px;
+}

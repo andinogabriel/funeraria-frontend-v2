@@ -28,6 +28,7 @@ interface Row {
       [initialSort]="initialSort"
       [initialPageSize]="initialPageSize"
       [padToPageSize]="padToPageSize"
+      [selectable]="selectable"
     />
   `,
 })
@@ -38,6 +39,7 @@ class HostComponent {
   initialSort: { active: string; direction: 'asc' | 'desc' | '' } | null = null;
   initialPageSize = 50;
   padToPageSize = false;
+  selectable = false;
 
   @ViewChild(DataTableComponent) table!: DataTableComponent<Row>;
 }
@@ -209,5 +211,44 @@ describe('DataTableComponent', () => {
 
     expect(host.table['visibleColumns']()).toEqual(['id', 'name']);
     expect(host.table['sortState']()).toEqual({ active: 'name', direction: 'asc' });
+  });
+
+  it('selects a row on click when selectable is on and clears it on a second click', () => {
+    host.selectable = true;
+    fixture.detectChanges();
+
+    const table = host.table as unknown as {
+      selectedRow: () => Row | null;
+      onRowClick: (row: Row | null) => void;
+    };
+
+    table.onRowClick(rows[0]);
+    expect(table.selectedRow()).toBe(rows[0]);
+
+    table.onRowClick(rows[0]);
+    expect(table.selectedRow()).toBeNull();
+  });
+
+  it('ignores row clicks when selectable is off', () => {
+    const table = host.table as unknown as {
+      selectedRow: () => Row | null;
+      onRowClick: (row: Row | null) => void;
+    };
+
+    table.onRowClick(rows[0]);
+    expect(table.selectedRow()).toBeNull();
+  });
+
+  it('never selects a null placeholder row', () => {
+    host.selectable = true;
+    fixture.detectChanges();
+
+    const table = host.table as unknown as {
+      selectedRow: () => Row | null;
+      onRowClick: (row: Row | null) => void;
+    };
+
+    table.onRowClick(null);
+    expect(table.selectedRow()).toBeNull();
   });
 });
