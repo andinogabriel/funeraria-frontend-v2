@@ -1,0 +1,106 @@
+<mat-card
+  class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
+>
+  <!--
+    Single-row toolbar. Search on the left (`flex-1 min-w-0` on mobile, fixed
+    320 px on `sm+`), action buttons on the right pinned with `shrink-0`.
+    Action buttons live in two parallel DOM trees switched via
+    `hidden` / `sm:hidden`: `mat-icon-button` on phones and `mat-stroked-button`
+    with text on tablet+. See the component class for the rationale.
+  -->
+  <div
+    class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+  >
+    <div class="flex-1 min-w-0 sm:flex-none sm:w-80">
+      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+        <mat-label>{{ searchLabel() }}</mat-label>
+        <input matInput type="search" [formControl]="searchControl()" autocomplete="off" />
+        <button
+          matSuffix
+          type="button"
+          mat-icon-button
+          aria-label="Borrar búsqueda"
+          matTooltip="Borrar búsqueda"
+          [style.visibility]="hasSearchValue() ? 'visible' : 'hidden'"
+          [attr.tabindex]="hasSearchValue() ? 0 : -1"
+          (click)="onClearSearch()"
+        >
+          <mat-icon class="material-symbols-outlined">close</mat-icon>
+        </button>
+      </mat-form-field>
+    </div>
+
+    <span class="hidden sm:block flex-1"></span>
+
+    @if (actions().length > 0) {
+      <div class="flex items-center gap-0 shrink-0 sm:hidden">
+        @for (action of actions(); track action.id) {
+          <button
+            mat-icon-button
+            [color]="action.kind === 'warn' ? 'warn' : undefined"
+            [disabled]="action.disabled"
+            (click)="action.handler()"
+            [matTooltip]="action.tooltip ?? action.label"
+            [attr.aria-label]="action.tooltip ?? action.label"
+          >
+            <mat-icon class="material-symbols-outlined">{{ action.icon }}</mat-icon>
+          </button>
+        }
+      </div>
+
+      <div class="hidden sm:flex items-center gap-2 shrink-0">
+        @for (action of actions(); track action.id) {
+          <button
+            mat-stroked-button
+            [color]="action.kind === 'warn' ? 'warn' : undefined"
+            [disabled]="action.disabled"
+            (click)="action.handler()"
+            [matTooltip]="action.tooltip ?? action.label"
+            [attr.aria-label]="action.tooltip ?? action.label"
+          >
+            <mat-icon class="material-symbols-outlined">{{ action.icon }}</mat-icon>
+            {{ action.label }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <!--
+    Loading / empty / has-data branches share a 632 px min-height so the page
+    layout does not jump when the search filter flips the row count between
+    "X resultados" and "0 resultados". 632px ≈ header (56) + 10 × row (52) +
+    paginator (56) — same arithmetic the data-table uses internally.
+  -->
+  <div class="min-h-[632px] flex flex-col">
+    @if (loading() && data().length === 0) {
+      <div class="flex-1 flex items-center justify-center">
+        <mat-spinner diameter="32" />
+      </div>
+    } @else if (data().length === 0) {
+      <div
+        class="flex-1 flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
+      >
+        <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12">
+          {{ emptyIcon() }}
+        </mat-icon>
+        <p class="m-0 text-base">{{ emptyTitle() }}</p>
+        <p class="m-0 text-sm">{{ emptyHint() }}</p>
+      </div>
+    } @else {
+      <app-data-table
+        [data]="data()"
+        [columns]="columns()"
+        [trackBy]="trackBy()"
+        [storageKey]="storageKey()"
+        [initialSort]="initialSort()"
+        [initialPageSize]="10"
+        [hideColumnChooser]="true"
+        [hidePageSizeSelector]="true"
+        [padToPageSize]="true"
+        [selectable]="true"
+        [(selectedRow)]="selectedRow"
+      />
+    }
+  </div>
+</mat-card>

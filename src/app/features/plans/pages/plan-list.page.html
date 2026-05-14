@@ -30,111 +30,19 @@
     </div>
   }
 
-  <mat-card
-    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
-  >
-    <div
-      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
-    >
-      <div class="flex-1 min-w-0 sm:flex-none sm:w-80">
-        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
-          <mat-label>Buscar por nombre</mat-label>
-          <input matInput type="search" [formControl]="search" autocomplete="off" />
-          <button
-            matSuffix
-            type="button"
-            mat-icon-button
-            aria-label="Borrar búsqueda"
-            matTooltip="Borrar búsqueda"
-            [style.visibility]="hasSearchValue() ? 'visible' : 'hidden'"
-            [attr.tabindex]="hasSearchValue() ? 0 : -1"
-            (click)="search.setValue('')"
-          >
-            <mat-icon class="material-symbols-outlined">close</mat-icon>
-          </button>
-        </mat-form-field>
-      </div>
-
-      <span class="hidden sm:block flex-1"></span>
-
-      <!-- Mobile: icon-only round buttons. Desktop: stroked buttons with text. -->
-      <div class="flex items-center gap-0 shrink-0 sm:hidden">
-        <button
-          mat-icon-button
-          [disabled]="!hasSelection()"
-          (click)="onEdit()"
-          matTooltip="Editar plan"
-          aria-label="Editar plan"
-        >
-          <mat-icon class="material-symbols-outlined">edit</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          color="warn"
-          [disabled]="!hasSelection()"
-          (click)="onDelete()"
-          matTooltip="Eliminar plan"
-          aria-label="Eliminar plan"
-        >
-          <mat-icon class="material-symbols-outlined">delete</mat-icon>
-        </button>
-      </div>
-
-      <div class="hidden sm:flex items-center gap-2 shrink-0">
-        <button
-          mat-stroked-button
-          [disabled]="!hasSelection()"
-          (click)="onEdit()"
-          matTooltip="Editar plan"
-          aria-label="Editar plan"
-        >
-          <mat-icon class="material-symbols-outlined">edit</mat-icon>
-          Editar
-        </button>
-        <button
-          mat-stroked-button
-          color="warn"
-          [disabled]="!hasSelection()"
-          (click)="onDelete()"
-          matTooltip="Eliminar plan"
-          aria-label="Eliminar plan"
-        >
-          <mat-icon class="material-symbols-outlined">delete</mat-icon>
-          Eliminar
-        </button>
-      </div>
-    </div>
-
-    <div class="min-h-[632px] flex flex-col">
-      @if (loading() && filtered().length === 0) {
-        <div class="flex-1 flex items-center justify-center">
-          <mat-spinner diameter="32" />
-        </div>
-      } @else if (filtered().length === 0) {
-        <div
-          class="flex-1 flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
-        >
-          <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12">
-            workspace_premium
-          </mat-icon>
-          <p class="m-0 text-base">No hay planes que coincidan con la búsqueda.</p>
-          <p class="m-0 text-sm">Probá con otro criterio o sumá un nuevo plan.</p>
-        </div>
-      } @else {
-        <app-data-table
-          [data]="filtered()"
-          [columns]="columns"
-          [trackBy]="trackById"
-          storageKey="plans.list"
-          [initialSort]="{ active: 'name', direction: 'asc' }"
-          [initialPageSize]="10"
-          [hideColumnChooser]="true"
-          [hidePageSizeSelector]="true"
-          [padToPageSize]="true"
-          [selectable]="true"
-          [(selectedRow)]="selectedPlan"
-        />
-      }
-    </div>
-  </mat-card>
+  <app-selection-list-card
+    [searchControl]="searchControl"
+    searchLabel="Buscar por nombre"
+    [data]="filtered()"
+    [columns]="columns"
+    [trackBy]="trackById"
+    storageKey="plans.list"
+    [initialSort]="{ active: 'name', direction: 'asc' }"
+    [loading]="loading()"
+    emptyIcon="workspace_premium"
+    emptyTitle="No hay planes que coincidan con la búsqueda."
+    emptyHint="Probá con otro criterio o sumá un nuevo plan."
+    [actions]="actions()"
+    [(selectedRow)]="selectedPlan"
+  />
 </div>
