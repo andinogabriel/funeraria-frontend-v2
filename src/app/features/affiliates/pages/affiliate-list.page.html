@@ -58,25 +58,28 @@
           <mat-label>Buscar por nombre, apellido o DNI</mat-label>
           <input matInput type="search" [formControl]="search" autocomplete="off" />
           <!--
-            Trailing clear affordance. Shown only when the input has content so
-            the field reads clean while empty. `type="button"` keeps it from
-            triggering form submission (this page has no surrounding `<form>`,
-            but it is the canonical safety belt). Setting the control to
-            `''` flows back through the `valueChanges` pipe and re-runs the
-            filter to clear the query.
+            Trailing clear affordance. The button stays mounted at all times
+            and we toggle `visibility` from the signal-backed `hasSearchValue`
+            so the field reads clean while empty but the `mat-form-field`
+            layout is computed only once. An earlier `@if (search.value)`
+            form added/removed the `matSuffix` on every keystroke, which on
+            its own would be cheap — except Material's form-field recalculates
+            its outline + suffix metrics every time a suffix is attached or
+            detached, and the user reported the resulting churn as the page
+            "reloading" on each character.
           -->
-          @if (search.value) {
-            <button
-              matSuffix
-              type="button"
-              mat-icon-button
-              aria-label="Borrar búsqueda"
-              matTooltip="Borrar búsqueda"
-              (click)="search.setValue('')"
-            >
-              <mat-icon class="material-symbols-outlined">close</mat-icon>
-            </button>
-          }
+          <button
+            matSuffix
+            type="button"
+            mat-icon-button
+            aria-label="Borrar búsqueda"
+            matTooltip="Borrar búsqueda"
+            [style.visibility]="hasSearchValue() ? 'visible' : 'hidden'"
+            [attr.tabindex]="hasSearchValue() ? 0 : -1"
+            (click)="search.setValue('')"
+          >
+            <mat-icon class="material-symbols-outlined">close</mat-icon>
+          </button>
         </mat-form-field>
       </div>
 
