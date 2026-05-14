@@ -29,18 +29,19 @@
   -->
   @if (isHandset()) {
     <!--
-      Stable wizard card. The previous attempt pinned a `min-h` on each step's
-      content wrapper — but Material's `mat-step-content` clips height during
-      its expand/collapse animation, so the inner min-h never made it to the
-      visible layout and the card silently snapped to the active step's
-      intrinsic height between transitions. Pinning the min-h on the outer
-      `<mat-card>` instead keeps the *container* size constant regardless of
-      which step is active, which is what QA asked for ("que sólo cambien los
-      campos del formulario en el wizard, todo lo demás se mantiene igual").
-      720px covers the taller step (Datos personales) with a small margin so
-      both steps fit comfortably with empty space below.
+      Stable wizard card. The previous attempt used Tailwind's `min-h-[720px]`
+      on the `<mat-card>` but it was not surviving in runtime — Material 20's
+      own `<mat-card>` host styles (or Tailwind v4's layer ordering) won the
+      cascade for `min-height` and the card kept shrinking to the active
+      step's intrinsic content height on step 2. Inline style wins on
+      specificity (anything short of `!important`), so we set `min-height`
+      via Angular's property binding and the card now holds 720 px regardless
+      of which step is showing.
+      720px covers the taller step (Datos personales, 4 fields + buttons)
+      with a small margin so both steps fit comfortably with empty space
+      below when the active step has fewer fields.
     -->
-    <mat-card class="!rounded-xl min-h-[720px]">
+    <mat-card class="!rounded-xl" [style.minHeight.px]="720">
       <mat-card-content class="!p-4 sm:!p-6">
         <mat-stepper #stepper [linear]="true" orientation="vertical">
           <!--
