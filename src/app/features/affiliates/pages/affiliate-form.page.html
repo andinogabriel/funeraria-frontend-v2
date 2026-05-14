@@ -35,7 +35,9 @@
                 autocomplete="given-name"
                 maxlength="60"
               />
-              @if (form.controls.firstName.touched && form.controls.firstName.hasError('required')) {
+              @if (
+                form.controls.firstName.touched && form.controls.firstName.hasError('required')
+              ) {
                 <mat-error>El nombre es obligatorio.</mat-error>
               }
             </mat-form-field>
@@ -87,7 +89,9 @@
               />
               <mat-datepicker-toggle matIconSuffix [for]="picker" />
               <mat-datepicker #picker startView="multi-year" />
-              @if (form.controls.birthDate.touched && form.controls.birthDate.hasError('required')) {
+              @if (
+                form.controls.birthDate.touched && form.controls.birthDate.hasError('required')
+              ) {
                 <mat-error>Seleccioná una fecha de nacimiento.</mat-error>
               }
             </mat-form-field>
