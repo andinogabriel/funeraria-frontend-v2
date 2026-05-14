@@ -39,34 +39,50 @@
       buttons reveal Detalle (modal with the fields the grid omits), Editar
       (routes to the form) and Eliminar (confirm dialog).
     -->
+    <!--
+      Toolbar layout: search on the left, action buttons pinned to the right.
+
+      The search is wrapped in a sized `<div>` so the form-field follows the
+      WRAPPER's width instead of fighting the global `.mat-mdc-form-field
+      { width: 100% }` rule in styles.scss (which is intentional for grid
+      cells, but here we want a fixed 320 px box on tablet+).
+
+      Action button labels collapse to icon-only on phones via
+      `hidden sm:inline` — keeps the row from wrapping on narrow viewports
+      while the `matTooltip` still carries the meaning for accessibility.
+    -->
     <div
       class="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)]"
     >
-      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full sm:w-80">
-        <mat-label>Buscar por nombre, apellido o DNI</mat-label>
-        <input matInput type="search" [formControl]="search" autocomplete="off" />
-      </mat-form-field>
+      <div class="w-full sm:w-80">
+        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+          <mat-label>Buscar por nombre, apellido o DNI</mat-label>
+          <input matInput type="search" [formControl]="search" autocomplete="off" />
+        </mat-form-field>
+      </div>
 
       <span class="flex-1"></span>
 
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 ml-auto">
         <button
           mat-stroked-button
           [disabled]="!hasSelection()"
           (click)="onShowDetail()"
           matTooltip="Ver detalle"
+          aria-label="Ver detalle"
         >
           <mat-icon class="material-symbols-outlined">visibility</mat-icon>
-          Detalle
+          <span class="hidden sm:inline">Detalle</span>
         </button>
         <button
           mat-stroked-button
           [disabled]="!hasSelection()"
           (click)="onEdit()"
           matTooltip="Editar afiliado"
+          aria-label="Editar afiliado"
         >
           <mat-icon class="material-symbols-outlined">edit</mat-icon>
-          Editar
+          <span class="hidden sm:inline">Editar</span>
         </button>
         <button
           mat-stroked-button
@@ -74,9 +90,10 @@
           [disabled]="!hasSelection()"
           (click)="onDelete()"
           matTooltip="Eliminar afiliado"
+          aria-label="Eliminar afiliado"
         >
           <mat-icon class="material-symbols-outlined">delete</mat-icon>
-          Eliminar
+          <span class="hidden sm:inline">Eliminar</span>
         </button>
       </div>
     </div>
