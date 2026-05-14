@@ -57,6 +57,26 @@
         <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
           <mat-label>Buscar por nombre, apellido o DNI</mat-label>
           <input matInput type="search" [formControl]="search" autocomplete="off" />
+          <!--
+            Trailing clear affordance. Shown only when the input has content so
+            the field reads clean while empty. `type="button"` keeps it from
+            triggering form submission (this page has no surrounding `<form>`,
+            but it is the canonical safety belt). Setting the control to
+            `''` flows back through the `valueChanges` pipe and re-runs the
+            filter to clear the query.
+          -->
+          @if (search.value) {
+            <button
+              matSuffix
+              type="button"
+              mat-icon-button
+              aria-label="Borrar búsqueda"
+              matTooltip="Borrar búsqueda"
+              (click)="search.setValue('')"
+            >
+              <mat-icon class="material-symbols-outlined">close</mat-icon>
+            </button>
+          }
         </mat-form-field>
       </div>
 
