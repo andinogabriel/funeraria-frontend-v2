@@ -138,7 +138,17 @@
     </table>
   </div>
 
+  <!--
+    Paginator pins to the bottom of the nearest scrolling ancestor (typically
+    the parent card on mobile, where the card itself becomes the scroll
+    container with `overflow-y-auto`). When no scrolling ancestor is set,
+    `position: sticky` behaves like `position: static` and the paginator sits
+    at its natural place — so callers that don't opt into internal scrolling
+    are unaffected. The bg/z-index pair keeps the paginator readable on top
+    of the scrolling rows.
+  -->
   <mat-paginator
+    class="sticky bottom-0 z-10 !bg-[var(--mat-sys-surface)]"
     [length]="sortedData().length"
     [pageSize]="pageSize()"
     [pageSizeOptions]="pageSizeOptions()"

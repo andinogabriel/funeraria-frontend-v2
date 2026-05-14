@@ -30,29 +30,26 @@
     </div>
   }
 
-  <mat-card class="!rounded-xl !overflow-hidden">
+  <!--
+    On mobile the card is the scrolling container: `max-height` fits the
+    visible viewport and `overflow-y-auto` keeps swipes inside the card so
+    the user can run through the 10 rows without the whole page scrolling.
+    Combined with `sticky bottom-0` on the data-table's paginator, the
+    footer (page X of Y, prev/next arrows) is always on-screen.
+    On `sm+` we restore the natural flow: no max-height, `overflow-hidden`
+    again just clips the rounded corners as before.
+  -->
+  <mat-card
+    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
+  >
     <!--
-      Card toolbar: narrow search field on the left, row-action buttons on the
-      right. The actions stay disabled until the user picks a row in the table
-      below — replacing the per-row action column we shipped earlier, which got
-      lost in dense grids and forced tiny tap targets. With a selected row the
-      buttons reveal Detalle (modal with the fields the grid omits), Editar
-      (routes to the form) and Eliminar (confirm dialog).
-    -->
-    <!--
-      Toolbar layout: search on the left, action buttons pinned to the right.
-
-      The search is wrapped in a sized `<div>` so the form-field follows the
-      WRAPPER's width instead of fighting the global `.mat-mdc-form-field
-      { width: 100% }` rule in styles.scss (which is intentional for grid
-      cells, but here we want a fixed 320 px box on tablet+).
-
-      Action button labels collapse to icon-only on phones via
-      `hidden sm:inline` — keeps the row from wrapping on narrow viewports
-      while the `matTooltip` still carries the meaning for accessibility.
+      Toolbar layout: explicit column on mobile (search on top, action row
+      below right-aligned), single row on `sm+`. The previous `flex-wrap`
+      fallback let the buttons drift onto a new line with no horizontal
+      anchor so they read as misaligned on narrow viewports.
     -->
     <div
-      class="flex flex-wrap items-center gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)]"
+      class="flex flex-col gap-3 sm:flex-row sm:items-center px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
     >
       <div class="w-full sm:w-80">
         <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
@@ -61,9 +58,9 @@
         </mat-form-field>
       </div>
 
-      <span class="flex-1"></span>
+      <span class="hidden sm:block flex-1"></span>
 
-      <div class="flex items-center gap-2 ml-auto">
+      <div class="flex items-center gap-2 justify-end self-stretch sm:self-auto">
         <button
           mat-stroked-button
           [disabled]="!hasSelection()"
