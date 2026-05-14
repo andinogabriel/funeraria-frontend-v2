@@ -10,26 +10,30 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import { DataTableComponent, type DataTableColumn } from '../../../shared/data-table';
+import { AffiliateDetailDialogComponent } from '../components/affiliate-detail-dialog.component';
 import { AffiliateService } from '../affiliate.service';
 import type { Affiliate } from '../affiliate.types';
 
 /**
- * Lists active affiliates with client-side filtering, sorting, paging and a column
- * chooser. The page owns the search input (the UX is page-specific) and delegates
- * rendering, sort and pagination to {@link DataTableComponent}.
+ * Lists active affiliates with client-side filtering, sorting and paging.
  *
- * Sort, visible columns and page size are persisted via the table's `storageKey`
- * (`affiliates.list`) so a user that prefers, say, hiding "Género" and sorting by
- * "Apellido asc" sees that exact layout next time they open the page — even across
- * sessions on the same browser.
+ * <h3>Selection-driven actions</h3>
  *
- * Server-side mode is reserved for PR-C; the active list is small enough that
- * client-side sort+filter is the right trade-off today.
+ * The grid is selectable (single row). The toolbar exposes "Detalle", "Editar"
+ * and "Eliminar" buttons; they stay disabled until the user picks a row. This
+ * replaces the per-row action column from the previous iteration — it keeps the
+ * grid clean, avoids accidental clicks on inline icons inside a dense row, and
+ * gives the actions enough room to carry text labels alongside their icons.
+ *
+ * The detail dialog ({@link AffiliateDetailDialogComponent}) surfaces fields
+ * that do not earn space in the list table (gender, alta, deceased flag,
+ * computed age). Edit still routes through the dedicated form page so the
+ * stepper + validation path stays canonical.
  */
 @Component({
   selector: 'app-affiliate-list-page',
@@ -53,6 +57,7 @@ export class AffiliateListPage {
   private readonly service = inject(AffiliateService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly router = inject(Router);
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
@@ -64,6 +69,15 @@ export class AffiliateListPage {
    * the bridging code explicit when the next contributor reads it.
    */
   private readonly searchTerm = signal('');
+
+  /**
+   * Currently selected row, two-way bound with the data-table. Drives the enabled
+   * state of the Detalle / Editar / Eliminar toolbar buttons.
+   */
+  protected readonly selectedAffiliate = signal<Affiliate | null>(null);
+
+  /** Convenience flag the template reads to disable the action buttons. */
+  protected readonly hasSelection = computed(() => this.selectedAffiliate() !== null);
 
   /**
    * Filtered view over the cached list. The data table consumes this signal directly;
@@ -86,7 +100,8 @@ export class AffiliateListPage {
   /**
    * Column descriptors for {@link DataTableComponent}. The DNI column is non-hideable
    * because it's the natural key of the row — losing it would leave users without a
-   * stable identifier to act on. Actions are projected through the `#actions` template.
+   * stable identifier to act on. No per-row action column any more: actions live in
+   * the page toolbar and operate on the currently-selected row.
    */
   protected readonly columns: readonly DataTableColumn<Affiliate>[] = [
     {
@@ -137,8 +152,39 @@ export class AffiliateListPage {
     });
   }
 
-  /** Triggered from the row's trailing delete button. */
-  protected onDelete(affiliate: Affiliate): void {
+  /** Opens the read-only detail modal for the currently-selected affiliate. */
+  protected onShowDetail(): void {
+    const affiliate = this.selectedAffiliate();
+    if (!affiliate) {
+      return;
+    }
+    this.dialog.open(AffiliateDetailDialogComponent, {
+      data: affiliate,
+      width: '480px',
+      maxWidth: '95vw',
+    });
+  }
+
+  /** Navigates to the edit form for the currently-selected affiliate. */
+  protected onEdit(): void {
+    const affiliate = this.selectedAffiliate();
+    if (!affiliate) {
+      return;
+    }
+    void this.router.navigate(['/afiliados', affiliate.dni, 'editar']);
+  }
+
+  /**
+   * Confirms then deletes the currently-selected affiliate. On success the
+   * selection is cleared so the toolbar buttons disable again — leaving the
+   * selection around after the underlying row vanishes would let the user
+   * trigger actions on a stale object.
+   */
+  protected onDelete(): void {
+    const affiliate = this.selectedAffiliate();
+    if (!affiliate) {
+      return;
+    }
     const ref = this.dialog.open(ConfirmDialogComponent, {
       width: '420px',
       data: {
@@ -155,15 +201,19 @@ export class AffiliateListPage {
         return;
       }
       this.service.delete(affiliate.dni).subscribe({
-        next: () => this.snackBar.open('Afiliado eliminado', 'OK', { duration: 3000 }),
+        next: () => {
+          this.selectedAffiliate.set(null);
+          this.snackBar.open('Afiliado eliminado', 'OK', { duration: 3000 });
+        },
         error: () =>
           this.snackBar.open('No se pudo eliminar el afiliado', 'OK', { duration: 5000 }),
       });
     });
   }
 
-  /** Manual refresh action exposed on the toolbar; clears any prior error. */
+  /** Manual refresh action exposed on the header; also clears any prior selection. */
   protected onRefresh(): void {
+    this.selectedAffiliate.set(null);
     this.service.loadActive().subscribe();
   }
 }

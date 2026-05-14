@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   input,
+  model,
   OnInit,
   signal,
   TemplateRef,
@@ -115,6 +116,24 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * layout is expected to stay stable across data refreshes.
    */
   readonly padToPageSize = input<boolean>(false);
+
+  /**
+   * Enables single-row selection. When true, clicking a data row sets
+   * `selectedRow`; clicking the already-selected row clears it. Placeholder rows
+   * (from `padToPageSize`) are not selectable. The selected row gets a Material
+   * "secondary container" highlight so callers can drive selection-dependent
+   * affordances (toolbar buttons, etc.) off the model without inventing a
+   * parallel state channel.
+   */
+  readonly selectable = input<boolean>(false);
+
+  /**
+   * Two-way bound currently-selected row. `model()` (Angular 17+) lets callers
+   * bind with `[(selectedRow)]` so the parent owns the canonical state and can
+   * clear the selection imperatively (after a delete succeeds, after a manual
+   * refresh, etc.) without going through an event.
+   */
+  readonly selectedRow = model<T | null>(null);
 
   /** Label of the trailing action column when an `actions` template is projected. */
   readonly actionsLabel = input<string>('Acciones');
@@ -308,6 +327,34 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
 
   /** Selected count for the chooser caption. */
   protected readonly draftCount = computed(() => this.draftVisibleColumns().size);
+
+  /**
+   * Row click handler driving the single-row selection model. Ignored when
+   * `selectable` is off or when the clicked row is a `null` placeholder. Clicking
+   * the already-selected row clears the selection — that's the discoverable
+   * "click again to deselect" pattern and avoids stranding the user with a
+   * selection they cannot drop without using the keyboard.
+   */
+  protected onRowClick(row: T | null): void {
+    if (!this.selectable() || row === null) {
+      return;
+    }
+    this.selectedRow.update((current) => (current === row ? null : row));
+  }
+
+  /**
+   * Computes the class list applied to each rendered row. We keep the logic in
+   * TS so the template can stay declarative and `:hover` styles still flow
+   * through Tailwind utilities without leaking into the component's own SCSS.
+   */
+  protected rowClasses(row: T | null): string {
+    if (!this.selectable() || row === null) {
+      return '';
+    }
+    return this.selectedRow() === row
+      ? 'cursor-pointer bg-[var(--mat-sys-secondary-container)]'
+      : 'cursor-pointer hover:bg-[var(--mat-sys-surface-container-high)]';
+  }
 
   private hydrateFromPreferences(): void {
     const defaults = this.computeDefaultVisible();

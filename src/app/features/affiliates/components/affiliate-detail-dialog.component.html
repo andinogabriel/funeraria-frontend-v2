@@ -1,0 +1,49 @@
+<h2 mat-dialog-title class="flex items-center gap-3 !pb-2">
+  <mat-icon class="material-symbols-outlined text-[var(--mat-sys-primary)]">person</mat-icon>
+  {{ data.firstName }} {{ data.lastName }}
+</h2>
+
+<mat-dialog-content>
+  <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">DNI</dt>
+    <dd class="text-sm m-0 font-mono tabular-nums">{{ data.dni }}</dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha de nacimiento</dt>
+    <dd class="text-sm m-0">
+      {{ birthDateLabel }}
+      @if (age !== null) {
+        <span class="text-[var(--mat-sys-on-surface-variant)]">· {{ age }} años</span>
+      }
+    </dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Género</dt>
+    <dd class="text-sm m-0">{{ data.gender.name }}</dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Parentesco</dt>
+    <dd class="text-sm m-0">{{ data.relationship.name }}</dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Alta</dt>
+    <dd class="text-sm m-0">{{ startDateLabel }}</dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Estado</dt>
+    <dd class="text-sm m-0">
+      @if (data.deceased) {
+        <span
+          class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+        >
+          Fallecido
+        </span>
+      } @else {
+        <span
+          class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
+        >
+          Activo
+        </span>
+      }
+    </dd>
+  </dl>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cerrar</button>
+</mat-dialog-actions>
