@@ -1,0 +1,187 @@
+<div class="flex flex-col gap-6">
+  <header class="flex items-center gap-3">
+    <a mat-icon-button routerLink="/planes" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">{{ title }}</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        {{
+          mode === 'edit'
+            ? 'Actualizá los datos del plan seleccionado.'
+            : 'Completá los datos para sumar un nuevo plan.'
+        }}
+      </p>
+    </div>
+  </header>
+
+  <mat-card class="!rounded-xl">
+    <mat-card-content class="!p-6 lg:!p-8 flex flex-col gap-8" [formGroup]="form">
+      <section class="flex flex-col gap-4">
+        <header class="flex flex-col gap-1">
+          <h2 class="text-lg font-semibold m-0">Datos del plan</h2>
+          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+            Nombre, descripción y margen.
+          </p>
+        </header>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <mat-form-field appearance="fill">
+            <mat-label>Nombre</mat-label>
+            <input matInput formControlName="name" autocomplete="off" maxlength="100" />
+            @if (form.controls.name.touched && form.controls.name.hasError('required')) {
+              <mat-error>El nombre es obligatorio.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Margen (%)</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="profitPercentage"
+              autocomplete="off"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+            />
+            <mat-hint>Porcentaje aplicado sobre el costo total.</mat-hint>
+            @if (
+              form.controls.profitPercentage.touched &&
+              form.controls.profitPercentage.hasError('required')
+            ) {
+              <mat-error>El margen es obligatorio.</mat-error>
+            }
+            @if (
+              form.controls.profitPercentage.touched &&
+              (form.controls.profitPercentage.hasError('min') ||
+                form.controls.profitPercentage.hasError('max'))
+            ) {
+              <mat-error>Ingresá un margen válido (0 a 9.999.999,99).</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="fill" class="sm:col-span-2">
+            <mat-label>Descripción</mat-label>
+            <textarea matInput formControlName="description" rows="3" maxlength="1000"></textarea>
+          </mat-form-field>
+        </div>
+      </section>
+
+      <mat-divider />
+
+      <!--
+        Items sub-form. Each row picks a catalog item (by code) and a quantity. Adding
+        and removing rows mutates the `itemsPlan` FormArray; rows live as their own
+        nested FormGroups so per-row validation surfaces independently.
+      -->
+      <section class="flex flex-col gap-4" formArrayName="itemsPlan">
+        <header class="flex flex-wrap items-center gap-3">
+          <div class="flex flex-col">
+            <h2 class="text-lg font-semibold m-0">Items del plan</h2>
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Item y cantidad incluida.
+            </p>
+          </div>
+          <span class="flex-1"></span>
+          <button mat-stroked-button type="button" (click)="onAddItem()" [disabled]="!itemsReady()">
+            <mat-icon class="material-symbols-outlined">add</mat-icon>
+            Agregar item
+          </button>
+        </header>
+
+        @if (itemsPlan.length === 0) {
+          <p
+            class="text-sm text-[var(--mat-sys-on-surface-variant)] rounded-md p-3 bg-[var(--mat-sys-surface-container)] m-0"
+          >
+            Todavía no agregaste items. Podés guardar el plan vacío y completarlo más tarde.
+          </p>
+        } @else {
+          <div class="flex flex-col gap-3">
+            @for (group of itemsPlan.controls; track $index) {
+              <div
+                class="grid grid-cols-[1fr_auto_auto] sm:grid-cols-[1fr_140px_auto] gap-2 items-start"
+                [formGroupName]="$index"
+              >
+                <mat-form-field appearance="fill" subscriptSizing="dynamic">
+                  <mat-label>Item</mat-label>
+                  <mat-select formControlName="code">
+                    @for (entry of items() ?? []; track entry.code) {
+                      <mat-option [value]="entry.code">{{ entry.name }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (group.controls.code.touched && group.controls.code.hasError('required')) {
+                    <mat-error>Seleccioná un item.</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="fill" subscriptSizing="dynamic">
+                  <mat-label>Cantidad</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    formControlName="quantity"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    min="1"
+                    max="200"
+                  />
+                  @if (
+                    group.controls.quantity.touched && group.controls.quantity.hasError('required')
+                  ) {
+                    <mat-error>Cantidad obligatoria.</mat-error>
+                  }
+                  @if (
+                    group.controls.quantity.touched &&
+                    (group.controls.quantity.hasError('min') ||
+                      group.controls.quantity.hasError('max'))
+                  ) {
+                    <mat-error>Entre 1 y 200.</mat-error>
+                  }
+                </mat-form-field>
+
+                <button
+                  type="button"
+                  mat-icon-button
+                  color="warn"
+                  class="!mt-1"
+                  (click)="onRemoveItem($index)"
+                  matTooltip="Quitar item"
+                  aria-label="Quitar item"
+                >
+                  <mat-icon class="material-symbols-outlined">delete</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </section>
+
+      @if (errorMessage(); as message) {
+        <p
+          class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+          role="alert"
+        >
+          {{ message }}
+        </p>
+      }
+
+      <div class="flex justify-end gap-2 pt-2">
+        <a mat-stroked-button routerLink="/planes" class="!h-11">Cancelar</a>
+        <button
+          type="button"
+          mat-flat-button
+          color="primary"
+          class="!h-11"
+          (click)="onSubmit()"
+          [disabled]="submitting() || !itemsReady() || form.invalid"
+        >
+          @if (submitting()) {
+            <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+          }
+          {{ mode === 'edit' ? 'Guardar cambios' : 'Crear plan' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -81,6 +81,7 @@ export class ShellComponent {
   private readonly allNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', requiresAdmin: false },
     { path: '/afiliados', label: 'Afiliados', icon: 'group', requiresAdmin: false },
+    { path: '/planes', label: 'Planes', icon: 'workspace_premium', requiresAdmin: false },
     { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
   ] as const;
 
