@@ -71,12 +71,27 @@ export class AuthService {
         subscriber.complete();
       });
     }
+    // The DTO's `token` field is the bare JWT, not the Authorization header value.
+    // `session.authorization` carries the `Bearer ` prefix so it can be copied verbatim
+    // into headers; we strip it here so the backend's blacklist parser sees a clean
+    // compact JWT (the parser rejects whitespace).
     const body: LogoutRequest = {
-      token: session.authorization,
+      token: stripBearerPrefix(session.authorization),
       deviceInfo: getDeviceInfo(),
     };
     return this.http
       .put<void>(`${environment.apiBaseUrl}/v1/users/logout`, body)
       .pipe(tap({ next: () => this.store.clear(), error: () => this.store.clear() }));
   }
+}
+
+/**
+ * Removes the `Bearer ` scheme prefix from an Authorization header value, returning the
+ * raw token. Case-insensitive on the scheme name so a mis-cased backend response does
+ * not silently bypass the normalisation. Returns the input unchanged when no prefix is
+ * present so callers can pass either form without branching.
+ */
+function stripBearerPrefix(value: string): string {
+  const match = /^Bearer\s+/i.exec(value);
+  return match ? value.slice(match[0].length) : value;
 }
