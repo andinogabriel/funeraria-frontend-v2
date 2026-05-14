@@ -29,21 +29,22 @@
   -->
   @if (isHandset()) {
     <!--
-      Stable wizard card. The previous attempt used Tailwind's `min-h-[720px]`
-      on the `<mat-card>` but it was not surviving in runtime — Material 20's
-      own `<mat-card>` host styles (or Tailwind v4's layer ordering) won the
-      cascade for `min-height` and the card kept shrinking to the active
-      step's intrinsic content height on step 2. Inline style wins on
-      specificity (anything short of `!important`), so we set `min-height`
-      via Angular's property binding and the card now holds 720 px regardless
-      of which step is showing.
-      720px covers the taller step (Datos personales, 4 fields + buttons)
-      with a small margin so both steps fit comfortably with empty space
-      below when the active step has fewer fields.
+      Mobile wizard uses a HORIZONTAL stepper with `labelPosition="bottom"`.
+      Two previous attempts with a vertical stepper kept failing QA: each step
+      lives at a different vertical position inside the card (step 1 content
+      sits between header 1 and header 2; step 2 content sits below header 2),
+      so even when we pinned the outer card height the *content area* still
+      visually shifted between transitions — exactly the "wizard sigue
+      cambiando de tamaño" feedback. A horizontal stepper places both step
+      indicators in a single compact row at the top and the content always
+      renders right below them, so swapping steps only swaps the fields and
+      the rest of the layout holds still. With 2 short labels ("Datos
+      personales" / "Clasificación") the row fits comfortably on a 430-px
+      iPhone viewport.
     -->
-    <mat-card class="!rounded-xl" [style.minHeight.px]="720">
+    <mat-card class="!rounded-xl">
       <mat-card-content class="!p-4 sm:!p-6">
-        <mat-stepper #stepper [linear]="true" orientation="vertical">
+        <mat-stepper #stepper [linear]="true" orientation="horizontal" labelPosition="bottom">
           <!--
             The default stepper indicator icons (`done`, `edit`) ship as
             ligatures that resolve against the plain Material Icons font, which
