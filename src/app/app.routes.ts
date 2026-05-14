@@ -81,6 +81,57 @@ export const routes: Routes = [
           import('./features/plans/pages/plan-form.page').then((m) => m.PlanFormPage),
         data: { mode: 'edit' },
       },
+      {
+        path: 'items',
+        loadComponent: () =>
+          import('./features/items/pages/item-list.page').then((m) => m.ItemListPage),
+      },
+      {
+        path: 'items/nuevo',
+        loadComponent: () =>
+          import('./features/items/pages/item-form.page').then((m) => m.ItemFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'items/:code/editar',
+        loadComponent: () =>
+          import('./features/items/pages/item-form.page').then((m) => m.ItemFormPage),
+        data: { mode: 'edit' },
+      },
+      {
+        path: 'marcas',
+        loadComponent: () =>
+          import('./features/brands/pages/brand-list.page').then((m) => m.BrandListPage),
+      },
+      {
+        path: 'marcas/nueva',
+        loadComponent: () =>
+          import('./features/brands/pages/brand-form.page').then((m) => m.BrandFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'marcas/:id/editar',
+        loadComponent: () =>
+          import('./features/brands/pages/brand-form.page').then((m) => m.BrandFormPage),
+        data: { mode: 'edit' },
+      },
+      {
+        path: 'categorias',
+        loadComponent: () =>
+          import('./features/categories/pages/category-list.page').then((m) => m.CategoryListPage),
+      },
+      {
+        path: 'categorias/nueva',
+        loadComponent: () =>
+          import('./features/categories/pages/category-form.page').then((m) => m.CategoryFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'categorias/:id/editar',
+        loadComponent: () =>
+          import('./features/categories/pages/category-form.page').then((m) => m.CategoryFormPage),
+        data: { mode: 'edit' },
+      },
     ],
   },
   { path: '**', redirectTo: '' },
