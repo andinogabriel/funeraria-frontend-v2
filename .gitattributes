@@ -1,0 +1,26 @@
+# Canonical line-ending normalisation for this repo.
+#
+# Without this, Windows checkouts with `core.autocrlf=true` keep flipping every
+# source file between LF (what Prettier writes, what Linux/CI expects) and CRLF
+# (what Windows checkout produces). The result is `git status` claiming a dozen
+# files are modified even when the content diff is empty — a chronic source of
+# noise during normal development.
+#
+# `* text=auto eol=lf` tells git: "treat every text file as text, store it with
+# LF in the repository, and convert it to LF on checkout regardless of the OS".
+# Binary files are still detected automatically and left alone.
+
+* text=auto eol=lf
+
+# Explicit overrides for binary formats we ship; keeps git from ever trying to
+# diff or convert them.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.pdf   binary
