@@ -62,40 +62,82 @@
 
       <span class="hidden sm:block flex-1"></span>
 
-      <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+      <!--
+        Two presentations of the same actions:
+        - Mobile (`<sm`): `mat-icon-button` — Material's 40 × 40 circular
+          icon button, designed for icon-only contexts. Previous attempt
+          collapsed `mat-stroked-button` with `!min-w-0 !px-2` and got a
+          squished pill shape that QA called "redondo mal hecho".
+        - Tablet+ (`sm:`): `mat-stroked-button` with text + icon, the
+          original full-fat buttons.
+        Both sets live in the DOM with Tailwind visibility classes
+        (`sm:hidden` / `hidden sm:flex`) so we avoid a `BreakpointObserver`
+        subscription here — the cost is two extra `<button>` elements per
+        action; the win is no reactive plumbing for what is purely a
+        presentational swap.
+      -->
+      <div class="flex items-center gap-0 shrink-0 sm:hidden">
         <button
-          mat-stroked-button
-          class="!min-w-0 !px-2 sm:!px-4"
+          mat-icon-button
           [disabled]="!hasSelection()"
           (click)="onShowDetail()"
           matTooltip="Ver detalle"
           aria-label="Ver detalle"
         >
           <mat-icon class="material-symbols-outlined">visibility</mat-icon>
-          <span class="hidden sm:inline">Detalle</span>
         </button>
         <button
-          mat-stroked-button
-          class="!min-w-0 !px-2 sm:!px-4"
+          mat-icon-button
           [disabled]="!hasSelection()"
           (click)="onEdit()"
           matTooltip="Editar afiliado"
           aria-label="Editar afiliado"
         >
           <mat-icon class="material-symbols-outlined">edit</mat-icon>
-          <span class="hidden sm:inline">Editar</span>
         </button>
         <button
-          mat-stroked-button
+          mat-icon-button
           color="warn"
-          class="!min-w-0 !px-2 sm:!px-4"
           [disabled]="!hasSelection()"
           (click)="onDelete()"
           matTooltip="Eliminar afiliado"
           aria-label="Eliminar afiliado"
         >
           <mat-icon class="material-symbols-outlined">delete</mat-icon>
-          <span class="hidden sm:inline">Eliminar</span>
+        </button>
+      </div>
+
+      <div class="hidden sm:flex items-center gap-2 shrink-0">
+        <button
+          mat-stroked-button
+          [disabled]="!hasSelection()"
+          (click)="onShowDetail()"
+          matTooltip="Ver detalle"
+          aria-label="Ver detalle"
+        >
+          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
+          Detalle
+        </button>
+        <button
+          mat-stroked-button
+          [disabled]="!hasSelection()"
+          (click)="onEdit()"
+          matTooltip="Editar afiliado"
+          aria-label="Editar afiliado"
+        >
+          <mat-icon class="material-symbols-outlined">edit</mat-icon>
+          Editar
+        </button>
+        <button
+          mat-stroked-button
+          color="warn"
+          [disabled]="!hasSelection()"
+          (click)="onDelete()"
+          matTooltip="Eliminar afiliado"
+          aria-label="Eliminar afiliado"
+        >
+          <mat-icon class="material-symbols-outlined">delete</mat-icon>
+          Eliminar
         </button>
       </div>
     </div>
