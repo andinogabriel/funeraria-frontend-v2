@@ -13,7 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
-import { ItemService } from '../item.service';
+import { ItemService } from '../../items/item.service';
 import { PlanService } from '../plan.service';
 import type { Plan, PlanRequest } from '../plan.types';
 

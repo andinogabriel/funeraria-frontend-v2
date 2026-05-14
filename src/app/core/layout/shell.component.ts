@@ -82,6 +82,9 @@ export class ShellComponent {
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', requiresAdmin: false },
     { path: '/afiliados', label: 'Afiliados', icon: 'group', requiresAdmin: false },
     { path: '/planes', label: 'Planes', icon: 'workspace_premium', requiresAdmin: false },
+    { path: '/items', label: 'Items', icon: 'inventory_2', requiresAdmin: false },
+    { path: '/marcas', label: 'Marcas', icon: 'sell', requiresAdmin: false },
+    { path: '/categorias', label: 'Categorías', icon: 'category', requiresAdmin: false },
     { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
   ] as const;
 

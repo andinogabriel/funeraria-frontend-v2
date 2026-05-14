@@ -21,6 +21,7 @@ import {
   SelectionListCardComponent,
   type ListCardAction,
 } from '../../../shared/selection-list-card';
+import { PlanDetailDialogComponent } from '../components/plan-detail-dialog.component';
 import { PlanService } from '../plan.service';
 import type { Plan } from '../plan.types';
 
@@ -107,6 +108,14 @@ export class PlanListPage {
 
   protected readonly actions = computed<readonly ListCardAction[]>(() => [
     {
+      id: 'detail',
+      icon: 'visibility',
+      label: 'Detalle',
+      tooltip: 'Ver detalle',
+      disabled: !this.hasSelection(),
+      handler: () => this.onShowDetail(),
+    },
+    {
       id: 'edit',
       icon: 'edit',
       label: 'Editar',
@@ -143,6 +152,19 @@ export class PlanListPage {
       if (!visible.some((plan) => plan.id === selected.id)) {
         this.selectedPlan.set(null);
       }
+    });
+  }
+
+  /** Opens the read-only detail dialog for the currently-selected plan. */
+  private onShowDetail(): void {
+    const plan = this.selectedPlan();
+    if (!plan) {
+      return;
+    }
+    this.dialog.open(PlanDetailDialogComponent, {
+      data: plan,
+      width: '560px',
+      maxWidth: '95vw',
     });
   }
 

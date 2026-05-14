@@ -1,0 +1,62 @@
+<div class="flex flex-col gap-6">
+  <header class="flex items-center gap-3">
+    <a mat-icon-button routerLink="/marcas" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">{{ title }}</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        {{
+          mode === 'edit'
+            ? 'Actualizá los datos de la marca seleccionada.'
+            : 'Completá los datos para sumar una nueva marca.'
+        }}
+      </p>
+    </div>
+  </header>
+
+  <mat-card class="!rounded-xl">
+    <mat-card-content class="!p-6 lg:!p-8 flex flex-col gap-6" [formGroup]="form">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <mat-form-field appearance="fill">
+          <mat-label>Nombre</mat-label>
+          <input matInput formControlName="name" autocomplete="off" maxlength="100" />
+          @if (form.controls.name.touched && form.controls.name.hasError('required')) {
+            <mat-error>El nombre es obligatorio.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Sitio web</mat-label>
+          <input matInput formControlName="webPage" autocomplete="off" type="url" />
+        </mat-form-field>
+      </div>
+
+      @if (errorMessage(); as message) {
+        <p
+          class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+          role="alert"
+        >
+          {{ message }}
+        </p>
+      }
+
+      <div class="flex justify-end gap-2 pt-2">
+        <a mat-stroked-button routerLink="/marcas" class="!h-11">Cancelar</a>
+        <button
+          type="button"
+          mat-flat-button
+          color="primary"
+          class="!h-11"
+          (click)="onSubmit()"
+          [disabled]="submitting() || form.invalid"
+        >
+          @if (submitting()) {
+            <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+          }
+          {{ mode === 'edit' ? 'Guardar cambios' : 'Crear marca' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
