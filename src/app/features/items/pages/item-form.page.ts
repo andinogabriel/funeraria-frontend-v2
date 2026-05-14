@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
+import { NgTemplateOutlet } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -9,8 +19,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { BrandService } from '../../brands/brand.service';
 import { CategoryService } from '../../categories/category.service';
@@ -18,13 +30,25 @@ import { ItemService } from '../item.service';
 import type { Item, ItemRequest } from '../item.types';
 
 /**
- * Single component for both create + edit of items. The form is broken into
- * three logical sections (datos, dimensiones, clasificación) inside a single
- * card — same pattern as the affiliate form on desktop.
+ * Single component for both create + edit of items.
  *
- * `brand` and `category` are required-ish at the operator level (the catalog
- * relies on them for filtering and reporting) but the backend marks them as
- * nullable; the form mirrors that by allowing empty selects.
+ * <h3>Responsive layout</h3>
+ *
+ * - Desktop: a single card with three sections (datos / clasificación /
+ *   dimensiones) stacked behind dividers.
+ * - Mobile: a 2-step wizard — Datos principales then Clasificación + the
+ *   conditional Dimensiones panel. Same wizard chrome as the affiliate
+ *   form (horizontal stepper with `labelPosition="bottom"`, indicators
+ *   that stay as numbers via `matStepperIcon` overrides).
+ *
+ * <h3>Conditional Dimensiones panel</h3>
+ *
+ * Only ataúd-style items track physical length / height / width. The
+ * Dimensiones panel renders only when the selected category's name
+ * contains "ataud" / "ataudes" — case- and accent-insensitive so
+ * "Ataúd", "ATAÚDES", "Cajón / Ataúd" all match. When the operator
+ * picks a non-ataúd category we reset the three dimension fields so a
+ * later save does not silently ship stale numbers.
  */
 @Component({
   selector: 'app-item-form-page',
@@ -38,6 +62,8 @@ import type { Item, ItemRequest } from '../item.types';
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    MatStepperModule,
+    NgTemplateOutlet,
     ReactiveFormsModule,
     RouterLink,
   ],
@@ -52,6 +78,7 @@ export class ItemFormPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly breakpointObserver = inject(BreakpointObserver);
 
   protected readonly mode: 'create' | 'edit' =
     this.route.snapshot.data['mode'] === 'edit' ? 'edit' : 'create';
@@ -69,25 +96,71 @@ export class ItemFormPage {
     () => this.brands() !== null && this.categories() !== null,
   );
 
-  protected readonly form = this.fb.group({
+  /**
+   * `true` on phones / small tablets. Drives the wizard-vs-single-card layout
+   * decision in the template.
+   */
+  protected readonly isHandset = toSignal(
+    this.breakpointObserver
+      .observe([Breakpoints.Handset, Breakpoints.TabletPortrait])
+      .pipe(map((state) => state.matches)),
+    { initialValue: false },
+  );
+
+  /**
+   * Step 1 controls — single FormGroup so the linear stepper can validate
+   * the step in isolation through `[stepControl]="datos"`.
+   */
+  protected readonly datos = this.fb.group({
     name: this.fb.control('', {
       validators: [Validators.required, Validators.maxLength(150)],
     }),
-    description: this.fb.control(''),
     code: this.fb.control('', { validators: [Validators.required, Validators.maxLength(60)] }),
     price: this.fb.control<number | null>(null, {
       validators: [Validators.required, Validators.min(0)],
     }),
+    description: this.fb.control(''),
+  });
+
+  /** Step 2 controls — classification + the conditional dimensions block. */
+  protected readonly classification = this.fb.group({
+    brandId: this.fb.control<number | null>(null),
+    categoryId: this.fb.control<number | null>(null),
     itemLength: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }),
     itemHeight: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }),
     itemWidth: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }),
-    brandId: this.fb.control<number | null>(null),
-    categoryId: this.fb.control<number | null>(null),
+  });
+
+  /**
+   * Reactive snapshot of the categoryId control. Lets us derive the
+   * `dimensionsApplicable` computed without polling `value` on every CD pass.
+   */
+  private readonly selectedCategoryId = toSignal(
+    this.classification.controls.categoryId.valueChanges,
+    {
+      initialValue: null as number | null,
+    },
+  );
+
+  /**
+   * Whether the Dimensiones panel should render. Looks up the category in
+   * the cached catalog and compares an ASCII-folded, lowercased copy of its
+   * name against `ataud` — that covers Ataúd, Ataud, ATAÚDES, "Cajón /
+   * Ataúd", etc. in one match.
+   */
+  protected readonly dimensionsApplicable = computed<boolean>(() => {
+    const id = this.selectedCategoryId();
+    if (id === null) {
+      return false;
+    }
+    const category = (this.categories() ?? []).find((c) => c.id === id);
+    if (!category) {
+      return false;
+    }
+    return matchesAtaud(category.name);
   });
 
   constructor() {
-    // Brands + categories drive the selects; items reloads so `findByCode` can
-    // hydrate the form in edit mode.
     forkJoin([
       this.brandService.loadAll(),
       this.categoryService.loadAll(),
@@ -99,37 +172,58 @@ export class ItemFormPage {
           this.patchFrom(cached);
         } else {
           this.errorMessage.set('No se encontró el item solicitado.');
-          this.form.disable();
+          this.datos.disable();
+          this.classification.disable();
         }
+      }
+    });
+
+    // Clear the three dimension fields whenever the selected category stops
+    // being ataud-like. Without this, switching from "Ataúdes" to "Coronas"
+    // would silently keep the old width / height / length on the payload.
+    effect(() => {
+      if (!this.dimensionsApplicable()) {
+        this.classification.patchValue(
+          { itemLength: null, itemHeight: null, itemWidth: null },
+          { emitEvent: false },
+        );
       }
     });
   }
 
   protected onSubmit(): void {
-    if (this.form.invalid || this.submitting() || !this.catalogsReady()) {
-      this.form.markAllAsTouched();
+    const valid = this.datos.valid && this.classification.valid;
+    if (!valid || this.submitting() || !this.catalogsReady()) {
+      this.datos.markAllAsTouched();
+      this.classification.markAllAsTouched();
       return;
     }
-    const value = this.form.getRawValue();
-    if (value.price === null) {
+    const datos = this.datos.getRawValue();
+    const cls = this.classification.getRawValue();
+    if (datos.price === null) {
       return;
     }
 
     const brand =
-      value.brandId !== null ? (this.brands()?.find((b) => b.id === value.brandId) ?? null) : null;
+      cls.brandId !== null ? (this.brands()?.find((b) => b.id === cls.brandId) ?? null) : null;
     const category =
-      value.categoryId !== null
-        ? (this.categories()?.find((c) => c.id === value.categoryId) ?? null)
+      cls.categoryId !== null
+        ? (this.categories()?.find((c) => c.id === cls.categoryId) ?? null)
         : null;
 
+    // Only ship dimensions when the panel was visible at submit time. Anything
+    // else means the operator chose a non-ataúd category — the values, if any
+    // linger from a previous selection, were already cleared by the effect.
+    const dimensionsApply = this.dimensionsApplicable();
+
     const request: ItemRequest = {
-      name: value.name.trim(),
-      description: value.description.trim() || null,
-      code: value.code.trim(),
-      price: value.price,
-      itemLength: value.itemLength,
-      itemHeight: value.itemHeight,
-      itemWidth: value.itemWidth,
+      name: datos.name.trim(),
+      description: datos.description.trim() || null,
+      code: datos.code.trim(),
+      price: datos.price,
+      itemLength: dimensionsApply ? cls.itemLength : null,
+      itemHeight: dimensionsApply ? cls.itemHeight : null,
+      itemWidth: dimensionsApply ? cls.itemWidth : null,
       brand,
       category,
     };
@@ -162,19 +256,21 @@ export class ItemFormPage {
   }
 
   private patchFrom(item: Item): void {
-    this.form.patchValue({
+    this.datos.patchValue({
       name: item.name,
       description: item.description ?? '',
       code: item.code,
       price: item.price,
+    });
+    this.classification.patchValue({
+      brandId: item.brand?.id ?? null,
+      categoryId: item.category?.id ?? null,
       itemLength: item.itemLength,
       itemHeight: item.itemHeight,
       itemWidth: item.itemWidth,
-      brandId: item.brand?.id ?? null,
-      categoryId: item.category?.id ?? null,
     });
     // Code is the natural key — once saved we never let the operator change it.
-    this.form.controls.code.disable();
+    this.datos.controls.code.disable();
   }
 
   private mapError(status: number, detail?: string): string {
@@ -191,4 +287,20 @@ export class ItemFormPage {
         return detail ?? 'Ocurrió un error inesperado. Probá de nuevo.';
     }
   }
+}
+
+/**
+ * Returns `true` when the supplied category name represents an ataúd-family
+ * record. Folding through NFD + diacritic strip means "Ataúd", "ATAÚDES" and
+ * "Cajón / Ataúd" all collapse to a lowercase ASCII haystack we can `includes`
+ * against. We test for `'ataud'` rather than both singular and plural because
+ * `ataud` is a prefix of `ataudes` so one check covers both forms (and any
+ * future variant operators might invent).
+ */
+function matchesAtaud(name: string): boolean {
+  const normalized = name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+  return normalized.includes('ataud');
 }
