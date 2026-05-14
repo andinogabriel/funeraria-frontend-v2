@@ -51,57 +51,24 @@ body {
 }
 
 // -----------------------------------------------------------------------------
-// Tailwind v4 preflight ↔ Material outlined fields rescue.
+// Material form-field × Tailwind v4 preflight bridge.
 //
-// Tailwind's preflight applies `*, ::before, ::after, ::backdrop { border: 0 solid; }`
-// which has the SAME specificity as Material's own border declarations on the
-// notched-outline pieces. Whichever stylesheet loads last wins — and even with
-// styles.css ordered first, in some build modes the cascade still flips, leaving
-// the trailing/bottom outline invisible while the leading + notched label area
-// renders correctly. Result: fields look "half-drawn" with the label boxed at
-// the top-left and no closing border on the right.
+// Tailwind v4 preflight ships `*, ::before, ::after, ::backdrop { border: 0 solid; }`.
+// With Material's outlined `mat-form-field` that resulted in "half-drawn" fields:
+// the floating-label notch + leading corner rendered while the trailing edge and
+// the right side of the outline silently dropped. An earlier rescue tried to pin
+// the notched-outline borders back on individually — the result still leaked a
+// visible vertical seam at the start of every field. After two rounds of QA, we
+// migrated every call site to `appearance="fill"`, which uses a filled background
+// + bottom active indicator and sidesteps the notched-outline machinery entirely.
 //
-// The fix here pins the relevant outline borders back on, scoped to Material
-// classes so we never touch arbitrary application markup. We re-declare every
-// edge each piece is supposed to own; the colour falls back to the Material
-// outline token so theme switches keep working.
+// The only Material-specific rule that survives here is the width default: the
+// `<mat-form-field>` host is `display: inline-block` out of the box, which
+// produces visually narrow controls inside CSS grid / flex cells unless every
+// call site adds `w-full`. Forcing `display: block; width: 100%` makes the grids
+// in our pages "just work".
 // -----------------------------------------------------------------------------
 .mat-mdc-form-field {
-  // Make form fields stretch to fill their grid/flex cell by default. Material's
-  // own `<mat-form-field>` is `display: inline-block` which leaves room around
-  // narrow controls inside grid layouts unless every call site adds `w-full`.
   display: block;
   width: 100%;
-}
-
-.mat-mdc-notched-outline {
-  > .mat-mdc-notched-outline__leading,
-  > .mat-mdc-notched-outline__notch,
-  > .mat-mdc-notched-outline__trailing {
-    border-style: solid;
-    border-color: var(--mdc-outlined-text-field-outline-color, var(--mat-sys-outline));
-  }
-
-  > .mat-mdc-notched-outline__leading {
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-width: 1px;
-  }
-
-  > .mat-mdc-notched-outline__notch {
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-  }
-
-  > .mat-mdc-notched-outline__trailing {
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-right-width: 1px;
-  }
-}
-
-.mat-mdc-form-field-focus-overlay {
-  // Tailwind preflight also nukes background-color defaults; the focus overlay
-  // depends on Material's token to render the hover/focus tint.
-  background-color: var(--mat-sys-on-surface);
 }

@@ -28,60 +28,90 @@
       everything else holding still.
   -->
   @if (isHandset()) {
-    <mat-card class="!rounded-xl min-h-[640px]">
+    <mat-card class="!rounded-xl">
       <mat-card-content class="!p-4 sm:!p-6">
         <mat-stepper #stepper [linear]="true" orientation="vertical">
-          <mat-step [stepControl]="personal" label="Datos personales">
-            <ng-container *ngTemplateOutlet="personalFields" />
+          <!--
+            The default stepper indicator icons (`done`, `edit`) ship as ligatures
+            that resolve against the plain Material Icons font, which is NOT
+            registered in this app — only `Material Symbols Outlined` is. Without
+            an explicit override the indicator renders as raw ligature text ("done",
+            "edit"). We supply the three slots the stepper looks up so completed
+            steps show a clean check, editable steps show a pencil, and pending
+            steps fall back to the step number from `index`.
+          -->
+          <ng-template matStepperIcon="done" let-index="index">
+            <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4">check</mat-icon>
+          </ng-template>
+          <ng-template matStepperIcon="edit" let-index="index">
+            <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4">edit</mat-icon>
+          </ng-template>
+          <ng-template matStepperIcon="number" let-index="index">{{ index + 1 }}</ng-template>
 
-            <div class="flex flex-col-reverse gap-2 pt-4">
-              <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
-              <button
-                type="button"
-                mat-flat-button
-                color="primary"
-                class="!h-11"
-                matStepperNext
-                [disabled]="personal.invalid"
-              >
-                Siguiente
-                <mat-icon iconPositionEnd class="material-symbols-outlined">arrow_forward</mat-icon>
-              </button>
+          <mat-step [stepControl]="personal" label="Datos personales">
+            <!--
+              `min-h-[480px]` reserves a stable content area inside the step so
+              both steps render at the same height. Without this, step 2 (which
+              has fewer fields than step 1) made the whole wizard card snap to a
+              smaller height when the user pressed "Siguiente" — visually jarring
+              and the only feedback QA flagged on the mobile wizard.
+            -->
+            <div class="flex flex-col min-h-[480px]">
+              <ng-container *ngTemplateOutlet="personalFields" />
+
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+                <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
+                <button
+                  type="button"
+                  mat-flat-button
+                  color="primary"
+                  class="!h-11"
+                  matStepperNext
+                  [disabled]="personal.invalid"
+                >
+                  Siguiente
+                  <mat-icon iconPositionEnd class="material-symbols-outlined">
+                    arrow_forward
+                  </mat-icon>
+                </button>
+              </div>
             </div>
           </mat-step>
 
           <mat-step [stepControl]="classification" label="Clasificación">
-            <ng-container *ngTemplateOutlet="classificationFields" />
+            <div class="flex flex-col min-h-[480px]">
+              <ng-container *ngTemplateOutlet="classificationFields" />
 
-            @if (errorMessage(); as message) {
-              <p
-                class="text-sm m-0 mt-4 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
-                role="alert"
-              >
-                {{ message }}
-              </p>
-            }
+              @if (errorMessage(); as message) {
+                <p
+                  class="text-sm m-0 mt-4 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+                  role="alert"
+                >
+                  {{ message }}
+                </p>
+              }
 
-            <div class="flex flex-col-reverse gap-2 pt-4">
-              <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
-                <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
-                Atrás
-              </button>
-              <button
-                type="button"
-                mat-flat-button
-                color="primary"
-                class="!h-11"
-                (click)="onSubmit()"
-                [disabled]="
-                  submitting() || !catalogsReady() || personal.invalid || classification.invalid
-                "
-              >
-                @if (submitting()) {
-                  <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
-                }
-                {{ mode === 'edit' ? 'Guardar cambios' : 'Crear afiliado' }}
-              </button>
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+                <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
+                  <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+                  Atrás
+                </button>
+                <button
+                  type="button"
+                  mat-flat-button
+                  color="primary"
+                  class="!h-11"
+                  (click)="onSubmit()"
+                  [disabled]="
+                    submitting() || !catalogsReady() || personal.invalid || classification.invalid
+                  "
+                >
+                  @if (submitting()) {
+                    <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+                  }
+                  {{ mode === 'edit' ? 'Guardar cambios' : 'Crear afiliado' }}
+                </button>
+              </div>
             </div>
           </mat-step>
         </mat-stepper>
@@ -151,7 +181,7 @@
 -->
 <ng-template #personalFields>
   <form [formGroup]="personal" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="fill" class="w-full">
       <mat-label>Nombre</mat-label>
       <input matInput formControlName="firstName" autocomplete="given-name" maxlength="60" />
       @if (
@@ -161,7 +191,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="fill" class="w-full">
       <mat-label>Apellido</mat-label>
       <input matInput formControlName="lastName" autocomplete="family-name" maxlength="60" />
       @if (personal.controls.lastName.touched && personal.controls.lastName.hasError('required')) {
@@ -169,7 +199,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="fill" class="w-full">
       <mat-label>DNI</mat-label>
       <input
         matInput
@@ -192,7 +222,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="fill" class="w-full">
       <mat-label>Fecha de nacimiento</mat-label>
       <input matInput [matDatepicker]="picker" formControlName="birthDate" [max]="today" readonly />
       <mat-datepicker-toggle matIconSuffix [for]="picker" />
@@ -208,7 +238,7 @@
 
 <ng-template #classificationFields>
   <form [formGroup]="classification" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="fill" class="w-full">
       <mat-label>Género</mat-label>
       <mat-select formControlName="genderId">
         @for (gender of genders() ?? []; track gender.id) {
@@ -223,7 +253,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="w-full">
+    <mat-form-field appearance="fill" class="w-full">
       <mat-label>Parentesco</mat-label>
       <mat-select formControlName="relationshipId">
         @for (rel of relationships() ?? []; track rel.id) {
