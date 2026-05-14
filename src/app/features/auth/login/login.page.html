@@ -1,26 +1,81 @@
-<div
-  class="min-h-screen flex items-center justify-center p-4 bg-[var(--mat-sys-surface-container-low)]"
->
-  <mat-card class="w-full max-w-md">
-    <mat-card-header class="flex flex-col items-center gap-2 mb-6">
-      <mat-icon
-        class="material-symbols-outlined !text-5xl !w-12 !h-12 text-[var(--mat-sys-primary)]"
-      >
-        local_florist
-      </mat-icon>
-      <mat-card-title class="!text-2xl">Funeraria</mat-card-title>
-      <mat-card-subtitle>Iniciá sesión para continuar</mat-card-subtitle>
-    </mat-card-header>
+<div class="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[var(--mat-sys-surface)]">
+  <!--
+    Brand panel — shown on lg+ viewports. Uses Material's primary/tertiary container
+    tokens through `color-mix` so a future theme switch (light/dark, brand palette)
+    flows through without touching this markup.
+  -->
+  <aside
+    class="hidden lg:flex flex-col justify-between p-12 text-[var(--mat-sys-on-primary-container)]"
+    style="
+      background:
+        radial-gradient(
+          1200px 600px at 0% 0%,
+          color-mix(in srgb, var(--mat-sys-primary) 35%, transparent),
+          transparent 60%
+        ),
+        radial-gradient(
+          900px 500px at 100% 100%,
+          color-mix(in srgb, var(--mat-sys-tertiary) 30%, transparent),
+          transparent 55%
+        ),
+        var(--mat-sys-primary-container);
+    "
+  >
+    <div class="flex items-center gap-3">
+      <mat-icon class="material-symbols-outlined !text-4xl !w-10 !h-10">local_florist</mat-icon>
+      <span class="text-2xl font-semibold tracking-tight">Funeraria</span>
+    </div>
 
-    <mat-card-content>
+    <div class="flex flex-col gap-4 max-w-md">
+      <h1 class="text-4xl font-semibold leading-tight m-0">
+        Acompañamos a quienes acompañan.
+      </h1>
+      <p class="text-base opacity-90 m-0">
+        Consola para gestionar afiliados, planes y servicios con la seguridad y
+        trazabilidad que la operación requiere.
+      </p>
+    </div>
+
+    <ul class="flex flex-col gap-3 text-sm opacity-90 m-0 p-0 list-none">
+      <li class="flex items-center gap-2">
+        <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">verified_user</mat-icon>
+        Acceso seguro con doble factor de dispositivo.
+      </li>
+      <li class="flex items-center gap-2">
+        <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">bolt</mat-icon>
+        Operación rápida pensada para uso diario.
+      </li>
+      <li class="flex items-center gap-2">
+        <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">policy</mat-icon>
+        Auditoría completa de cada acción.
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Form panel — centered on mobile, left-aligned on desktop. -->
+  <section class="flex items-center justify-center p-4 sm:p-8 lg:p-12">
+    <div class="w-full max-w-md flex flex-col gap-6">
+      <header class="flex flex-col items-center lg:items-start gap-2">
+        <mat-icon
+          class="material-symbols-outlined !text-5xl !w-12 !h-12 text-[var(--mat-sys-primary)] lg:hidden"
+        >
+          local_florist
+        </mat-icon>
+        <h2 class="text-2xl lg:text-3xl font-semibold m-0">Iniciá sesión</h2>
+        <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+          Ingresá con tu cuenta corporativa para continuar.
+        </p>
+      </header>
+
       @if (contextMessage) {
         <div
           role="status"
-          class="mb-4 rounded-md p-3 text-sm bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
+          class="rounded-md p-3 text-sm bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
         >
           {{ contextMessage }}
         </div>
       }
+
       <form [formGroup]="form" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
         <mat-form-field appearance="outline">
           <mat-label>Email</mat-label>
@@ -31,6 +86,7 @@
             autocomplete="username"
             [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
           />
+          <mat-icon matPrefix class="material-symbols-outlined !mr-2">mail</mat-icon>
           @if (form.controls.email.touched && form.controls.email.hasError('required')) {
             <mat-error>El email es obligatorio.</mat-error>
           }
@@ -48,6 +104,7 @@
             autocomplete="current-password"
             [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
           />
+          <mat-icon matPrefix class="material-symbols-outlined !mr-2">lock</mat-icon>
           @if (form.controls.password.touched && form.controls.password.hasError('required')) {
             <mat-error>La contraseña es obligatoria.</mat-error>
           }
@@ -57,14 +114,19 @@
         </mat-form-field>
 
         @if (errorMessage(); as message) {
-          <p class="text-sm text-[var(--mat-sys-error)] m-0" role="alert">{{ message }}</p>
+          <p
+            class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+            role="alert"
+          >
+            {{ message }}
+          </p>
         }
 
         <button
           type="submit"
           mat-flat-button
           color="primary"
-          class="!h-12"
+          class="!h-12 !text-base"
           [disabled]="submitting()"
         >
           @if (submitting()) {
@@ -73,6 +135,10 @@
           Ingresar
         </button>
       </form>
-    </mat-card-content>
-  </mat-card>
+
+      <p class="text-xs text-[var(--mat-sys-on-surface-variant)] text-center lg:text-left m-0">
+        ¿Problemas para acceder? Contactá al administrador del sistema.
+      </p>
+    </div>
+  </section>
 </div>
