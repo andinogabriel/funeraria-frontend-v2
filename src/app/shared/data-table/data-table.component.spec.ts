@@ -26,7 +26,8 @@ interface Row {
       [columns]="columns"
       [storageKey]="storageKey"
       [initialSort]="initialSort"
-      [initialPageSize]="50"
+      [initialPageSize]="initialPageSize"
+      [padToPageSize]="padToPageSize"
     />
   `,
 })
@@ -35,6 +36,8 @@ class HostComponent {
   columns: readonly DataTableColumn<Row>[] = [];
   storageKey: string | undefined = undefined;
   initialSort: { active: string; direction: 'asc' | 'desc' | '' } | null = null;
+  initialPageSize = 50;
+  padToPageSize = false;
 
   @ViewChild(DataTableComponent) table!: DataTableComponent<Row>;
 }
@@ -155,6 +158,42 @@ describe('DataTableComponent', () => {
       active: 'score',
       direction: 'desc',
     });
+  });
+
+  it('pads the page with null placeholders up to the page size when padToPageSize is on', () => {
+    // Spin up a fresh fixture so `initialPageSize` is applied during hydration —
+    // the shared `beforeEach` already detected changes with the host's default 50.
+    const f = TestBed.createComponent(HostComponent);
+    f.componentInstance.rows = rows;
+    f.componentInstance.columns = columns;
+    f.componentInstance.initialPageSize = 5;
+    f.componentInstance.padToPageSize = true;
+    f.detectChanges();
+
+    const page = f.componentInstance.table['pagedData']();
+    expect(page).toHaveLength(5);
+    expect(page.slice(0, 3).every((r) => r !== null)).toBe(true);
+    expect(page.slice(3).every((r) => r === null)).toBe(true);
+  });
+
+  it('does not pad when padToPageSize is off (default)', () => {
+    const f = TestBed.createComponent(HostComponent);
+    f.componentInstance.rows = rows;
+    f.componentInstance.columns = columns;
+    f.componentInstance.initialPageSize = 5;
+    f.detectChanges();
+
+    expect(f.componentInstance.table['pagedData']()).toHaveLength(3);
+  });
+
+  it('returns a stable placeholder id from the internal trackBy for null rows', () => {
+    host.padToPageSize = true;
+    fixture.detectChanges();
+
+    const trackBy = host.table['effectiveTrackBy'];
+    expect(trackBy(0, null)).toBe('__placeholder_0');
+    expect(trackBy(7, null)).toBe('__placeholder_7');
+    expect(trackBy(0, rows[0])).toBe(rows[0]); // identity default
   });
 
   it('resets defaults including sort and page size when the chooser reset is invoked', () => {

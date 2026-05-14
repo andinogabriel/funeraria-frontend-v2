@@ -59,7 +59,14 @@
             <div class="flex flex-col min-h-[480px]">
               <ng-container *ngTemplateOutlet="personalFields" />
 
-              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+              <!--
+                Buttons sit right after the active step's fields (no `mt-auto`).
+                The reserved `min-h` on the wrapper still keeps the wizard card
+                from shrinking when the second step has fewer fields — empty
+                space just falls BELOW the buttons instead of in-between, which
+                is the behaviour QA asked for.
+              -->
+              <div class="flex flex-col-reverse gap-2 pt-4">
                 <a mat-stroked-button routerLink="/afiliados" class="!h-11">Cancelar</a>
                 <button
                   type="button"
@@ -91,7 +98,14 @@
                 </p>
               }
 
-              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+              <!--
+                Buttons sit right after the active step's fields (no `mt-auto`).
+                The reserved `min-h` on the wrapper still keeps the wizard card
+                from shrinking when the second step has fewer fields — empty
+                space just falls BELOW the buttons instead of in-between, which
+                is the behaviour QA asked for.
+              -->
+              <div class="flex flex-col-reverse gap-2 pt-4">
                 <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
                   <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
                   Atrás

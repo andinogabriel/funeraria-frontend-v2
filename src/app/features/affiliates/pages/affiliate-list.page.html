@@ -59,13 +59,22 @@
         <p class="m-0 text-sm">Probá con otro criterio o sumá un nuevo afiliado.</p>
       </div>
     } @else {
+      <!--
+        Affiliates grid is locked to 10 rows per page with no chooser and no
+        page-size selector — QA wanted a predictable layout. `padToPageSize`
+        keeps the table footprint stable even when the dataset is shorter than
+        a full page (the missing rows render as empty placeholders).
+      -->
       <app-data-table
         [data]="filtered()"
         [columns]="columns"
         [trackBy]="trackByDni"
         storageKey="affiliates.list"
         [initialSort]="{ active: 'lastName', direction: 'asc' }"
-        [initialPageSize]="25"
+        [initialPageSize]="10"
+        [hideColumnChooser]="true"
+        [hidePageSizeSelector]="true"
+        [padToPageSize]="true"
       >
         <ng-template #actions let-affiliate>
           <a
