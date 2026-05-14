@@ -30,178 +30,19 @@
     </div>
   }
 
-  <!--
-    On mobile the card is the scrolling container: `max-height` fits the
-    visible viewport and `overflow-y-auto` keeps swipes inside the card so
-    the user can run through the 10 rows without the whole page scrolling.
-    Combined with `sticky bottom-0` on the data-table's paginator, the
-    footer (page X of Y, prev/next arrows) is always on-screen.
-    On `sm+` we restore the natural flow: no max-height, `overflow-hidden`
-    again just clips the rounded corners as before.
-  -->
-  <mat-card
-    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
-  >
-    <!--
-      Single-row toolbar. On mobile the search shares the row with three
-      compact icon-only buttons; the `!min-w-0 !px-2` overrides on each
-      button collapse Material's default `mat-stroked-button` width so all
-      four controls fit a 430-px iPhone viewport. On `sm+` the buttons
-      expand to their usual padding and pick up the `Detalle / Editar /
-      Eliminar` text labels alongside the icons.
-    -->
-    <div
-      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
-    >
-      <div class="flex-1 min-w-0 sm:flex-none sm:w-80">
-        <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
-          <mat-label>Buscar por nombre, apellido o DNI</mat-label>
-          <input matInput type="search" [formControl]="search" autocomplete="off" />
-          <!--
-            Trailing clear affordance. The button stays mounted at all times
-            and we toggle `visibility` from the signal-backed `hasSearchValue`
-            so the field reads clean while empty but the `mat-form-field`
-            layout is computed only once. An earlier `@if (search.value)`
-            form added/removed the `matSuffix` on every keystroke, which on
-            its own would be cheap — except Material's form-field recalculates
-            its outline + suffix metrics every time a suffix is attached or
-            detached, and the user reported the resulting churn as the page
-            "reloading" on each character.
-          -->
-          <button
-            matSuffix
-            type="button"
-            mat-icon-button
-            aria-label="Borrar búsqueda"
-            matTooltip="Borrar búsqueda"
-            [style.visibility]="hasSearchValue() ? 'visible' : 'hidden'"
-            [attr.tabindex]="hasSearchValue() ? 0 : -1"
-            (click)="search.setValue('')"
-          >
-            <mat-icon class="material-symbols-outlined">close</mat-icon>
-          </button>
-        </mat-form-field>
-      </div>
-
-      <span class="hidden sm:block flex-1"></span>
-
-      <!--
-        Two presentations of the same actions:
-        - Mobile (`<sm`): `mat-icon-button` — Material's 40 × 40 circular
-          icon button, designed for icon-only contexts. Previous attempt
-          collapsed `mat-stroked-button` with `!min-w-0 !px-2` and got a
-          squished pill shape that QA called "redondo mal hecho".
-        - Tablet+ (`sm:`): `mat-stroked-button` with text + icon, the
-          original full-fat buttons.
-        Both sets live in the DOM with Tailwind visibility classes
-        (`sm:hidden` / `hidden sm:flex`) so we avoid a `BreakpointObserver`
-        subscription here — the cost is two extra `<button>` elements per
-        action; the win is no reactive plumbing for what is purely a
-        presentational swap.
-      -->
-      <div class="flex items-center gap-0 shrink-0 sm:hidden">
-        <button
-          mat-icon-button
-          [disabled]="!hasSelection()"
-          (click)="onShowDetail()"
-          matTooltip="Ver detalle"
-          aria-label="Ver detalle"
-        >
-          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          [disabled]="!hasSelection()"
-          (click)="onEdit()"
-          matTooltip="Editar afiliado"
-          aria-label="Editar afiliado"
-        >
-          <mat-icon class="material-symbols-outlined">edit</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          color="warn"
-          [disabled]="!hasSelection()"
-          (click)="onDelete()"
-          matTooltip="Eliminar afiliado"
-          aria-label="Eliminar afiliado"
-        >
-          <mat-icon class="material-symbols-outlined">delete</mat-icon>
-        </button>
-      </div>
-
-      <div class="hidden sm:flex items-center gap-2 shrink-0">
-        <button
-          mat-stroked-button
-          [disabled]="!hasSelection()"
-          (click)="onShowDetail()"
-          matTooltip="Ver detalle"
-          aria-label="Ver detalle"
-        >
-          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
-          Detalle
-        </button>
-        <button
-          mat-stroked-button
-          [disabled]="!hasSelection()"
-          (click)="onEdit()"
-          matTooltip="Editar afiliado"
-          aria-label="Editar afiliado"
-        >
-          <mat-icon class="material-symbols-outlined">edit</mat-icon>
-          Editar
-        </button>
-        <button
-          mat-stroked-button
-          color="warn"
-          [disabled]="!hasSelection()"
-          (click)="onDelete()"
-          matTooltip="Eliminar afiliado"
-          aria-label="Eliminar afiliado"
-        >
-          <mat-icon class="material-symbols-outlined">delete</mat-icon>
-          Eliminar
-        </button>
-      </div>
-    </div>
-
-    <!--
-      All three states (loading / empty / table) share the same min-height so
-      the page card never visibly resizes when the user types into the search
-      input and the result count flips between "X resultados" and "0
-      resultados". 632px ≈ header (56) + 10 rows × 52 + paginator (56) which
-      matches the locked 10-row data-table footprint configured below.
-    -->
-    <div class="min-h-[632px] flex flex-col">
-      @if (loading() && filtered().length === 0) {
-        <div class="flex-1 flex items-center justify-center">
-          <mat-spinner diameter="32" />
-        </div>
-      } @else if (filtered().length === 0) {
-        <div
-          class="flex-1 flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
-        >
-          <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12">
-            person_search
-          </mat-icon>
-          <p class="m-0 text-base">No hay afiliados que coincidan con la búsqueda.</p>
-          <p class="m-0 text-sm">Probá con otro criterio o sumá un nuevo afiliado.</p>
-        </div>
-      } @else {
-        <app-data-table
-          [data]="filtered()"
-          [columns]="columns"
-          [trackBy]="trackByDni"
-          storageKey="affiliates.list"
-          [initialSort]="{ active: 'lastName', direction: 'asc' }"
-          [initialPageSize]="10"
-          [hideColumnChooser]="true"
-          [hidePageSizeSelector]="true"
-          [padToPageSize]="true"
-          [selectable]="true"
-          [(selectedRow)]="selectedAffiliate"
-        />
-      }
-    </div>
-  </mat-card>
+  <app-selection-list-card
+    [searchControl]="searchControl"
+    searchLabel="Buscar por nombre, apellido o DNI"
+    [data]="filtered()"
+    [columns]="columns"
+    [trackBy]="trackByDni"
+    storageKey="affiliates.list"
+    [initialSort]="{ active: 'lastName', direction: 'asc' }"
+    [loading]="loading()"
+    emptyIcon="person_search"
+    emptyTitle="No hay afiliados que coincidan con la búsqueda."
+    emptyHint="Probá con otro criterio o sumá un nuevo afiliado."
+    [actions]="actions()"
+    [(selectedRow)]="selectedAffiliate"
+  />
 </div>

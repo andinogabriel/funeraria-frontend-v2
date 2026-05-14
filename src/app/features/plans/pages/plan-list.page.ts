@@ -7,48 +7,36 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
 import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
-import { DataTableComponent, type DataTableColumn } from '../../../shared/data-table';
+import type { DataTableColumn } from '../../../shared/data-table';
+import {
+  SelectionListCardComponent,
+  type ListCardAction,
+} from '../../../shared/selection-list-card';
 import { PlanService } from '../plan.service';
 import type { Plan } from '../plan.types';
 
 /**
- * Plans list. Reuses the affiliate pattern that QA already validated: client-side
- * filtered table, single-row selection driving an action toolbar (Editar / Eliminar),
- * fixed 10-row footprint with the paginator sticky on mobile.
+ * Plans list. Shares the visual chrome with affiliates via
+ * {@link SelectionListCardComponent}; this page only owns the data shape,
+ * the filter logic, and the action handlers (Editar routes to the form,
+ * Eliminar confirms + deletes).
  *
- * There is no detail modal: every plan field already fits in the table or behind the
- * Editar button (`PlanFormPage` shows everything in read/write mode). If a separate
- * read-only view earns its keep, this is the place to add it.
+ * No detail modal: every plan field already fits in the table or behind the
+ * Editar button.
  */
 @Component({
   selector: 'app-plan-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DataTableComponent,
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-    ReactiveFormsModule,
-    RouterLink,
-  ],
+  imports: [MatButtonModule, MatIconModule, RouterLink, SelectionListCardComponent],
   templateUrl: './plan-list.page.html',
   styleUrl: './plan-list.page.scss',
 })
@@ -61,11 +49,9 @@ export class PlanListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly search = new FormControl('', { nonNullable: true });
+  protected readonly searchControl = new FormControl('', { nonNullable: true });
 
   private readonly searchTerm = signal('');
-
-  protected readonly hasSearchValue = computed(() => this.searchTerm().length > 0);
 
   protected readonly selectedPlan = signal<Plan | null>(null);
   protected readonly hasSelection = computed(() => this.selectedPlan() !== null);
@@ -119,15 +105,35 @@ export class PlanListPage {
 
   protected readonly trackById = (_: number, row: Plan): number => row.id;
 
+  protected readonly actions = computed<readonly ListCardAction[]>(() => [
+    {
+      id: 'edit',
+      icon: 'edit',
+      label: 'Editar',
+      tooltip: 'Editar plan',
+      disabled: !this.hasSelection(),
+      handler: () => this.onEdit(),
+    },
+    {
+      id: 'delete',
+      icon: 'delete',
+      label: 'Eliminar',
+      tooltip: 'Eliminar plan',
+      kind: 'warn',
+      disabled: !this.hasSelection(),
+      handler: () => this.onDelete(),
+    },
+  ]);
+
   constructor() {
     this.service.loadAll().subscribe();
 
-    this.search.valueChanges.pipe(debounceTime(150), takeUntilDestroyed()).subscribe((value) => {
-      this.searchTerm.set(value);
-    });
+    this.searchControl.valueChanges
+      .pipe(debounceTime(150), takeUntilDestroyed())
+      .subscribe((value) => {
+        this.searchTerm.set(value);
+      });
 
-    // Mirror the affiliates effect: drop the selection when the picked row is no
-    // longer in the filtered view (filter excludes it, refresh removes it, etc.).
     effect(() => {
       const selected = this.selectedPlan();
       if (selected === null) {
@@ -140,7 +146,7 @@ export class PlanListPage {
     });
   }
 
-  protected onEdit(): void {
+  private onEdit(): void {
     const plan = this.selectedPlan();
     if (!plan) {
       return;
@@ -148,7 +154,7 @@ export class PlanListPage {
     void this.router.navigate(['/planes', plan.id, 'editar']);
   }
 
-  protected onDelete(): void {
+  private onDelete(): void {
     const plan = this.selectedPlan();
     if (!plan) {
       return;

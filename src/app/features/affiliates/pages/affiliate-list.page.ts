@@ -7,21 +7,20 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
 import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
-import { DataTableComponent, type DataTableColumn } from '../../../shared/data-table';
+import type { DataTableColumn } from '../../../shared/data-table';
+import {
+  SelectionListCardComponent,
+  type ListCardAction,
+} from '../../../shared/selection-list-card';
 import { AffiliateDetailDialogComponent } from '../components/affiliate-detail-dialog.component';
 import { AffiliateService } from '../affiliate.service';
 import type { Affiliate } from '../affiliate.types';
@@ -29,34 +28,23 @@ import type { Affiliate } from '../affiliate.types';
 /**
  * Lists active affiliates with client-side filtering, sorting and paging.
  *
- * <h3>Selection-driven actions</h3>
+ * Most of the visual machinery (search field with X clear, action buttons row
+ * with mobile/desktop variants, selection-driven highlight, sticky paginator,
+ * shared 632 px footprint) lives inside
+ * {@link SelectionListCardComponent}. This page only owns:
  *
- * The grid is selectable (single row). The toolbar exposes "Detalle", "Editar"
- * and "Eliminar" buttons; they stay disabled until the user picks a row. This
- * replaces the per-row action column from the previous iteration — it keeps the
- * grid clean, avoids accidental clicks on inline icons inside a dense row, and
- * gives the actions enough room to carry text labels alongside their icons.
- *
- * The detail dialog ({@link AffiliateDetailDialogComponent}) surfaces fields
- * that do not earn space in the list table (gender, alta, deceased flag,
- * computed age). Edit still routes through the dedicated form page so the
- * stepper + validation path stays canonical.
+ * - The cached affiliate list signal it pulls from the service.
+ * - The local search term mirror + filtered computed that feeds the card's
+ *   `data` input.
+ * - The selection signal it two-way binds to the card, plus the effect that
+ *   clears it when the picked row falls out of the filtered view.
+ * - The action handlers (`Detalle` opens the modal, `Editar` routes, `Eliminar`
+ *   confirms + deletes) wired through the declarative `actions` array.
  */
 @Component({
   selector: 'app-affiliate-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DataTableComponent,
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-    ReactiveFormsModule,
-    RouterLink,
-  ],
+  imports: [MatButtonModule, MatIconModule, RouterLink, SelectionListCardComponent],
   templateUrl: './affiliate-list.page.html',
   styleUrl: './affiliate-list.page.scss',
 })
@@ -69,39 +57,19 @@ export class AffiliateListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly search = new FormControl('', { nonNullable: true });
+  /** Search FormControl passed straight to the shared card. */
+  protected readonly searchControl = new FormControl('', { nonNullable: true });
 
-  /**
-   * Reactive snapshot of the search input. A signal mirroring `valueChanges` keeps
-   * the bridging code explicit when the next contributor reads it.
-   */
+  /** Mirror of the search input as a signal — drives the filter computed below. */
   private readonly searchTerm = signal('');
 
-  /**
-   * Whether the search input currently holds a query. Surfaced as a signal so the
-   * template can drive the clear-button visibility from a *reactive* source — the
-   * previous `@if (search.value)` form read a non-signal getter and, in zoneless
-   * Angular, that meant the button only repainted as a side effect of unrelated
-   * change-detection cycles. Worse, repeatedly attaching/detaching the suffix
-   * `<button>` forced `mat-form-field` to recalculate its layout on every
-   * keystroke. Promoting to a signal lets us drive visibility via CSS without
-   * touching the DOM tree.
-   */
-  protected readonly hasSearchValue = computed(() => this.searchTerm().length > 0);
-
-  /**
-   * Currently selected row, two-way bound with the data-table. Drives the enabled
-   * state of the Detalle / Editar / Eliminar toolbar buttons.
-   */
+  /** Currently selected row, two-way bound with the shared card. */
   protected readonly selectedAffiliate = signal<Affiliate | null>(null);
 
-  /** Convenience flag the template reads to disable the action buttons. */
+  /** Convenience flag the actions array reads to compute disabled state. */
   protected readonly hasSelection = computed(() => this.selectedAffiliate() !== null);
 
-  /**
-   * Filtered view over the cached list. The data table consumes this signal directly;
-   * sort + paging are applied internally by the component.
-   */
+  /** Filtered view over the cached list, consumed by the shared card. */
   protected readonly filtered = computed<readonly Affiliate[]>(() => {
     const all = this.service.list() ?? [];
     const term = this.searchTerm().trim().toLowerCase();
@@ -116,12 +84,7 @@ export class AffiliateListPage {
     );
   });
 
-  /**
-   * Column descriptors for {@link DataTableComponent}. The DNI column is non-hideable
-   * because it's the natural key of the row — losing it would leave users without a
-   * stable identifier to act on. No per-row action column any more: actions live in
-   * the page toolbar and operate on the currently-selected row.
-   */
+  /** Column descriptors for the data table inside the shared card. */
   protected readonly columns: readonly DataTableColumn<Affiliate>[] = [
     {
       key: 'dni',
@@ -159,22 +122,52 @@ export class AffiliateListPage {
     },
   ] as const;
 
-  /** Stable row identity for MatTable's trackBy — DNI is the affiliate's natural key. */
   protected readonly trackByDni = (_: number, row: Affiliate): number => row.dni;
 
+  /**
+   * Toolbar actions consumed by the shared card. Reactive on `hasSelection()`
+   * so the buttons disable/enable as the user picks a row. Order in the array
+   * is the rendering order in the toolbar.
+   */
+  protected readonly actions = computed<readonly ListCardAction[]>(() => [
+    {
+      id: 'detail',
+      icon: 'visibility',
+      label: 'Detalle',
+      tooltip: 'Ver detalle',
+      disabled: !this.hasSelection(),
+      handler: () => this.onShowDetail(),
+    },
+    {
+      id: 'edit',
+      icon: 'edit',
+      label: 'Editar',
+      tooltip: 'Editar afiliado',
+      disabled: !this.hasSelection(),
+      handler: () => this.onEdit(),
+    },
+    {
+      id: 'delete',
+      icon: 'delete',
+      label: 'Eliminar',
+      tooltip: 'Eliminar afiliado',
+      kind: 'warn',
+      disabled: !this.hasSelection(),
+      handler: () => this.onDelete(),
+    },
+  ]);
+
   constructor() {
-    // Initial load is fire-and-forget — the service signals drive the template.
     this.service.loadActive().subscribe();
 
-    this.search.valueChanges.pipe(debounceTime(150), takeUntilDestroyed()).subscribe((value) => {
-      this.searchTerm.set(value);
-    });
+    this.searchControl.valueChanges
+      .pipe(debounceTime(150), takeUntilDestroyed())
+      .subscribe((value) => {
+        this.searchTerm.set(value);
+      });
 
-    // Clear the selection whenever the currently-selected affiliate falls out of
-    // the visible (filtered) list — typing a search that filters the row away,
-    // a delete that removes it, or a refresh that returns a different set. Once
-    // cleared, `hasSelection()` flips to `false` and the toolbar buttons disable
-    // automatically, so the UI never offers actions on a row the user cannot see.
+    // Drop the selection when the picked row is no longer in the filtered view
+    // (search excludes it, delete removes it, refresh returns a different set).
     effect(() => {
       const selected = this.selectedAffiliate();
       if (selected === null) {
@@ -188,7 +181,7 @@ export class AffiliateListPage {
   }
 
   /** Opens the read-only detail modal for the currently-selected affiliate. */
-  protected onShowDetail(): void {
+  private onShowDetail(): void {
     const affiliate = this.selectedAffiliate();
     if (!affiliate) {
       return;
@@ -201,7 +194,7 @@ export class AffiliateListPage {
   }
 
   /** Navigates to the edit form for the currently-selected affiliate. */
-  protected onEdit(): void {
+  private onEdit(): void {
     const affiliate = this.selectedAffiliate();
     if (!affiliate) {
       return;
@@ -209,13 +202,8 @@ export class AffiliateListPage {
     void this.router.navigate(['/afiliados', affiliate.dni, 'editar']);
   }
 
-  /**
-   * Confirms then deletes the currently-selected affiliate. On success the
-   * selection is cleared so the toolbar buttons disable again — leaving the
-   * selection around after the underlying row vanishes would let the user
-   * trigger actions on a stale object.
-   */
-  protected onDelete(): void {
+  /** Confirms + deletes the currently-selected affiliate. Clears the selection on success. */
+  private onDelete(): void {
     const affiliate = this.selectedAffiliate();
     if (!affiliate) {
       return;
@@ -246,7 +234,7 @@ export class AffiliateListPage {
     });
   }
 
-  /** Manual refresh action exposed on the header; also clears any prior selection. */
+  /** Manual refresh action exposed on the header; clears any prior selection. */
   protected onRefresh(): void {
     this.selectedAffiliate.set(null);
     this.service.loadActive().subscribe();
