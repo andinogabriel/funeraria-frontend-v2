@@ -46,24 +46,30 @@
       <mat-card-content class="!p-4 sm:!p-6">
         <mat-stepper #stepper [linear]="true" orientation="horizontal" labelPosition="bottom">
           <!--
-            The default stepper indicator icons (`done`, `edit`) ship as
-            ligatures that resolve against the plain Material Icons font, which
-            this app does NOT register — only `Material Symbols Outlined` is
-            available. We supply ONLY the two icon slots here and let the
-            default `number` slot keep its native styling (centred white digit
-            on the coloured indicator circle); overriding `number` with bare
-            `{{ index + 1 }}` flattened the digit to unstyled black text and
-            QA reported "no se logra ver el numero 1 en Datos personales".
+            Indicator icons keep showing the step's index across every state,
+            not the default Material progression (number → edit pencil →
+            checkmark). QA wanted "the 1 stays the 1" — past steps showing a
+            pencil read as broken in the screenshots even though the icon
+            itself was rendering correctly. Rendering `{{ index + 1 }}` inside
+            the override slots reuses Material's native `.mat-step-icon`
+            styling for colour and centering, so the digit looks identical to
+            the active-step indicator.
           -->
-          <ng-template matStepperIcon="done">
-            <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4">check</mat-icon>
-          </ng-template>
-          <ng-template matStepperIcon="edit">
-            <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4">edit</mat-icon>
-          </ng-template>
+          <ng-template matStepperIcon="done" let-index="index">{{ index + 1 }}</ng-template>
+          <ng-template matStepperIcon="edit" let-index="index">{{ index + 1 }}</ng-template>
 
           <mat-step [stepControl]="personal" label="Datos personales">
-            <div class="flex flex-col">
+            <!--
+              Pin a stable content-area height so the horizontal stepper does
+              not visually shrink between steps. Step 1 (4 fields + buttons)
+              and step 2 (2 selects + buttons) have notably different intrinsic
+              heights; without this floor, pressing Siguiente snapped the card
+              to step 2's shorter content. Inline style beats Material's own
+              host styles on `mat-horizontal-stepper-content` (which set
+              `height: auto` for the active panel), so the floor actually
+              survives the cascade.
+            -->
+            <div class="flex flex-col" [style.minHeight.px]="480">
               <ng-container *ngTemplateOutlet="personalFields" />
 
               <div class="flex flex-col-reverse gap-2 pt-4">
@@ -86,7 +92,7 @@
           </mat-step>
 
           <mat-step [stepControl]="classification" label="Clasificación">
-            <div class="flex flex-col">
+            <div class="flex flex-col" [style.minHeight.px]="480">
               <ng-container *ngTemplateOutlet="classificationFields" />
 
               @if (errorMessage(); as message) {
