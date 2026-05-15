@@ -1,0 +1,90 @@
+<h2 mat-dialog-title class="flex items-center gap-3 !pb-2">
+  <mat-icon class="material-symbols-outlined text-[var(--mat-sys-primary)]">inventory_2</mat-icon>
+  {{ data.name }}
+</h2>
+
+<mat-dialog-content class="!min-w-[320px] sm:!min-w-[480px]">
+  <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Código</dt>
+    <dd class="text-sm m-0 font-mono break-all">{{ data.code }}</dd>
+
+    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Precio</dt>
+    <dd class="text-sm m-0 tabular-nums">{{ priceLabel }}</dd>
+
+    @if (data.description) {
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Descripción</dt>
+      <dd class="text-sm m-0">{{ data.description }}</dd>
+    }
+
+    @if (data.brand) {
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Marca</dt>
+      <dd class="text-sm m-0">{{ data.brand.name }}</dd>
+    }
+
+    @if (data.category) {
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Categoría</dt>
+      <dd class="text-sm m-0">{{ data.category.name }}</dd>
+    }
+
+    @if (data.stock !== null) {
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Stock</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ data.stock }}</dd>
+    }
+  </dl>
+
+  @if (hasDimensions()) {
+    <mat-divider class="!my-4" />
+    <section>
+      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+        Dimensiones
+      </h3>
+      <dl class="grid grid-cols-3 gap-x-6 gap-y-2 m-0">
+        <div class="flex flex-col">
+          <dt class="text-xs text-[var(--mat-sys-on-surface-variant)]">Largo</dt>
+          <dd class="text-sm m-0 tabular-nums">{{ data.itemLength ?? '—' }}</dd>
+        </div>
+        <div class="flex flex-col">
+          <dt class="text-xs text-[var(--mat-sys-on-surface-variant)]">Alto</dt>
+          <dd class="text-sm m-0 tabular-nums">{{ data.itemHeight ?? '—' }}</dd>
+        </div>
+        <div class="flex flex-col">
+          <dt class="text-xs text-[var(--mat-sys-on-surface-variant)]">Ancho</dt>
+          <dd class="text-sm m-0 tabular-nums">{{ data.itemWidth ?? '—' }}</dd>
+        </div>
+      </dl>
+    </section>
+  }
+
+  <mat-divider class="!my-4" />
+
+  <section>
+    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+      Auditoría
+    </h3>
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Creado</dt>
+      <dd class="text-sm m-0 tabular-nums">
+        {{ createdLabel() }}
+        @if (data.createdBy) {
+          <span class="text-[var(--mat-sys-on-surface-variant)]"> · {{ data.createdBy }}</span>
+        }
+      </dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Última modificación</dt>
+      <dd class="text-sm m-0 tabular-nums">
+        @if (updatedLabel(); as label) {
+          {{ label }}
+          @if (data.updatedBy) {
+            <span class="text-[var(--mat-sys-on-surface-variant)]"> · {{ data.updatedBy }}</span>
+          }
+        } @else {
+          <span class="text-[var(--mat-sys-on-surface-variant)]">Sin modificaciones</span>
+        }
+      </dd>
+    </dl>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cerrar</button>
+</mat-dialog-actions>

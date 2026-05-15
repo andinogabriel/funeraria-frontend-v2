@@ -130,9 +130,9 @@ export class BrandListPage {
       this.service.delete(brand.id).subscribe({
         next: () => {
           this.selectedBrand.set(null);
-          this.snackBar.open('Marca eliminada', 'OK', { duration: 3000 });
+          this.snackBar.open('Marca eliminada', 'Cerrar');
         },
-        error: () => this.snackBar.open('No se pudo eliminar la marca', 'OK', { duration: 5000 }),
+        error: () => this.snackBar.open('No se pudo eliminar la marca', 'Cerrar'),
       });
     });
   }

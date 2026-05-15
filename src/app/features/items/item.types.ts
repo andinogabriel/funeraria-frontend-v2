@@ -25,6 +25,11 @@ export interface Item {
   readonly itemImageLink: string | null;
   readonly brand: Brand | null;
   readonly category: Category | null;
+  /** Audit fields populated by Spring Data JPA's `AuditingEntityListener`. */
+  readonly createdAt: string;
+  readonly createdBy: string | null;
+  readonly updatedAt: string | null;
+  readonly updatedBy: string | null;
 }
 
 /** Request body for `POST /api/v1/items` and `PUT /api/v1/items/{code}`. */

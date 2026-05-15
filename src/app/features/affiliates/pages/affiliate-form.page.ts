@@ -197,8 +197,7 @@ export class AffiliateFormPage {
         this.submitting.set(false);
         this.snackBar.open(
           this.mode === 'edit' ? 'Afiliado actualizado' : 'Afiliado creado',
-          'OK',
-          { duration: 3000 },
+          'Cerrar',
         );
         void this.router.navigate(['/afiliados']);
       },

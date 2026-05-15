@@ -179,9 +179,7 @@ export class PlanFormPage {
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
-        this.snackBar.open(this.mode === 'edit' ? 'Plan actualizado' : 'Plan creado', 'OK', {
-          duration: 3000,
-        });
+        this.snackBar.open(this.mode === 'edit' ? 'Plan actualizado' : 'Plan creado', 'Cerrar');
         void this.router.navigate(['/planes']);
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {

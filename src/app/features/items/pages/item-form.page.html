@@ -187,14 +187,20 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill">
-      <mat-label>Código</mat-label>
-      <input matInput formControlName="code" autocomplete="off" maxlength="60" />
-      <mat-hint>Único en el catálogo.</mat-hint>
-      @if (datos.controls.code.touched && datos.controls.code.hasError('required')) {
-        <mat-error>El código es obligatorio.</mat-error>
-      }
-    </mat-form-field>
+    <!--
+      The Código field only renders in edit mode. On create the backend
+      overrides whatever we send with `UUID.randomUUID().toString()`, so
+      exposing an editable field would be lying to the operator. On edit
+      the code is the immutable natural key and shows as a disabled read-
+      only input so users can still see / copy it.
+    -->
+    @if (mode === 'edit') {
+      <mat-form-field appearance="fill">
+        <mat-label>Código</mat-label>
+        <input matInput formControlName="code" autocomplete="off" maxlength="60" />
+        <mat-hint>Identificador único, no se puede modificar.</mat-hint>
+      </mat-form-field>
+    }
 
     <mat-form-field appearance="fill">
       <mat-label>Precio</mat-label>

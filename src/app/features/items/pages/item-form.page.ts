@@ -115,7 +115,13 @@ export class ItemFormPage {
     name: this.fb.control('', {
       validators: [Validators.required, Validators.maxLength(150)],
     }),
-    code: this.fb.control('', { validators: [Validators.required, Validators.maxLength(60)] }),
+    // `code` is intentionally optional: on create the backend overrides our
+    // value with a UUID anyway, and on edit the code is read-only (the form
+    // populates it from the persisted record and we never let the operator
+    // change a natural key). Keeping the control around — disabled in edit —
+    // means the field still renders for display, but submission never trips
+    // on an empty `code` string.
+    code: this.fb.control('', { validators: [Validators.maxLength(60)] }),
     price: this.fb.control<number | null>(null, {
       validators: [Validators.required, Validators.min(0)],
     }),
@@ -238,9 +244,7 @@ export class ItemFormPage {
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
-        this.snackBar.open(this.mode === 'edit' ? 'Item actualizado' : 'Item creado', 'OK', {
-          duration: 3000,
-        });
+        this.snackBar.open(this.mode === 'edit' ? 'Item actualizado' : 'Item creado', 'Cerrar');
         void this.router.navigate(['/items']);
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {

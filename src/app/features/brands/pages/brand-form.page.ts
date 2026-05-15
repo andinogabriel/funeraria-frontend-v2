@@ -93,9 +93,7 @@ export class BrandFormPage {
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
-        this.snackBar.open(this.mode === 'edit' ? 'Marca actualizada' : 'Marca creada', 'OK', {
-          duration: 3000,
-        });
+        this.snackBar.open(this.mode === 'edit' ? 'Marca actualizada' : 'Marca creada', 'Cerrar');
         void this.router.navigate(['/marcas']);
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {

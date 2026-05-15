@@ -8,6 +8,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { MAT_DATE_LOCALE, provideNativeDateAdapter } from '@angular/material/core';
 import { MatPaginatorIntl } from '@angular/material/paginator';
+import { MAT_SNACK_BAR_DEFAULT_OPTIONS } from '@angular/material/snack-bar';
 
 import { authInterceptor } from './core/http/auth.interceptor';
 import { correlationIdInterceptor } from './core/http/correlation-id.interceptor';
@@ -46,5 +47,13 @@ export const appConfig: ApplicationConfig = {
     // → "1 – 1 de 2", "Items per page" → "Filas por página", etc. See
     // {@link PaginatorIntlEs} for the full label set.
     { provide: MatPaginatorIntl, useClass: PaginatorIntlEs },
+    // Snackbar defaults: 6 s lifetime (Material's stock 5 s felt rushed during QA)
+    // and a `Cerrar` action button so the user can dismiss without waiting. The
+    // top-center position keeps the toast above keyboard / nav clutter on mobile,
+    // and `verticalPosition: 'top'` plays nicely with the sticky paginator below.
+    {
+      provide: MAT_SNACK_BAR_DEFAULT_OPTIONS,
+      useValue: { duration: 6000, horizontalPosition: 'center', verticalPosition: 'top' },
+    },
   ],
 };

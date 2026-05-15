@@ -226,10 +226,9 @@ export class AffiliateListPage {
       this.service.delete(affiliate.dni).subscribe({
         next: () => {
           this.selectedAffiliate.set(null);
-          this.snackBar.open('Afiliado eliminado', 'OK', { duration: 3000 });
+          this.snackBar.open('Afiliado eliminado', 'Cerrar');
         },
-        error: () =>
-          this.snackBar.open('No se pudo eliminar el afiliado', 'OK', { duration: 5000 }),
+        error: () => this.snackBar.open('No se pudo eliminar el afiliado', 'Cerrar'),
       });
     });
   }
