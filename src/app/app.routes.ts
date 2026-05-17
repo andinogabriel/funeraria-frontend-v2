@@ -177,6 +177,26 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/funerals/pages/my-funerals.page').then((m) => m.MyFuneralsPage),
       },
+      {
+        // Admin-only on the backend (every supplier route is gated by ROLE_ADMIN).
+        // The sidebar entry also hides for non-admins so the friendly 403 only
+        // surfaces if someone deep-links into the route.
+        path: 'proveedores',
+        loadComponent: () =>
+          import('./features/suppliers/pages/supplier-list.page').then((m) => m.SupplierListPage),
+      },
+      {
+        path: 'proveedores/nuevo',
+        loadComponent: () =>
+          import('./features/suppliers/pages/supplier-form.page').then((m) => m.SupplierFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'proveedores/:nif/editar',
+        loadComponent: () =>
+          import('./features/suppliers/pages/supplier-form.page').then((m) => m.SupplierFormPage),
+        data: { mode: 'edit' },
+      },
     ],
   },
   {
