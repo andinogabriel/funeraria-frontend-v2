@@ -1,3 +1,271 @@
+// Login: split-screen (carousel left on lg+, glass form right) over a mesh-gradient backdrop
+// painted in M3 tokens; adapts to dark mode via the global theme flip in styles.scss.
+
 :host {
   display: block;
+}
+
+.login {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 0;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--mat-sys-surface);
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: 100dvh;
+  }
+}
+
+.login__mesh {
+  position: absolute;
+  inset: -80px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      45% 35% at 12% 8%,
+      color-mix(in srgb, var(--mat-sys-primary) 28%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      50% 38% at 92% 18%,
+      color-mix(in srgb, var(--mat-sys-tertiary) 22%, transparent),
+      transparent 75%
+    ),
+    radial-gradient(
+      55% 42% at 78% 95%,
+      color-mix(in srgb, var(--mat-sys-secondary) 18%, transparent),
+      transparent 80%
+    );
+  filter: saturate(110%);
+}
+
+.login__hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 32px);
+  padding: clamp(28px, 4vw, 56px);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--mat-sys-primary-container) 75%, transparent),
+    color-mix(in srgb, var(--mat-sys-primary-container) 30%, transparent)
+  );
+  color: var(--mat-sys-on-primary-container);
+
+  @media (max-width: 1024px) {
+    display: none;
+  }
+}
+
+.login__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.login__brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--mat-sys-on-primary-container) 14%, transparent);
+  color: var(--mat-sys-on-primary-container);
+
+  mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.login__brand-name {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.login__carousel {
+  display: block;
+  flex: 1;
+  min-height: 0;
+
+  ::ng-deep .hero-carousel {
+    aspect-ratio: auto;
+    height: 100%;
+    border-radius: 24px;
+  }
+}
+
+.login__trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(14px, 2vw, 22px);
+  font-size: 13px;
+  opacity: 0.92;
+}
+
+.login__trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.login__mobile-hero {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--mat-sys-primary-container) 80%, transparent),
+    color-mix(in srgb, var(--mat-sys-primary-container) 30%, transparent)
+  );
+  color: var(--mat-sys-on-primary-container);
+
+  @media (max-width: 1024px) {
+    display: flex;
+  }
+}
+
+.login__brand--mobile {
+  font-size: 18px;
+
+  .login__brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .login__brand-name {
+    font-size: 18px;
+  }
+}
+
+.login__carousel--mobile {
+  ::ng-deep .hero-carousel {
+    aspect-ratio: 16 / 8;
+    border-radius: 18px;
+  }
+
+  @media (max-width: 600px) {
+    ::ng-deep .hero-carousel {
+      aspect-ratio: 16 / 9;
+      border-radius: 16px;
+    }
+  }
+}
+
+.login__form-pane {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(20px, 4vw, 56px);
+}
+
+.login__card {
+  width: 100%;
+  max-width: 440px;
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--mat-sys-surface-container) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 18px 48px -20px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: login-card-in 700ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.login__card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login__card-title {
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--mat-sys-on-surface);
+}
+
+.login__card-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.login__banner {
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 13px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login__error {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+}
+
+.login__submit {
+  border-radius: 12px !important;
+  margin-top: 4px;
+}
+
+.login__footnote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+}
+
+@keyframes login-card-in {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login__card {
+    animation: none;
+  }
 }

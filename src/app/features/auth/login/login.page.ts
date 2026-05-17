@@ -9,21 +9,45 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { HeroCarouselComponent, type HeroSlide } from '../../../shared/hero-carousel';
 
 /**
- * Login page. Typed reactive form (no untyped FormGroup), Material form fields, signal-
- * driven submitting + error state so the template stays declarative and zoneless.
+ * Login page. Split-screen layout: a storytelling hero carousel on the left
+ * (lg+) and a glass-card sign-in form on the right; on phones the carousel
+ * shrinks to a single landscape strip above the form so the email field stays
+ * above the fold. Typed reactive form (no untyped FormGroup), Material form
+ * fields, signal-driven submitting + error state so the template stays
+ * declarative and zoneless.
  *
- * On success the user is redirected to either the URL they originally tried to reach
- * (carried by the `returnUrl` query param the auth guard sets) or `/dashboard`. On
- * failure a short message is rendered inside the form; we deliberately do not surface a
- * separate snackbar because keeping the error attached to the form makes the recovery
- * path obvious.
+ * <h3>Why a carousel on the auth screen</h3>
+ *
+ * The login page is the first surface a new operator sees. A static brand
+ * panel only sells one message; a carousel rotates through the four pillars
+ * the consola actually delivers (afiliados, planes, servicios, seguridad real)
+ * so the first impression also functions as a quick product tour. The slides
+ * reuse the dashboard SVG illustrations bundled under `public/dashboard/`.
+ *
+ * <h3>Security copy</h3>
+ *
+ * The previous version of this page advertised "doble factor de dispositivo",
+ * which sounded like classic 2FA (TOTP / SMS) but actually describes the
+ * device-bound JWT scheme from ADR-0002 — different mechanism, different
+ * promise. The current copy describes the real thing without overpromising:
+ * the session is cryptographically bound to the device that signed in and the
+ * audit trail records every sensitive action.
+ *
+ * <h3>Routing</h3>
+ *
+ * On success the user is redirected to either the URL they originally tried
+ * to reach (carried by the `returnUrl` query param the auth guard sets) or
+ * `/dashboard`. On failure a short message is rendered inside the form; the
+ * recovery path stays attached to the input that caused it.
  */
 @Component({
   selector: 'app-login-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    HeroCarouselComponent,
     MatButtonModule,
     MatCardModule,
     MatFormFieldModule,
@@ -49,13 +73,61 @@ export class LoginPage {
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
+  /** Toggle for the password show / hide affordance — flipped from the template. */
+  protected readonly showPassword = signal(false);
+
   /**
-   * Optional contextual banner rendered above the form when the user was redirected
-   * here by the error interceptor. The interceptor sets `?reason=expired` for the
-   * general "session no longer valid" case and `?reason=blocked` when the backend's
-   * threat-protection adapter rejected the refresh (typically because too many
-   * failed-auth attempts blacklisted the principal — recoverable by waiting an hour
-   * or by restarting the backend in development).
+   * Storytelling slides for the brand panel. Five rotating messages, one per
+   * pillar of the application, each backed by the dashboard SVGs. The CTAs
+   * are intentionally absent: this surface is pre-auth, the only valid call
+   * to action is "sign in".
+   */
+  protected readonly heroSlides: readonly HeroSlide[] = [
+    {
+      backgroundUrl: '/dashboard/slide-serenidad.svg',
+      eyebrow: 'Bienvenido',
+      title: 'Acompañamos a quienes acompañan',
+      subtitle:
+        'Una consola pensada para la operación diaria de una funeraria — afiliados, planes y servicios en un solo lugar.',
+    },
+    {
+      backgroundUrl: '/dashboard/slide-acompanamiento.svg',
+      eyebrow: 'Afiliados',
+      title: 'Padrón centralizado y trazable',
+      subtitle:
+        'Altas, modificaciones y consultas integradas, con historial completo de cada cambio.',
+    },
+    {
+      backgroundUrl: '/dashboard/slide-memoria.svg',
+      eyebrow: 'Planes',
+      title: 'Diseñá planes a la medida de cada familia',
+      subtitle:
+        'Combiná items del catálogo, definí márgenes y mantené el precio actualizado sin recalcular a mano.',
+    },
+    {
+      backgroundUrl: '/dashboard/slide-naturaleza.svg',
+      eyebrow: 'Servicios',
+      title: 'Registrá un servicio en minutos',
+      subtitle:
+        'Datos del fallecido, plan y recibo en un único formulario; nada queda pendiente entre pantallas.',
+    },
+    {
+      backgroundUrl: '/dashboard/slide-cielo.svg',
+      eyebrow: 'Seguridad',
+      title: 'Tu sesión, vinculada a tu dispositivo',
+      subtitle:
+        'Los tokens de acceso se firman con la huella de este equipo y cada acción sensible queda en el registro de auditoría.',
+    },
+  ];
+
+  /**
+   * Optional contextual banner rendered above the form when the user was
+   * redirected here by the error interceptor. The interceptor sets
+   * `?reason=expired` for the general "session no longer valid" case and
+   * `?reason=blocked` when the backend's threat-protection adapter rejected
+   * the refresh (typically because too many failed-auth attempts blacklisted
+   * the principal — recoverable by waiting an hour or by restarting the
+   * backend in development).
    */
   protected readonly contextMessage = ((): string | null => {
     const reason = this.route.snapshot.queryParamMap.get('reason');
@@ -67,6 +139,10 @@ export class LoginPage {
     }
     return null;
   })();
+
+  protected toggleShowPassword(): void {
+    this.showPassword.update((current) => !current);
+  }
 
   protected onSubmit(): void {
     if (this.form.invalid || this.submitting()) {

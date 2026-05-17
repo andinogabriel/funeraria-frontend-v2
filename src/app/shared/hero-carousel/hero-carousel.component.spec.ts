@@ -2,10 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
-import {
-  DashboardHeroCarouselComponent,
-  type HeroSlide,
-} from './dashboard-hero-carousel.component';
+import { HeroCarouselComponent, type HeroSlide } from './hero-carousel.component';
 
 const slides: readonly HeroSlide[] = [
   { backgroundUrl: '/dashboard/a.svg', eyebrow: 'A', title: 'Slide A', subtitle: '' },
@@ -13,7 +10,7 @@ const slides: readonly HeroSlide[] = [
   { backgroundUrl: '/dashboard/c.svg', eyebrow: 'C', title: 'Slide C', subtitle: '' },
 ];
 
-describe('DashboardHeroCarouselComponent', () => {
+describe('HeroCarouselComponent', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [provideRouter([]), provideZonelessChangeDetection()],
@@ -21,7 +18,7 @@ describe('DashboardHeroCarouselComponent', () => {
   });
 
   it('starts on the first slide and exposes a polite a11y announcement', () => {
-    const fixture = TestBed.createComponent(DashboardHeroCarouselComponent);
+    const fixture = TestBed.createComponent(HeroCarouselComponent);
     fixture.componentRef.setInput('slides', slides);
     fixture.detectChanges();
 
@@ -34,7 +31,7 @@ describe('DashboardHeroCarouselComponent', () => {
   });
 
   it('next() advances and wraps after the last slide; prev() wraps to the last', () => {
-    const fixture = TestBed.createComponent(DashboardHeroCarouselComponent);
+    const fixture = TestBed.createComponent(HeroCarouselComponent);
     fixture.componentRef.setInput('slides', slides);
     fixture.detectChanges();
 

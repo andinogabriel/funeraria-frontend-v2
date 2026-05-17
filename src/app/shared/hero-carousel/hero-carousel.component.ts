@@ -62,13 +62,13 @@ export interface HeroSlide {
  * after the first slide paints.
  */
 @Component({
-  selector: 'app-dashboard-hero-carousel',
+  selector: 'app-hero-carousel',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MatButtonModule, MatIconModule, RouterLink],
-  templateUrl: './dashboard-hero-carousel.component.html',
-  styleUrl: './dashboard-hero-carousel.component.scss',
+  templateUrl: './hero-carousel.component.html',
+  styleUrl: './hero-carousel.component.scss',
 })
-export class DashboardHeroCarouselComponent {
+export class HeroCarouselComponent {
   /** Slides to cycle through. Must contain at least one entry. */
   readonly slides = input.required<readonly HeroSlide[]>();
 
