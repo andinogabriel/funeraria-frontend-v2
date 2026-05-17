@@ -87,7 +87,11 @@
                   class="!h-11"
                   (click)="onSubmit()"
                   [disabled]="
-                    submitting() || !catalogsReady() || datos.invalid || classification.invalid
+                    submitting() ||
+                    !catalogsReady() ||
+                    datos.invalid ||
+                    classification.invalid ||
+                    (mode === 'edit' && datos.pristine && classification.pristine)
                   "
                 >
                   @if (submitting()) {
@@ -159,7 +163,13 @@
             color="primary"
             class="!h-11"
             (click)="onSubmit()"
-            [disabled]="submitting() || !catalogsReady() || datos.invalid || classification.invalid"
+            [disabled]="
+              submitting() ||
+              !catalogsReady() ||
+              datos.invalid ||
+              classification.invalid ||
+              (mode === 'edit' && datos.pristine && classification.pristine)
+            "
           >
             @if (submitting()) {
               <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />

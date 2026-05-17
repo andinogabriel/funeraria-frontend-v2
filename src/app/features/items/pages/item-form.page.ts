@@ -204,6 +204,11 @@ export class ItemFormPage {
       this.classification.markAllAsTouched();
       return;
     }
+    // Skip the no-op `PUT` when neither step was touched (see brand-form.page.ts).
+    if (this.mode === 'edit' && this.datos.pristine && this.classification.pristine) {
+      void this.router.navigate(['/items']);
+      return;
+    }
     const datos = this.datos.getRawValue();
     const cls = this.classification.getRawValue();
     if (datos.price === null) {

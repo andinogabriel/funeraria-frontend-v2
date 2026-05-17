@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import {
   MAT_DIALOG_DATA,
@@ -34,9 +35,30 @@ export interface ConfirmDialogData {
 @Component({
   selector: 'app-confirm-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+  imports: [
+    DragDropModule,
+    MatButtonModule,
+    MatDialogActions,
+    MatDialogClose,
+    MatDialogContent,
+    MatDialogTitle,
+  ],
+  // The title bar acts as a drag handle for the whole dialog (Windows-style
+  // window grab). `cdkDragRootElement` targets the CDK overlay pane so the
+  // entire dialog — title, content and actions — moves as one unit instead of
+  // just the heading. `cdkDragBoundary="body"` clamps movement to the viewport
+  // so the dialog can't be dragged completely off-screen.
   template: `
-    <h2 mat-dialog-title>{{ data.title }}</h2>
+    <h2
+      mat-dialog-title
+      cdkDrag
+      cdkDragRootElement=".cdk-overlay-pane"
+      cdkDragHandle
+      cdkDragBoundary="body"
+      class="cursor-move select-none"
+    >
+      {{ data.title }}
+    </h2>
     <mat-dialog-content>
       <p class="m-0">{{ data.message }}</p>
     </mat-dialog-content>

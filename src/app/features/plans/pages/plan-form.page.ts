@@ -132,6 +132,11 @@ export class PlanFormPage {
       this.form.markAllAsTouched();
       return;
     }
+    // Skip the no-op `PUT` when nothing changed (see brand-form.page.ts).
+    if (this.mode === 'edit' && this.form.pristine) {
+      void this.router.navigate(['/planes']);
+      return;
+    }
     const value = this.form.getRawValue();
     if (value.profitPercentage === null) {
       return;

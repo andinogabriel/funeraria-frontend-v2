@@ -174,7 +174,9 @@
           color="primary"
           class="!h-11"
           (click)="onSubmit()"
-          [disabled]="submitting() || !itemsReady() || form.invalid"
+          [disabled]="
+            submitting() || !itemsReady() || form.invalid || (mode === 'edit' && form.pristine)
+          "
         >
           @if (submitting()) {
             <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />

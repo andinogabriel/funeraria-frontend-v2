@@ -7,8 +7,18 @@ import type { Brand, BrandRequest } from './brand.types';
 
 /**
  * CRUD client for the brands catalog. Used both by the brands list page and by
- * the item form's brand picker. Mirrors the affiliate/plan service pattern:
- * signal-cached `list`, `Observable<T>` mutation returns, refetch on success.
+ * the item form's brand picker. Signal-cached `list`, `Observable<T>` mutation
+ * returns.
+ *
+ * <h3>Cache strategy</h3>
+ *
+ * Mutations patch the cached signal in place from the response payload instead
+ * of refetching the whole list. The backend's POST/PUT already return the
+ * persisted entity (with server-side fields like `id`), and DELETE just needs a
+ * local filter — so a full `GET /brands` round-trip after every save was pure
+ * waste (doubled requests, list flicker, latency the operator could feel). If
+ * the cache is `null` (no prior load) we skip the patch and let the next
+ * explicit `loadAll()` hydrate it from scratch.
  */
 @Injectable({ providedIn: 'root' })
 export class BrandService {
@@ -45,19 +55,36 @@ export class BrandService {
   }
 
   create(request: BrandRequest): Observable<Brand> {
-    return this.http.post<Brand>(this.baseUrl, request).pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.post<Brand>(this.baseUrl, request).pipe(
+      tap((brand) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set([...current, brand]);
+        }
+      }),
+    );
   }
 
   update(id: number, request: BrandRequest): Observable<Brand> {
-    return this.http
-      .put<Brand>(`${this.baseUrl}/${id}`, request)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.put<Brand>(`${this.baseUrl}/${id}`, request).pipe(
+      tap((brand) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.map((b) => (b.id === id ? brand : b)));
+        }
+      }),
+    );
   }
 
   delete(id: number): Observable<void> {
-    return this.http
-      .delete<void>(`${this.baseUrl}/${id}`)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.delete<void>(`${this.baseUrl}/${id}`).pipe(
+      tap(() => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.filter((b) => b.id !== id));
+        }
+      }),
+    );
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

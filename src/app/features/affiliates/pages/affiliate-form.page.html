@@ -123,7 +123,11 @@
                   class="!h-11"
                   (click)="onSubmit()"
                   [disabled]="
-                    submitting() || !catalogsReady() || personal.invalid || classification.invalid
+                    submitting() ||
+                    !catalogsReady() ||
+                    personal.invalid ||
+                    classification.invalid ||
+                    (mode === 'edit' && personal.pristine && classification.pristine)
                   "
                 >
                   @if (submitting()) {
@@ -180,7 +184,11 @@
             class="!h-11"
             (click)="onSubmit()"
             [disabled]="
-              submitting() || !catalogsReady() || personal.invalid || classification.invalid
+              submitting() ||
+              !catalogsReady() ||
+              personal.invalid ||
+              classification.invalid ||
+              (mode === 'edit' && personal.pristine && classification.pristine)
             "
           >
             @if (submitting()) {

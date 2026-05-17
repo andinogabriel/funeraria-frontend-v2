@@ -15,8 +15,10 @@ import type { Plan, PlanRequest } from './plan.types';
  * - {@link list} — cached plan list; `null` before the first load.
  * - {@link loading} / {@link error} — standard baseline signals.
  *
- * Writes (`create`, `update`, `delete`) refetch the cached list on success so the UI
- * stays consistent without each consumer remembering to invalidate manually.
+ * Writes (`create`, `update`, `delete`) patch the cached list in place from
+ * the response payload (or filter on delete) instead of refetching the whole
+ * collection — the operator-facing latency dropped meaningfully once we
+ * stopped chasing every save with a redundant `GET /plans`.
  */
 @Injectable({ providedIn: 'root' })
 export class PlanService {
@@ -54,23 +56,40 @@ export class PlanService {
     return this._list()?.find((plan) => plan.id === id);
   }
 
-  /** Creates a new plan. Refetches the list on success so any cached signal stays in sync. */
+  /** Creates a new plan and appends it to the cached list. */
   create(request: PlanRequest): Observable<Plan> {
-    return this.http.post<Plan>(this.baseUrl, request).pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.post<Plan>(this.baseUrl, request).pipe(
+      tap((plan) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set([...current, plan]);
+        }
+      }),
+    );
   }
 
-  /** Updates an existing plan by id. */
+  /** Updates an existing plan by id and replaces the cached row with the response. */
   update(id: number, request: PlanRequest): Observable<Plan> {
-    return this.http
-      .put<Plan>(`${this.baseUrl}/${id}`, request)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.put<Plan>(`${this.baseUrl}/${id}`, request).pipe(
+      tap((plan) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.map((p) => (p.id === id ? plan : p)));
+        }
+      }),
+    );
   }
 
-  /** Deletes the plan with the given id. */
+  /** Deletes the plan with the given id and removes it from the cache. */
   delete(id: number): Observable<void> {
-    return this.http
-      .delete<void>(`${this.baseUrl}/${id}`)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.delete<void>(`${this.baseUrl}/${id}`).pipe(
+      tap(() => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.filter((p) => p.id !== id));
+        }
+      }),
+    );
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

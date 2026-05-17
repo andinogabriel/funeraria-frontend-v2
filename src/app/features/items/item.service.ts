@@ -54,23 +54,49 @@ export class ItemService {
     return this._list()?.find((item) => item.code === code);
   }
 
-  /** Creates a new item. Refetches the list on success. */
+  /**
+   * Creates a new item. Patches the cache in place from the response payload —
+   * no `GET /items` refetch — so any cached signal (notably the plan form
+   * picker) sees the new row without a second round-trip.
+   */
   create(request: ItemRequest): Observable<Item> {
-    return this.http.post<Item>(this.baseUrl, request).pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.post<Item>(this.baseUrl, request).pipe(
+      tap((item) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set([...current, item]);
+        }
+      }),
+    );
   }
 
-  /** Updates an item identified by its code. */
+  /**
+   * Updates an item identified by its code. Replaces the row in the cached
+   * list with the persisted response. The lookup uses `code` because that is
+   * the natural key the operator can change other fields under (the id is
+   * server-assigned and never changes).
+   */
   update(code: string, request: ItemRequest): Observable<Item> {
-    return this.http
-      .put<Item>(`${this.baseUrl}/${encodeURIComponent(code)}`, request)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.put<Item>(`${this.baseUrl}/${encodeURIComponent(code)}`, request).pipe(
+      tap((item) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.map((i) => (i.code === code ? item : i)));
+        }
+      }),
+    );
   }
 
-  /** Deletes the item with the given code. */
+  /** Deletes the item with the given code and removes it from the cached list. */
   delete(code: string): Observable<void> {
-    return this.http
-      .delete<void>(`${this.baseUrl}/${encodeURIComponent(code)}`)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.delete<void>(`${this.baseUrl}/${encodeURIComponent(code)}`).pipe(
+      tap(() => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.filter((i) => i.code !== code));
+        }
+      }),
+    );
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

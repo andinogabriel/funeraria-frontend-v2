@@ -65,35 +65,41 @@ describe('PlanService', () => {
     expect(service.error()).toBe('No se pudo contactar al servidor.');
   });
 
-  it('POSTs the request body to /api/v1/plans on create and refetches the list afterwards', () => {
-    service.create(request()).subscribe();
+  it('POSTs the request body to /api/v1/plans on create and appends to the cached list', () => {
+    service.loadAll().subscribe();
+    http.expectOne('/api/v1/plans').flush([plan({ id: 1 })]);
 
+    service.create(request()).subscribe();
     const createReq = http.expectOne((r) => r.method === 'POST' && r.url === '/api/v1/plans');
     expect(createReq.request.body).toEqual(request());
-    createReq.flush(plan());
+    const created = plan({ id: 99 });
+    createReq.flush(created);
 
-    const refetch = http.expectOne('/api/v1/plans');
-    expect(refetch.request.method).toBe('GET');
-    refetch.flush([plan()]);
+    // No follow-up GET — the cache patch handled the append.
+    expect(service.list()?.map((p) => p.id)).toEqual([1, 99]);
   });
 
-  it('PUTs to /api/v1/plans/{id} on update and refetches the list', () => {
-    service.update(7, request()).subscribe();
+  it('PUTs to /api/v1/plans/{id} on update and replaces the cached row', () => {
+    service.loadAll().subscribe();
+    http.expectOne('/api/v1/plans').flush([plan({ id: 7, name: 'Old' })]);
 
+    service.update(7, request()).subscribe();
     const putReq = http.expectOne((r) => r.method === 'PUT' && r.url === '/api/v1/plans/7');
     expect(putReq.request.body).toEqual(request());
-    putReq.flush(plan({ id: 7 }));
+    const updated = plan({ id: 7, name: 'New' });
+    putReq.flush(updated);
 
-    http.expectOne('/api/v1/plans').flush([plan({ id: 7 })]);
+    expect(service.list()).toEqual([updated]);
   });
 
-  it('DELETEs /api/v1/plans/{id} on delete and refetches the list', () => {
+  it('DELETEs /api/v1/plans/{id} and removes the row from the cached list', () => {
+    service.loadAll().subscribe();
+    http.expectOne('/api/v1/plans').flush([plan({ id: 7 }), plan({ id: 8 })]);
+
     service.delete(7).subscribe();
+    http.expectOne((r) => r.method === 'DELETE' && r.url === '/api/v1/plans/7').flush(null);
 
-    const delReq = http.expectOne((r) => r.method === 'DELETE' && r.url === '/api/v1/plans/7');
-    delReq.flush(null);
-
-    http.expectOne('/api/v1/plans').flush([]);
+    expect(service.list()?.map((p) => p.id)).toEqual([8]);
   });
 
   it('findById returns the matching plan from the cached list', () => {
