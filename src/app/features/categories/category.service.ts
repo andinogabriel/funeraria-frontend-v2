@@ -5,7 +5,10 @@ import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import type { Category, CategoryRequest } from './category.types';
 
-/** CRUD client for the categories catalog. Same shape as `BrandService`. */
+/**
+ * CRUD client for the categories catalog. Same shape as `BrandService`,
+ * including the in-place cache patch on mutations (no refetch round-trip).
+ */
 @Injectable({ providedIn: 'root' })
 export class CategoryService {
   private readonly http = inject(HttpClient);
@@ -41,21 +44,36 @@ export class CategoryService {
   }
 
   create(request: CategoryRequest): Observable<Category> {
-    return this.http
-      .post<Category>(this.baseUrl, request)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.post<Category>(this.baseUrl, request).pipe(
+      tap((category) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set([...current, category]);
+        }
+      }),
+    );
   }
 
   update(id: number, request: CategoryRequest): Observable<Category> {
-    return this.http
-      .put<Category>(`${this.baseUrl}/${id}`, request)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.put<Category>(`${this.baseUrl}/${id}`, request).pipe(
+      tap((category) => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.map((c) => (c.id === id ? category : c)));
+        }
+      }),
+    );
   }
 
   delete(id: number): Observable<void> {
-    return this.http
-      .delete<void>(`${this.baseUrl}/${id}`)
-      .pipe(tap(() => this.loadAll().subscribe()));
+    return this.http.delete<void>(`${this.baseUrl}/${id}`).pipe(
+      tap(() => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.filter((c) => c.id !== id));
+        }
+      }),
+    );
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

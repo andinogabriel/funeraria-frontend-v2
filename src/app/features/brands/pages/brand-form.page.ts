@@ -77,6 +77,14 @@ export class BrandFormPage {
       this.form.markAllAsTouched();
       return;
     }
+    // Defensive: even though the submit button is disabled on pristine edit, the
+    // user can still trigger this via Enter. Skip the no-op `PUT` and just
+    // navigate back so the operator gets the same "done here" feedback without
+    // hitting the backend (and without invalidating the cached list).
+    if (this.mode === 'edit' && this.form.pristine) {
+      void this.router.navigate(['/marcas']);
+      return;
+    }
     const value = this.form.getRawValue();
     const request: BrandRequest = {
       name: value.name.trim(),

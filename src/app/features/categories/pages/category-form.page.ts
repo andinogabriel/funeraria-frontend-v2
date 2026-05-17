@@ -70,6 +70,11 @@ export class CategoryFormPage {
       this.form.markAllAsTouched();
       return;
     }
+    // Skip the round-trip when nothing changed (see brand-form.page.ts for rationale).
+    if (this.mode === 'edit' && this.form.pristine) {
+      void this.router.navigate(['/categorias']);
+      return;
+    }
     const value = this.form.getRawValue();
     const request: CategoryRequest = {
       name: value.name.trim(),

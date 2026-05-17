@@ -168,6 +168,11 @@ export class AffiliateFormPage {
       this.classification.markAllAsTouched();
       return;
     }
+    // Skip the no-op `PUT` when neither step was touched (see brand-form.page.ts).
+    if (this.mode === 'edit' && this.personal.pristine && this.classification.pristine) {
+      void this.router.navigate(['/afiliados']);
+      return;
+    }
     const personal = this.personal.getRawValue();
     const classification = this.classification.getRawValue();
     const gender = this.findGender(classification.genderId);
