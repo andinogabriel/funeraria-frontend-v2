@@ -149,6 +149,16 @@ export const routes: Routes = [
           import('./features/funerals/pages/funeral-form.page').then((m) => m.FuneralFormPage),
         data: { mode: 'edit' },
       },
+      {
+        // Operator-facing "my services" view backed by GET /funerals/by-user
+        // (gated to ROLE_USER on the backend). Like /auditoria we don't add
+        // a route guard — the backend response is the canonical authority
+        // and the service surfaces a friendly 403 message if a non-USER
+        // session happens to land here.
+        path: 'mis-servicios',
+        loadComponent: () =>
+          import('./features/funerals/pages/my-funerals.page').then((m) => m.MyFuneralsPage),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

@@ -23,15 +23,23 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+import { AuthStore } from '../../../core/auth/auth.store';
 import { AffiliateService } from '../../affiliates/affiliate.service';
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import { ItemService } from '../../items/item.service';
 import { PlanService } from '../../plans/plan.service';
+import { UserService } from '../../users/user.service';
 import { FuneralService } from '../funeral.service';
-import type { DeceasedRequest, Funeral, FuneralRequest, ItemPlanRequest } from '../funeral.types';
+import type {
+  AddressRequest,
+  DeceasedRequest,
+  Funeral,
+  FuneralRequest,
+  ItemPlanRequest,
+} from '../funeral.types';
 
 /**
  * Single component for both create and edit of a funeral service.
@@ -68,10 +76,19 @@ import type { DeceasedRequest, Funeral, FuneralRequest, ItemPlanRequest } from '
  *
  * <h3>placeOfDeath</h3>
  *
- * Always sent as `null` in v1. The backend accepts the field but wiring a
- * city picker would inflate the form past what operators have asked for so
- * far. Documented here so the next maintainer knows it is a deliberate gap
- * rather than an oversight.
+ * Optional. Behind an "Agregar lugar de fallecimiento" toggle to keep the
+ * happy path short — operators that don't have the address handy at intake
+ * time skip the section and the request ships `placeOfDeath: null`. When
+ * the toggle is on, the section binds a province → city cascade (city list
+ * lazy-loads from `CatalogsService.loadCities(provinceId)` on each
+ * province change) plus street + altura + dpto/piso.
+ *
+ * <h3>deceasedUser</h3>
+ *
+ * Optional vinculación between the deceased and the user that owns the
+ * affiliate policy. Only rendered for `ROLE_ADMIN` because
+ * `GET /api/v1/users` is admin-gated on the backend; non-admin operators
+ * leave it null and the backend records the funeral as non-affiliated.
  */
 @Component({
   selector: 'app-funeral-form-page',
@@ -101,6 +118,8 @@ export class FuneralFormPage {
   private readonly planService = inject(PlanService);
   private readonly itemService = inject(ItemService);
   private readonly affiliateService = inject(AffiliateService);
+  private readonly userService = inject(UserService);
+  private readonly authStore = inject(AuthStore);
   private readonly catalogs = inject(CatalogsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
@@ -122,8 +141,17 @@ export class FuneralFormPage {
   protected readonly relationships = this.catalogs.relationships;
   protected readonly deathCauses = this.catalogs.deathCauses;
   protected readonly receiptTypes = this.catalogs.receiptTypes;
+  protected readonly provinces = this.catalogs.provinces;
   protected readonly plans = this.planService.list;
   protected readonly affiliates = this.affiliateService.list;
+  protected readonly users = this.userService.list;
+
+  /**
+   * `true` when the active session has `ROLE_ADMIN`. Gates the deceasedUser
+   * picker — `GET /api/v1/users` is admin-only on the backend, so for plain
+   * USERs we hide the field entirely and never load the list.
+   */
+  protected readonly isAdmin = computed(() => this.authStore.authorities().includes('ROLE_ADMIN'));
 
   protected readonly catalogsReady = computed(
     () =>
@@ -131,6 +159,7 @@ export class FuneralFormPage {
       this.relationships() !== null &&
       this.deathCauses() !== null &&
       this.receiptTypes() !== null &&
+      this.provinces() !== null &&
       this.plans() !== null &&
       this.affiliates() !== null,
   );
@@ -169,7 +198,29 @@ export class FuneralFormPage {
       validators: [Validators.required],
     }),
     deathCauseId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
+    /** ID of the bound user when admin opted to link one. Always null for non-admins. */
+    deceasedUserId: this.fb.control<number | null>(null),
   });
+
+  /**
+   * Optional `placeOfDeath` sub-form. The `include` toggle gates whether the
+   * payload ships a populated `AddressRequest` or a null. Inner controls have
+   * a `required` validator that only fires when `include` is true (see the
+   * effect in the constructor) so the section can stay empty without
+   * blocking submission.
+   */
+  protected readonly placeOfDeath = this.fb.group({
+    include: this.fb.control(false),
+    provinceId: this.fb.control<number | null>(null),
+    cityId: this.fb.control<number | null>(null),
+    streetName: this.fb.control('', { validators: [Validators.maxLength(120)] }),
+    blockStreet: this.fb.control<number | null>(null),
+    apartment: this.fb.control('', { validators: [Validators.maxLength(20)] }),
+    flat: this.fb.control('', { validators: [Validators.maxLength(20)] }),
+  });
+
+  /** Cities for the currently-selected province. `null` until the lazy load resolves. */
+  protected readonly cities = signal<readonly { id: number; name: string }[] | null>(null);
 
   /* ----------------------------- Step 3: Plan + items ------------------------- */
 
@@ -207,20 +258,39 @@ export class FuneralFormPage {
     initialValue: this.planSelection.controls.planId.value,
   });
 
+  /** Reactive snapshot of the placeOfDeath toggle — gates validators + payload. */
+  protected readonly includePlaceOfDeath = toSignal(
+    this.placeOfDeath.controls.include.valueChanges,
+    { initialValue: this.placeOfDeath.controls.include.value },
+  );
+
+  /** Reactive snapshot of the province picker — drives the city cascade. */
+  private readonly selectedProvinceId = toSignal(
+    this.placeOfDeath.controls.provinceId.valueChanges,
+    { initialValue: this.placeOfDeath.controls.provinceId.value },
+  );
+
   constructor() {
     // Load catalogs + plans + active affiliates in parallel; once everything
     // resolves we hydrate the form in edit mode. The list signals back the
     // catalog-bound selects in the template so this is the only place that
     // sequencing matters.
+    // Provinces always load (cheap, also used by the optional placeOfDeath
+    // section). User list only loads when the active session has ROLE_ADMIN —
+    // the endpoint 403s for non-admins, and we hide the picker for them
+    // anyway, so triggering the request just to surface a friendly error in
+    // a panel the operator never sees would be pure noise.
     forkJoin([
       this.catalogs.loadGenders(),
       this.catalogs.loadRelationships(),
       this.catalogs.loadDeathCauses(),
       this.catalogs.loadReceiptTypes(),
+      this.catalogs.loadProvinces(),
       this.planService.loadAll(),
       this.itemService.loadAll(),
       this.affiliateService.loadActive(),
       this.service.loadAll(),
+      this.isAdmin() ? this.userService.loadAll() : of(null),
     ]).subscribe(() => {
       if (this.editId !== null) {
         const cached = this.service.findById(this.editId);
@@ -269,6 +339,39 @@ export class FuneralFormPage {
       }
     });
 
+    // Toggle the address validators on / off based on the include checkbox.
+    // Keeping the validators inert when the section is collapsed lets the
+    // operator submit without filling anything in. When the toggle flips on,
+    // streetName / provinceId / cityId become required.
+    effect(() => {
+      const include = this.includePlaceOfDeath();
+      const street = this.placeOfDeath.controls.streetName;
+      const province = this.placeOfDeath.controls.provinceId;
+      const city = this.placeOfDeath.controls.cityId;
+      street.setValidators(
+        include ? [Validators.required, Validators.maxLength(120)] : [Validators.maxLength(120)],
+      );
+      province.setValidators(include ? [Validators.required] : []);
+      city.setValidators(include ? [Validators.required] : []);
+      street.updateValueAndValidity({ emitEvent: false });
+      province.updateValueAndValidity({ emitEvent: false });
+      city.updateValueAndValidity({ emitEvent: false });
+    });
+
+    // Province → city cascade. Picking a province lazily loads its cities
+    // (cached per-province inside CatalogsService) and clears any stale city
+    // selection so the form never ships an inconsistent (province, city) pair.
+    effect(() => {
+      const provinceId = this.selectedProvinceId();
+      if (provinceId === null) {
+        this.cities.set(null);
+        this.placeOfDeath.controls.cityId.setValue(null, { emitEvent: false });
+        return;
+      }
+      this.placeOfDeath.controls.cityId.setValue(null, { emitEvent: false });
+      this.catalogs.loadCities(provinceId).subscribe((list) => this.cities.set(list));
+    });
+
     // Rebuild the items FormArray whenever a different plan is picked. Each
     // row carries the catalog item's code + name (for display) and an editable
     // quantity, validated 1..200 per backend's `@Max(200)`.
@@ -294,18 +397,21 @@ export class FuneralFormPage {
       this.servicio.valid &&
       this.fallecido.valid &&
       this.planSelection.valid &&
+      this.placeOfDeath.valid &&
       this.itemRows.valid;
     if (!valid || this.submitting() || !this.catalogsReady()) {
       this.servicio.markAllAsTouched();
       this.fallecido.markAllAsTouched();
       this.planSelection.markAllAsTouched();
+      this.placeOfDeath.markAllAsTouched();
       return;
     }
     if (
       this.mode === 'edit' &&
       this.servicio.pristine &&
       this.fallecido.pristine &&
-      this.planSelection.pristine
+      this.planSelection.pristine &&
+      this.placeOfDeath.pristine
     ) {
       void this.router.navigate(['/servicios']);
       return;
@@ -314,6 +420,7 @@ export class FuneralFormPage {
     const servicio = this.servicio.getRawValue();
     const fallecido = this.fallecido.getRawValue();
     const planSelection = this.planSelection.getRawValue();
+    const place = this.placeOfDeath.getRawValue();
 
     if (
       servicio.funeralDate === null ||
@@ -365,17 +472,46 @@ export class FuneralFormPage {
       };
     });
 
+    // Build placeOfDeath only when the section is included and a city was
+    // picked. Trimming the optional strings keeps the request body clean —
+    // empty apartment / flat / blockStreet drop to undefined rather than
+    // forcing the backend to store empty strings.
+    let placeOfDeath: AddressRequest | null = null;
+    if (place.include && place.cityId !== null && place.streetName.trim().length > 0) {
+      placeOfDeath = {
+        streetName: place.streetName.trim(),
+        blockStreet: place.blockStreet ?? undefined,
+        apartment: place.apartment.trim() || undefined,
+        flat: place.flat.trim() || undefined,
+        city: { id: place.cityId },
+      };
+    }
+
+    // Resolve the bound user from the cached list (admin-only path). The
+    // backend wants `{email, firstName, lastName}`, no id. Non-admins skip
+    // the picker so the field stays null regardless of what the form holds.
+    const deceasedUser =
+      this.isAdmin() && fallecido.deceasedUserId !== null
+        ? (this.users() ?? []).find((u) => u.id === fallecido.deceasedUserId)
+        : undefined;
+
     const deceased: DeceasedRequest = {
       firstName: fallecido.firstName.trim(),
       lastName: fallecido.lastName.trim(),
       dni: fallecido.dni,
       birthDate: toIsoDate(fallecido.birthDate),
       deathDate: toIsoDate(fallecido.deathDate),
-      placeOfDeath: null,
+      placeOfDeath,
       gender: { id: gender.id, name: gender.name },
       deceasedRelationship: { id: relationship.id, name: relationship.name },
       deathCause: { id: deathCause.id, name: deathCause.name },
-      deceasedUser: null,
+      deceasedUser: deceasedUser
+        ? {
+            email: deceasedUser.email,
+            firstName: deceasedUser.firstName,
+            lastName: deceasedUser.lastName,
+          }
+        : null,
     };
 
     const request: FuneralRequest = {
@@ -452,6 +588,13 @@ export class FuneralFormPage {
     });
 
     const isAffiliated = funeral.deceased.affiliated;
+    // Resolve the cached user id by email so the picker reflects the
+    // currently-bound user. Backend ships `{email, firstName, lastName}` and
+    // we cache users with id + email, so this is the only join we have.
+    const boundUser = funeral.deceased.deceasedUser
+      ? (this.users() ?? []).find((u) => u.email === funeral.deceased.deceasedUser?.email)
+      : undefined;
+
     this.fallecido.patchValue({
       isAffiliated,
       affiliateDni: isAffiliated ? funeral.deceased.dni : null,
@@ -463,7 +606,32 @@ export class FuneralFormPage {
       genderId: funeral.deceased.gender.id,
       deceasedRelationshipId: funeral.deceased.deceasedRelationship.id,
       deathCauseId: funeral.deceased.deathCause.id,
+      deceasedUserId: boundUser?.id ?? null,
     });
+
+    // Hydrate placeOfDeath from the response. We can populate the city id
+    // straight away but the city dropdown stays empty until the province
+    // cascade resolves — the `loadCities` call below seeds the cache so the
+    // select shows the bound city as soon as the request returns.
+    const place = funeral.deceased.placeOfDeath;
+    if (place?.city?.id) {
+      const provinceId =
+        // The backend ships `city.province?.id` on the address; fall back to a
+        // looser lookup if it ever stops carrying the relation.
+        ((place.city as { province?: { id?: number } }).province?.id ?? null) as number | null;
+      this.placeOfDeath.patchValue({
+        include: true,
+        streetName: place.streetName ?? '',
+        blockStreet: place.blockStreet ?? null,
+        apartment: place.apartment ?? '',
+        flat: place.flat ?? '',
+        provinceId,
+        cityId: place.city.id,
+      });
+      if (provinceId !== null) {
+        this.catalogs.loadCities(provinceId).subscribe((list) => this.cities.set(list));
+      }
+    }
 
     this.planSelection.patchValue({ planId: funeral.plan.id });
     this.itemRows.clear();

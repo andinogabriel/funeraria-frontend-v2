@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
   <header class="flex flex-wrap items-center gap-3">
     <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
-      church
+      person_pin
     </mat-icon>
     <div class="flex flex-col">
-      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Servicios</h1>
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Mis servicios</h1>
       <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
-        Servicios funerarios registrados.
+        Servicios funerarios que registraste con tu cuenta.
       </p>
     </div>
     <span class="flex-1"></span>
@@ -15,10 +15,6 @@
       <mat-icon class="material-symbols-outlined">refresh</mat-icon>
       Actualizar
     </button>
-    <a mat-flat-button color="primary" routerLink="/servicios/nuevo">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nuevo servicio
-    </a>
   </header>
 
   @if (error(); as message) {
@@ -34,24 +30,15 @@
     [searchControl]="searchControl"
     searchLabel="Buscar por fallecido, DNI o recibo"
     [data]="filtered()"
-    [columns]="columns()"
+    [columns]="columns"
     [trackBy]="trackById"
-    storageKey="funerals.list"
+    storageKey="my-funerals.list"
     [initialSort]="{ active: 'funeralDate', direction: 'desc' }"
     [loading]="loading()"
-    emptyIcon="church"
-    emptyTitle="No hay servicios que coincidan con la búsqueda."
-    emptyHint="Probá con otro criterio o registrá un nuevo servicio."
+    emptyIcon="person_pin"
+    emptyTitle="No tenés servicios registrados a tu nombre."
+    emptyHint="Cuando registres un servicio, aparecerá aquí."
     [actions]="actions()"
     [(selectedRow)]="selectedFuneral"
   />
 </div>
-
-<!--
-  Cell renderers projected into the data-table via the `cellTemplate` slot
-  on each column descriptor. The column's `value` accessor still returns
-  the raw sortable value (ISO string / number) so the grid sort stays
-  chronological / numeric.
--->
-<ng-template #funeralDateCell let-funeral>{{ formatDateTime(funeral.funeralDate) }}</ng-template>
-<ng-template #totalCell let-funeral>{{ formatCurrency(funeral.totalAmount) }}</ng-template>

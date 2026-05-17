@@ -112,10 +112,12 @@
                     servicio.invalid ||
                     fallecido.invalid ||
                     planSelection.invalid ||
+                    placeOfDeath.invalid ||
                     (mode === 'edit' &&
                       servicio.pristine &&
                       fallecido.pristine &&
-                      planSelection.pristine)
+                      planSelection.pristine &&
+                      placeOfDeath.pristine)
                   "
                 >
                   @if (submitting()) {
@@ -192,7 +194,12 @@
               servicio.invalid ||
               fallecido.invalid ||
               planSelection.invalid ||
-              (mode === 'edit' && servicio.pristine && fallecido.pristine && planSelection.pristine)
+              placeOfDeath.invalid ||
+              (mode === 'edit' &&
+                servicio.pristine &&
+                fallecido.pristine &&
+                planSelection.pristine &&
+                placeOfDeath.pristine)
             "
           >
             @if (submitting()) {
@@ -408,7 +415,117 @@
           <mat-error>Elegí la causa de muerte.</mat-error>
         }
       </mat-form-field>
+
+      <!--
+        Admin-only deceasedUser picker. For non-admin sessions we hide the
+        field entirely because `GET /api/v1/users` returns 403 (backend
+        gated) and loading the catalog just to render an empty select is
+        pointless.
+      -->
+      @if (isAdmin()) {
+        <mat-form-field appearance="fill" class="sm:col-span-2 lg:col-span-3">
+          <mat-label>Usuario vinculado (opcional)</mat-label>
+          <mat-select formControlName="deceasedUserId">
+            <mat-option [value]="null">Sin vincular</mat-option>
+            @for (user of users() ?? []; track user.id) {
+              <mat-option [value]="user.id" [disabled]="!user.enabled">
+                {{ user.firstName }} {{ user.lastName }} · {{ user.email }}
+              </mat-option>
+            }
+          </mat-select>
+          <mat-hint>
+            Vinculá la cuenta del responsable que solicitó el servicio. Si lo dejás vacío, queda
+            como fallecido no afiliado.
+          </mat-hint>
+        </mat-form-field>
+      }
     </div>
+  </form>
+
+  <!--
+    Optional address block. Lives outside the `[formGroup]="fallecido"` form
+    because the controls live in their own group (`placeOfDeath`) so we can
+    flip validators independently on the include toggle.
+  -->
+  <form [formGroup]="placeOfDeath" class="flex flex-col gap-3 mt-2">
+    <mat-checkbox formControlName="include" color="primary">
+      Agregar lugar de fallecimiento
+    </mat-checkbox>
+
+    @if (includePlaceOfDeath()) {
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <mat-form-field appearance="fill">
+          <mat-label>Provincia</mat-label>
+          <mat-select formControlName="provinceId">
+            <mat-option [value]="null">Seleccionar…</mat-option>
+            @for (prov of provinces() ?? []; track prov.id) {
+              <mat-option [value]="prov.id">{{ prov.name }}</mat-option>
+            }
+          </mat-select>
+          @if (
+            placeOfDeath.controls.provinceId.touched &&
+            placeOfDeath.controls.provinceId.hasError('required')
+          ) {
+            <mat-error>Elegí una provincia.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Localidad</mat-label>
+          <mat-select
+            formControlName="cityId"
+            [disabled]="placeOfDeath.controls.provinceId.value === null || cities() === null"
+          >
+            <mat-option [value]="null">Seleccionar…</mat-option>
+            @for (c of cities() ?? []; track c.id) {
+              <mat-option [value]="c.id">{{ c.name }}</mat-option>
+            }
+          </mat-select>
+          @if (
+            placeOfDeath.controls.cityId.touched &&
+            placeOfDeath.controls.cityId.hasError('required')
+          ) {
+            <mat-error>Elegí una localidad.</mat-error>
+          }
+          @if (placeOfDeath.controls.provinceId.value !== null && cities() === null) {
+            <mat-hint>Cargando localidades…</mat-hint>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Calle</mat-label>
+          <input matInput formControlName="streetName" autocomplete="off" maxlength="120" />
+          @if (
+            placeOfDeath.controls.streetName.touched &&
+            placeOfDeath.controls.streetName.hasError('required')
+          ) {
+            <mat-error>La calle es obligatoria.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Altura</mat-label>
+          <input
+            matInput
+            type="number"
+            formControlName="blockStreet"
+            autocomplete="off"
+            inputmode="numeric"
+            min="0"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Departamento</mat-label>
+          <input matInput formControlName="apartment" autocomplete="off" maxlength="20" />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+          <mat-label>Piso</mat-label>
+          <input matInput formControlName="flat" autocomplete="off" maxlength="20" />
+        </mat-form-field>
+      </div>
+    }
   </form>
 </ng-template>
 

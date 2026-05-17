@@ -73,21 +73,26 @@ export class ShellComponent {
   protected readonly store = inject(AuthStore);
 
   /**
-   * Top-level nav entries. `requiresAdmin: true` hides the entry from users
-   * without `ROLE_ADMIN` — backend would 403 them anyway, but offering a link
-   * that always errors is bad UX. `requiresAdmin: false` (or absent) shows
-   * the entry to anyone with an authenticated session.
+   * Top-level nav entries.
+   *
+   * - `requiresAdmin: true` → hide unless session has `ROLE_ADMIN` (backend
+   *   would 403 anyway, but offering a link that always errors is bad UX).
+   * - `requiresUser: true` → hide unless session has `ROLE_USER`. Currently
+   *   only `Mis servicios` uses this (`GET /funerals/by-user` is gated to
+   *   ROLE_USER). An ADMIN that does not also have ROLE_USER sees `/servicios`
+   *   (the full grid) and doesn't need the personal cut.
    */
-  private readonly allNavItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', requiresAdmin: false },
-    { path: '/afiliados', label: 'Afiliados', icon: 'group', requiresAdmin: false },
-    { path: '/servicios', label: 'Servicios', icon: 'church', requiresAdmin: false },
-    { path: '/planes', label: 'Planes', icon: 'workspace_premium', requiresAdmin: false },
-    { path: '/items', label: 'Items', icon: 'inventory_2', requiresAdmin: false },
-    { path: '/marcas', label: 'Marcas', icon: 'sell', requiresAdmin: false },
-    { path: '/categorias', label: 'Categorías', icon: 'category', requiresAdmin: false },
+  private readonly allNavItems: readonly NavItem[] = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
+    { path: '/afiliados', label: 'Afiliados', icon: 'group' },
+    { path: '/servicios', label: 'Servicios', icon: 'church' },
+    { path: '/mis-servicios', label: 'Mis servicios', icon: 'person_pin', requiresUser: true },
+    { path: '/planes', label: 'Planes', icon: 'workspace_premium' },
+    { path: '/items', label: 'Items', icon: 'inventory_2' },
+    { path: '/marcas', label: 'Marcas', icon: 'sell' },
+    { path: '/categorias', label: 'Categorías', icon: 'category' },
     { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
-  ] as const;
+  ];
 
   /**
    * Nav items visible to the current user. Filters the admin-only entries when
@@ -95,11 +100,18 @@ export class ShellComponent {
    * role-switch (refresh token returning new authorities, etc.) without us
    * having to remount the shell.
    */
-  protected readonly navItems = computed(() =>
-    this.allNavItems.filter(
-      (item) => !item.requiresAdmin || this.store.authorities().includes('ROLE_ADMIN'),
-    ),
-  );
+  protected readonly navItems = computed(() => {
+    const auths = this.store.authorities();
+    return this.allNavItems.filter((item) => {
+      if (item.requiresAdmin && !auths.includes('ROLE_ADMIN')) {
+        return false;
+      }
+      if (item.requiresUser && !auths.includes('ROLE_USER')) {
+        return false;
+      }
+      return true;
+    });
+  });
 
   protected readonly isHandset = toSignal(
     this.breakpointObserver
@@ -163,4 +175,12 @@ export class ShellComponent {
       void sidenav.close();
     }
   }
+}
+
+interface NavItem {
+  readonly path: string;
+  readonly label: string;
+  readonly icon: string;
+  readonly requiresAdmin?: boolean;
+  readonly requiresUser?: boolean;
 }

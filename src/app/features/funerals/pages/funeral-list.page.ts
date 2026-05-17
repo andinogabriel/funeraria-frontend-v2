@@ -5,6 +5,8 @@ import {
   effect,
   inject,
   signal,
+  TemplateRef,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl } from '@angular/forms';
@@ -75,7 +77,18 @@ export class FuneralListPage {
     });
   });
 
-  protected readonly columns: readonly DataTableColumn<Funeral>[] = [
+  /**
+   * Cell renderers for the date and currency columns. The columns' `value`
+   * accessor returns the raw sortable form (ISO string for dates, number for
+   * currency) so client-side sort is chronological / numerical; the
+   * templates render the operator-facing format. Wired through `viewChild`
+   * so the columns array can be a computed signal.
+   */
+  private readonly funeralDateCell =
+    viewChild<TemplateRef<{ $implicit: Funeral }>>('funeralDateCell');
+  private readonly totalCell = viewChild<TemplateRef<{ $implicit: Funeral }>>('totalCell');
+
+  protected readonly columns = computed<readonly DataTableColumn<Funeral>[]>(() => [
     {
       key: 'deceasedName',
       label: 'Fallecido',
@@ -91,15 +104,11 @@ export class FuneralListPage {
     {
       key: 'funeralDate',
       label: 'Fecha del servicio',
-      // Returning the ISO string gives correct sort (yyyy-MM-dd lexicographic
-      // ordering matches chronological), at the cost of an unprettified cell.
-      // The formatted variant lives below; consumers reading the grid get the
-      // sortable ISO, the operator-facing display is rendered via the
-      // `funeralDateCell` template inside the HTML — wired through `viewChild`.
-      // For this first cut we keep the formatted string in `value` and accept
-      // that sort is lexicographic on `dd/MM/yyyy` (close enough within the
-      // current month — the receipt number column gives the canonical order).
-      value: (funeral) => formatDateTime(funeral.funeralDate),
+      // ISO `yyyy-MM-ddTHH:mm` sorts chronologically as a string, so the
+      // grid sort works without any custom comparator. The cell renders the
+      // localized `dd/MM/yyyy HH:mm` via the projected template.
+      value: (funeral) => funeral.funeralDate,
+      cellTemplate: this.funeralDateCell(),
       cellClass: 'tabular-nums whitespace-nowrap',
     },
     {
@@ -116,14 +125,20 @@ export class FuneralListPage {
     {
       key: 'totalAmount',
       label: 'Total',
-      value: (funeral) => formatCurrency(funeral.totalAmount),
+      // Numeric value for sort; the template formats it as ARS currency.
+      value: (funeral) => funeral.totalAmount,
+      cellTemplate: this.totalCell(),
       cellClass: 'tabular-nums text-right whitespace-nowrap',
       headerClass: 'text-right',
       align: 'end',
     },
-  ] as const;
+  ]);
 
   protected readonly trackById = (_: number, row: Funeral): number => row.id;
+
+  /** Bound to the cellTemplate refs — bound as method so the template can call them. */
+  protected readonly formatDateTime = formatDateTime;
+  protected readonly formatCurrency = formatCurrency;
 
   protected readonly actions = computed<readonly ListCardAction[]>(() => [
     {
