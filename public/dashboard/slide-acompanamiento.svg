@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Acompañamiento">
+  <defs>
+    <linearGradient id="acomp-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f3a3f" />
+      <stop offset="55%" stop-color="#386761" />
+      <stop offset="100%" stop-color="#6ba59b" />
+    </linearGradient>
+    <radialGradient id="acomp-glow-a" cx="30%" cy="40%" r="35%">
+      <stop offset="0%" stop-color="#a8e6d9" stop-opacity="0.32" />
+      <stop offset="100%" stop-color="#a8e6d9" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="acomp-glow-b" cx="68%" cy="65%" r="32%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="600" fill="url(#acomp-bg)" />
+  <rect width="1600" height="600" fill="url(#acomp-glow-a)" />
+  <rect width="1600" height="600" fill="url(#acomp-glow-b)" />
+  <!-- Two interlocking soft blobs symbolising compañía -->
+  <ellipse cx="540" cy="280" rx="200" ry="180" fill="#ffffff" opacity="0.05" />
+  <ellipse cx="720" cy="350" rx="200" ry="180" fill="#a8e6d9" opacity="0.08" />
+  <path d="M 0 480 C 300 420 500 500 800 460 S 1300 420 1600 460 L 1600 600 L 0 600 Z" fill="#ffffff" opacity="0.05" />
+</svg>

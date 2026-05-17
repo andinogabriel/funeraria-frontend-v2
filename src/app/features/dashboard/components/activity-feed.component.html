@@ -1,0 +1,23 @@
+@if (items().length === 0) {
+  <p class="activity-feed__empty">No hay actividad reciente.</p>
+} @else {
+  <ol class="activity-feed">
+    @for (item of items(); track item.title + item.time) {
+      <li class="activity-feed__item">
+        <span
+          class="activity-feed__bullet activity-feed__bullet--{{ item.tone }}"
+          aria-hidden="true"
+        >
+          <mat-icon class="material-symbols-outlined">{{ item.icon }}</mat-icon>
+        </span>
+        <div class="activity-feed__body">
+          <p class="activity-feed__title">{{ item.title }}</p>
+          @if (item.body; as text) {
+            <p class="activity-feed__text">{{ text }}</p>
+          }
+        </div>
+        <time class="activity-feed__time">{{ item.time }}</time>
+      </li>
+    }
+  </ol>
+}

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Cielo">
+  <defs>
+    <linearGradient id="cielo-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4a6fa5" />
+      <stop offset="45%" stop-color="#7a98c4" />
+      <stop offset="100%" stop-color="#e3c8a8" />
+    </linearGradient>
+    <radialGradient id="cielo-sun" cx="20%" cy="30%" r="20%">
+      <stop offset="0%" stop-color="#fff8e3" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#fff8e3" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="600" fill="url(#cielo-bg)" />
+  <rect width="1600" height="600" fill="url(#cielo-sun)" />
+  <!-- Cloud silhouettes -->
+  <ellipse cx="900" cy="180" rx="240" ry="32" fill="#ffffff" opacity="0.18" />
+  <ellipse cx="1200" cy="240" rx="180" ry="22" fill="#ffffff" opacity="0.14" />
+  <ellipse cx="600" cy="260" rx="160" ry="18" fill="#ffffff" opacity="0.12" />
+  <!-- Horizon ground -->
+  <path d="M 0 500 Q 800 470 1600 500 L 1600 600 L 0 600 Z" fill="#000000" opacity="0.18" />
+</svg>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Naturaleza">
+  <defs>
+    <linearGradient id="natura-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d3a2a" />
+      <stop offset="55%" stop-color="#3a6a4d" />
+      <stop offset="100%" stop-color="#7ab083" />
+    </linearGradient>
+    <radialGradient id="natura-glow" cx="82%" cy="22%" r="40%">
+      <stop offset="0%" stop-color="#ffe6a3" stop-opacity="0.32" />
+      <stop offset="100%" stop-color="#ffe6a3" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="600" fill="url(#natura-bg)" />
+  <rect width="1600" height="600" fill="url(#natura-glow)" />
+  <!-- Stylised leaves -->
+  <path d="M 220 220 Q 320 120 460 200 Q 520 300 380 360 Q 250 340 220 220 Z" fill="#ffffff" opacity="0.06" />
+  <path d="M 1180 380 Q 1280 280 1420 360 Q 1480 460 1340 520 Q 1210 500 1180 380 Z" fill="#ffffff" opacity="0.05" />
+  <!-- Soft horizon haze -->
+  <rect x="0" y="440" width="1600" height="160" fill="#ffffff" opacity="0.04" />
+</svg>

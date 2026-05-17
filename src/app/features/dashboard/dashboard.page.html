@@ -1,94 +1,63 @@
-<div class="flex flex-col gap-6">
-  <header class="flex items-center gap-3">
-    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
-      dashboard
-    </mat-icon>
-    <div class="flex flex-col">
-      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Dashboard</h1>
-      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
-        Vista general de la operación.
-      </p>
-    </div>
-  </header>
+<div class="dashboard">
+  <!-- Soft mesh-gradient backdrop. Pure CSS in dashboard.page.scss; the absolute
+       positioning keeps it strictly behind the content so the bento tiles can use
+       backdrop-filter for the glass effect. -->
+  <div class="dashboard__mesh" aria-hidden="true"></div>
 
-  <mat-card class="!rounded-xl">
-    <mat-card-content class="!p-6 flex flex-col gap-1">
-      <p class="m-0 text-base">¡Bienvenido a la nueva consola de Funeraria!</p>
-      <p class="m-0 text-sm text-[var(--mat-sys-on-surface-variant)]">
-        Sesión activa con autoridades:
-        <span class="font-medium">{{ authoritiesText() }}</span>
-      </p>
-    </mat-card-content>
-  </mat-card>
+  <div class="dashboard__content">
+    <app-dashboard-hero-carousel [slides]="heroSlides" />
 
-  <!--
-    Stat cards are placeholders until real metrics are wired. Kept inline (vs. a
-    separate component) because the dashboard itself is scheduled for a proper rebuild
-    once the metrics endpoints land.
-  -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-    <mat-card class="!rounded-xl">
-      <mat-card-content class="!p-5 flex items-start gap-4">
-        <div
-          class="flex items-center justify-center w-10 h-10 rounded-md bg-[var(--mat-sys-primary-container)] text-[var(--mat-sys-on-primary-container)]"
-        >
-          <mat-icon class="material-symbols-outlined">group</mat-icon>
-        </div>
-        <div class="flex flex-col">
-          <span class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)]">
-            Afiliados activos
-          </span>
-          <span class="text-2xl font-semibold">—</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
+    <section aria-label="Atajos rápidos" class="dashboard__quick">
+      <app-quick-actions-bar [actions]="quickActions()" />
+    </section>
 
-    <mat-card class="!rounded-xl">
-      <mat-card-content class="!p-5 flex items-start gap-4">
-        <div
-          class="flex items-center justify-center w-10 h-10 rounded-md bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
-        >
-          <mat-icon class="material-symbols-outlined">workspace_premium</mat-icon>
-        </div>
-        <div class="flex flex-col">
-          <span class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)]">
-            Planes activos
-          </span>
-          <span class="text-2xl font-semibold">—</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
+    <!-- Bento grid: KPIs share a 4-column row on desktop, collapse to 2 → 1
+         on smaller screens; the activity feed sits in its own card under the
+         KPIs on mobile and side-by-side on desktop. -->
+    <section class="dashboard__bento" aria-label="Resumen operativo">
+      <div class="dashboard__kpis">
+        <app-kpi-tile
+          icon="group"
+          label="Afiliados activos"
+          tone="primary"
+          hint="vs. mes anterior"
+          [trend]="4"
+          [sparkline]="affiliatesSpark"
+        />
+        <app-kpi-tile
+          icon="workspace_premium"
+          label="Planes activos"
+          tone="secondary"
+          hint="vs. mes anterior"
+          [trend]="2"
+          [sparkline]="plansSpark"
+        />
+        <app-kpi-tile
+          icon="church"
+          label="Servicios del mes"
+          tone="tertiary"
+          hint="vs. mes anterior"
+          [trend]="-1"
+          [sparkline]="funeralsSpark"
+        />
+        <app-kpi-tile
+          icon="policy"
+          label="Eventos auditados (24 h)"
+          tone="neutral"
+          [trend]="null"
+          [sparkline]="auditSpark"
+        />
+      </div>
 
-    <mat-card class="!rounded-xl">
-      <mat-card-content class="!p-5 flex items-start gap-4">
-        <div
-          class="flex items-center justify-center w-10 h-10 rounded-md bg-[var(--mat-sys-tertiary-container)] text-[var(--mat-sys-on-tertiary-container)]"
-        >
-          <mat-icon class="material-symbols-outlined">event_available</mat-icon>
-        </div>
-        <div class="flex flex-col">
-          <span class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)]">
-            Servicios del mes
-          </span>
-          <span class="text-2xl font-semibold">—</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="!rounded-xl">
-      <mat-card-content class="!p-5 flex items-start gap-4">
-        <div
-          class="flex items-center justify-center w-10 h-10 rounded-md bg-[var(--mat-sys-surface-container-high)] text-[var(--mat-sys-on-surface)]"
-        >
-          <mat-icon class="material-symbols-outlined">policy</mat-icon>
-        </div>
-        <div class="flex flex-col">
-          <span class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)]">
-            Eventos auditados (24 h)
-          </span>
-          <span class="text-2xl font-semibold">—</span>
-        </div>
-      </mat-card-content>
-    </mat-card>
+      <article class="dashboard__activity">
+        <header class="dashboard__activity-head">
+          <h2 class="dashboard__activity-title">Actividad reciente</h2>
+          <p class="dashboard__activity-sub">
+            Últimos eventos de la consola — datos en vivo cuando el broker se conecte.
+          </p>
+        </header>
+        <app-activity-feed [items]="recentActivity" />
+      </article>
+    </section>
   </div>
 </div>

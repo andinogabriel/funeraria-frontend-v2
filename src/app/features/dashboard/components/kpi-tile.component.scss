@@ -1,0 +1,149 @@
+:host {
+  display: block;
+}
+
+.kpi-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  border-radius: 20px;
+  // Glassmorphism: semi-transparent surface stacked above the page mesh gradient.
+  // The fallback solid `var(--mat-sys-surface-container)` paints first so a UA
+  // without `backdrop-filter` (Firefox before 103, older WebKit) still ships a
+  // readable card instead of see-through chrome.
+  background: var(--mat-sys-surface-container);
+  background: color-mix(in srgb, var(--mat-sys-surface-container) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition:
+    transform 220ms ease-out,
+    box-shadow 220ms ease-out;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.18);
+  }
+}
+
+.kpi-tile__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.tile-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &--primary {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  &--secondary {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+
+  &--tertiary {
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
+  }
+
+  &--neutral {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+.kpi-tile__trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  &--positive {
+    background: color-mix(in srgb, #10b981 18%, transparent);
+    color: #047857;
+  }
+
+  &--negative {
+    background: color-mix(in srgb, #ef4444 16%, transparent);
+    color: #b91c1c;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .kpi-tile__trend--positive {
+    background: color-mix(in srgb, #34d399 22%, transparent);
+    color: #6ee7b7;
+  }
+  .kpi-tile__trend--negative {
+    background: color-mix(in srgb, #fca5a5 20%, transparent);
+    color: #fecaca;
+  }
+}
+
+.kpi-tile__label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+  font-weight: 600;
+}
+
+.kpi-tile__value {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi-tile__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.kpi-tile__spark {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  width: 80px;
+  height: 28px;
+  color: var(--mat-sys-primary);
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-tile {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}

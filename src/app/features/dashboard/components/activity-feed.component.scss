@@ -1,0 +1,103 @@
+:host {
+  display: block;
+}
+
+.activity-feed {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// Vertical connector behind the bullets — drawn with a pseudo-element so it
+// doesn't add an empty `<div>` to the markup.
+.activity-feed::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 18px;
+  width: 2px;
+  background: color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+  border-radius: 2px;
+}
+
+.activity-feed__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.activity-feed__bullet {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 2px solid var(--mat-sys-surface);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &--primary {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+  &--secondary {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+  &--tertiary {
+    background: var(--mat-sys-tertiary-container);
+    color: var(--mat-sys-on-tertiary-container);
+  }
+  &--neutral {
+    background: var(--mat-sys-surface-container-high);
+    color: var(--mat-sys-on-surface);
+  }
+}
+
+.activity-feed__body {
+  min-width: 0;
+}
+
+.activity-feed__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.activity-feed__text {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  line-height: 1.4;
+}
+
+.activity-feed__time {
+  font-size: 11px;
+  color: var(--mat-sys-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding-top: 9px;
+}
+
+.activity-feed__empty {
+  margin: 0;
+  padding: 16px 0;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+}
