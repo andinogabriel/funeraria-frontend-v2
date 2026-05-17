@@ -1,0 +1,78 @@
+<div class="home">
+  <div class="home__mesh" aria-hidden="true"></div>
+
+  <header class="home__topbar">
+    <a class="home__brand" routerLink="/home" aria-label="Inicio">
+      <span class="home__brand-mark" aria-hidden="true">
+        <mat-icon class="material-symbols-outlined">local_florist</mat-icon>
+      </span>
+      <span class="home__brand-name">Funeraria</span>
+    </a>
+    <a
+      mat-flat-button
+      color="primary"
+      class="home__login-cta !h-10"
+      routerLink="/login"
+      aria-label="Ingresar"
+    >
+      <mat-icon class="material-symbols-outlined">login</mat-icon>
+      Ingresar
+    </a>
+  </header>
+
+  <main class="home__content">
+    <section class="home__hero" aria-label="Bienvenida">
+      <app-hero-carousel [slides]="heroSlides" [autoRotateMs]="7000" />
+    </section>
+
+    <section class="home__values" aria-label="Capacidades">
+      <header class="home__values-head">
+        <p class="home__values-eyebrow">¿Qué es esta consola?</p>
+        <h2 class="home__values-title">Todo el operativo de una funeraria, en un solo lugar</h2>
+        <p class="home__values-sub">
+          Reemplaza planillas y archivos sueltos con un sistema integrado que respeta la delicadeza
+          del rubro y la trazabilidad que exige la operación.
+        </p>
+      </header>
+
+      <ul class="home__values-grid">
+        @for (item of valueProps; track item.title) {
+          <li class="home__value">
+            <span class="home__value-icon" aria-hidden="true">
+              <mat-icon class="material-symbols-outlined">{{ item.icon }}</mat-icon>
+            </span>
+            <h3 class="home__value-title">{{ item.title }}</h3>
+            <p class="home__value-body">{{ item.body }}</p>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="home__cta" aria-label="Iniciar sesión">
+      <article class="home__cta-card">
+        <h2 class="home__cta-title">¿Listo para entrar?</h2>
+        <p class="home__cta-sub">
+          Si ya tenés una cuenta corporativa, ingresá para acceder a la consola.
+        </p>
+        <a
+          mat-flat-button
+          color="primary"
+          class="home__cta-btn !h-12 !text-base"
+          routerLink="/login"
+        >
+          <mat-icon class="material-symbols-outlined">login</mat-icon>
+          Ingresar a la consola
+        </a>
+        <p class="home__cta-footnote">
+          ¿No tenés una cuenta? Contactá al administrador del sistema.
+        </p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="home__footer">
+    <span>Funeraria · Acompañamos a quienes acompañan</span>
+    <span class="home__footer-sep">·</span>
+    <a routerLink="/login">Ingresar</a>
+  </footer>
+</div>
