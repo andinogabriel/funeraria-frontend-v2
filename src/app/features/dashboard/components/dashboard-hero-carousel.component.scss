@@ -1,0 +1,231 @@
+// ------------------------------------------------------------------------------------------------
+// Dashboard hero carousel.
+//
+// Layout: 16:6 on desktop, 4:5 on phones so the foreground text stays readable on portrait
+// viewports. Slides are absolutely stacked so the crossfade transition can opacity-tween without
+// fighting layout reflows.
+// ------------------------------------------------------------------------------------------------
+
+:host {
+  display: block;
+}
+
+.hero-carousel {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 5;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--mat-sys-surface-container-low);
+  // Lift on the surface so the bento grid below feels grounded
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 32px -12px rgba(0, 0, 0, 0.18);
+  isolation: isolate;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow:
+      0 0 0 3px var(--mat-sys-primary),
+      0 12px 32px -12px rgba(0, 0, 0, 0.18);
+  }
+
+  // Portrait tablet: looser aspect
+  @media (max-width: 960px) {
+    aspect-ratio: 4 / 3;
+    border-radius: 20px;
+  }
+
+  // Phones: nearly square so headline + subtitle + CTA fit without scrolling
+  @media (max-width: 600px) {
+    aspect-ratio: 4 / 4.4;
+    border-radius: 16px;
+  }
+}
+
+.hero-carousel__slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(20px, 4vw, 56px);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1.02);
+  transition:
+    opacity 600ms ease-out,
+    transform 1200ms ease-out;
+  will-change: opacity, transform;
+
+  &--active {
+    opacity: 1;
+    transform: scale(1);
+    z-index: 1;
+  }
+}
+
+// Diagonal scrim — darker at the bottom-left so the text block is always grounded
+.hero-carousel__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.18) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.hero-carousel__content {
+  position: relative;
+  max-width: 720px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  // Stagger fade-up of text inside the active slide
+  animation: hero-content-in 700ms ease-out both;
+}
+
+.hero-carousel__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  opacity: 0.88;
+}
+
+.hero-carousel__title {
+  margin: 0;
+  font-size: clamp(28px, 4.6vw, 56px);
+  line-height: 1.05;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.hero-carousel__subtitle {
+  margin: 0;
+  font-size: clamp(14px, 1.6vw, 18px);
+  line-height: 1.45;
+  opacity: 0.94;
+  max-width: 540px;
+  text-wrap: pretty;
+}
+
+.hero-carousel__cta {
+  align-self: flex-start;
+  margin-top: 8px;
+  border-radius: 12px !important;
+
+  mat-icon {
+    margin-right: 6px;
+  }
+}
+
+// Chevrons — hidden on touch-only devices where swipe is the affordance.
+.hero-carousel__chevron {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.32) !important;
+  color: #ffffff !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background-color 180ms ease-out;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.5) !important;
+  }
+
+  &--prev {
+    left: 16px;
+  }
+
+  &--next {
+    right: 16px;
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    display: none;
+  }
+}
+
+// Dots — bottom-right; the active dot is wider so the position is obvious at a glance.
+.hero-carousel__dots {
+  position: absolute;
+  right: clamp(16px, 3vw, 32px);
+  bottom: clamp(16px, 3vw, 28px);
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  z-index: 2;
+}
+
+.hero-carousel__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition:
+    width 220ms ease-out,
+    background-color 220ms ease-out;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  &--active {
+    width: 26px;
+    background: #ffffff;
+  }
+}
+
+// Visually-hidden helper for the aria-live announcement
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes hero-content-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// Respect the operator's motion preference: no slide-in fade, no text-stagger fade-up.
+@media (prefers-reduced-motion: reduce) {
+  .hero-carousel__slide {
+    transition: none;
+    transform: none;
+  }
+  .hero-carousel__content {
+    animation: none;
+  }
+  .hero-carousel__dot {
+    transition: none;
+  }
+}

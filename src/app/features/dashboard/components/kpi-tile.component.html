@@ -1,0 +1,39 @@
+<article class="kpi-tile">
+  <div class="kpi-tile__head">
+    <div [class]="chipClass()">
+      <mat-icon class="material-symbols-outlined">{{ icon() }}</mat-icon>
+    </div>
+
+    @if (trendPill(); as pill) {
+      <span
+        class="kpi-tile__trend"
+        [class.kpi-tile__trend--positive]="pill.positive"
+        [class.kpi-tile__trend--negative]="!pill.positive"
+        aria-hidden="true"
+      >
+        <span aria-hidden="true">{{ pill.sign }}</span>
+        {{ pill.label }}
+      </span>
+    }
+  </div>
+
+  <p class="kpi-tile__label">{{ label() }}</p>
+  <p class="kpi-tile__value">{{ displayValue() }}</p>
+
+  @if (hint(); as text) {
+    <p class="kpi-tile__hint">{{ text }}</p>
+  }
+
+  @if (sparkPoints(); as points) {
+    @if (points.length > 0) {
+      <svg
+        class="kpi-tile__spark"
+        viewBox="0 0 60 24"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <polyline [attr.points]="points" fill="none" stroke="currentColor" stroke-width="1.5" />
+      </svg>
+    }
+  }
+</article>

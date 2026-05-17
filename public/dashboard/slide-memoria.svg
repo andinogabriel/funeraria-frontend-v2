@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Memoria">
+  <defs>
+    <linearGradient id="memoria-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2a1f3d" />
+      <stop offset="60%" stop-color="#4a3a6b" />
+      <stop offset="100%" stop-color="#8a6fb0" />
+    </linearGradient>
+    <radialGradient id="memoria-flame" cx="22%" cy="58%" r="42%">
+      <stop offset="0%" stop-color="#ffd4a3" stop-opacity="0.6" />
+      <stop offset="35%" stop-color="#f5a96a" stop-opacity="0.28" />
+      <stop offset="100%" stop-color="#f5a96a" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="memoria-orb" cx="75%" cy="35%" r="30%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="600" fill="url(#memoria-bg)" />
+  <rect width="1600" height="600" fill="url(#memoria-flame)" />
+  <rect width="1600" height="600" fill="url(#memoria-orb)" />
+  <circle cx="350" cy="350" r="180" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1.5" />
+  <circle cx="350" cy="350" r="260" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1" />
+  <circle cx="350" cy="350" r="120" fill="none" stroke="#ffd4a3" stroke-opacity="0.20" stroke-width="2" />
+</svg>

@@ -1,0 +1,18 @@
+<nav class="quick-actions" aria-label="Atajos rápidos">
+  @for (action of actions(); track action.routerLink) {
+    <a class="quick-actions__tile" matRipple [routerLink]="action.routerLink">
+      <span class="quick-actions__icon" aria-hidden="true">
+        <mat-icon class="material-symbols-outlined">{{ action.icon }}</mat-icon>
+      </span>
+      <span class="quick-actions__text">
+        <span class="quick-actions__label">{{ action.label }}</span>
+        @if (action.hint; as hint) {
+          <span class="quick-actions__hint">{{ hint }}</span>
+        }
+      </span>
+      <mat-icon class="material-symbols-outlined quick-actions__chevron" aria-hidden="true">
+        arrow_forward
+      </mat-icon>
+    </a>
+  }
+</nav>

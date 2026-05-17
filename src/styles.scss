@@ -33,11 +33,45 @@ html {
 }
 
 // -----------------------------------------------------------------------------
+// Dark mode — auto-detected from `prefers-color-scheme: dark`. Material 3 reads
+// the `color: (theme-type: dark, ...)` map and re-emits every `--mat-sys-*`
+// system token with its dark counterpart, so every surface, container, button
+// and outline in the app shifts to the dark palette without per-component
+// changes. The mesh gradient + glass surfaces on the dashboard pick it up
+// automatically because they consume `--mat-sys-*` for their colours.
+// -----------------------------------------------------------------------------
+@media (prefers-color-scheme: dark) {
+  html {
+    @include mat.theme(
+      (
+        color: (
+          theme-type: dark,
+          primary: mat.$azure-palette,
+          tertiary: mat.$blue-palette,
+        ),
+        typography: (
+          plain-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+          brand-family: 'Inter, system-ui, sans-serif',
+        ),
+        density: 0,
+      )
+    );
+  }
+
+  body {
+    color-scheme: dark;
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Base body resets that play nicely with both Tailwind's preflight and
 // Material's surface tokens. Using the system variables (instead of hardcoded
 // hex) means a future light/dark toggle requires no further work here.
 // -----------------------------------------------------------------------------
 body {
+  // `light` is the explicit default so form controls, scrollbars and the
+  // browser UA chrome render light. The dark-mode block below flips this to
+  // `dark` when `prefers-color-scheme: dark` matches.
   color-scheme: light;
   background-color: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
