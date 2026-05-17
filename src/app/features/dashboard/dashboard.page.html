@@ -15,38 +15,67 @@
          on smaller screens; the activity feed sits in its own card under the
          KPIs on mobile and side-by-side on desktop. -->
     <section class="dashboard__bento" aria-label="Resumen operativo">
-      <div class="dashboard__kpis">
-        <app-kpi-tile
-          icon="group"
-          label="Afiliados activos"
-          tone="primary"
-          hint="vs. mes anterior"
-          [trend]="4"
-          [sparkline]="affiliatesSpark"
-        />
-        <app-kpi-tile
-          icon="workspace_premium"
-          label="Planes activos"
-          tone="secondary"
-          hint="vs. mes anterior"
-          [trend]="2"
-          [sparkline]="plansSpark"
-        />
-        <app-kpi-tile
-          icon="church"
-          label="Servicios del mes"
-          tone="tertiary"
-          hint="vs. mes anterior"
-          [trend]="-1"
-          [sparkline]="funeralsSpark"
-        />
-        <app-kpi-tile
-          icon="policy"
-          label="Eventos auditados (24 h)"
-          tone="neutral"
-          [trend]="null"
-          [sparkline]="auditSpark"
-        />
+      <div class="dashboard__kpis-wrap">
+        <header class="dashboard__kpis-head">
+          <div class="flex flex-col gap-1">
+            <h2 class="dashboard__kpis-title">Indicadores</h2>
+            @if (metricsError(); as message) {
+              <p class="dashboard__kpis-error" role="alert">{{ message }}</p>
+            } @else {
+              <p class="dashboard__kpis-sub">
+                Snapshot del momento; refrescá para volver a calcular.
+              </p>
+            }
+          </div>
+          <button
+            type="button"
+            mat-stroked-button
+            class="dashboard__kpis-refresh"
+            (click)="onRefresh()"
+            [disabled]="metricsLoading()"
+            aria-label="Actualizar indicadores"
+          >
+            <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+            Actualizar
+          </button>
+        </header>
+
+        <div class="dashboard__kpis">
+          <app-kpi-tile
+            icon="group"
+            label="Afiliados activos"
+            tone="primary"
+            [value]="affiliatesTile().value"
+            [trend]="affiliatesTile().trend"
+            [sparkline]="affiliatesTile().sparkline"
+          />
+          <app-kpi-tile
+            icon="workspace_premium"
+            label="Planes activos"
+            tone="secondary"
+            [value]="plansTile().value"
+            [trend]="plansTile().trend"
+            [sparkline]="plansTile().sparkline"
+          />
+          <app-kpi-tile
+            icon="church"
+            label="Servicios del mes"
+            tone="tertiary"
+            hint="vs. mes anterior"
+            [value]="funeralsTile().value"
+            [trend]="funeralsTile().trend"
+            [sparkline]="funeralsTile().sparkline"
+          />
+          <app-kpi-tile
+            icon="policy"
+            label="Eventos auditados (24 h)"
+            tone="neutral"
+            hint="vs. 24 h anteriores"
+            [value]="auditTile().value"
+            [trend]="auditTile().trend"
+            [sparkline]="auditTile().sparkline"
+          />
+        </div>
       </div>
 
       <article class="dashboard__activity">
