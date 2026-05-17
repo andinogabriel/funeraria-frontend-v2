@@ -1,10 +1,6 @@
-// ------------------------------------------------------------------------------------------------
-// Dashboard hero carousel.
-//
-// Layout: 16:6 on desktop, 4:5 on phones so the foreground text stays readable on portrait
-// viewports. Slides are absolutely stacked so the crossfade transition can opacity-tween without
-// fighting layout reflows.
-// ------------------------------------------------------------------------------------------------
+// Hero carousel — horizontal track of slides, each one viewport-wide. Sliding between
+// slides is a single CSS `translate3d` on the track; live drag temporarily disables the
+// transition so the strip follows the pointer 1:1.
 
 :host {
   display: block;
@@ -18,12 +14,21 @@
   overflow: hidden;
   border-radius: 24px;
   background: var(--mat-sys-surface-container-low);
-  // Lift on the surface so the bento grid below feels grounded
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.06),
     0 12px 32px -12px rgba(0, 0, 0, 0.18);
   isolation: isolate;
   outline: none;
+  // Mouse drag should not feel like a text selection; touch drag must override the
+  // default horizontal pan so the page does not scroll while the user is sliding.
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
 
   &:focus-visible {
     box-shadow:
@@ -31,43 +36,42 @@
       0 12px 32px -12px rgba(0, 0, 0, 0.18);
   }
 
-  // Portrait tablet: looser aspect
   @media (max-width: 960px) {
     aspect-ratio: 4 / 3;
     border-radius: 20px;
   }
 
-  // Phones: nearly square so headline + subtitle + CTA fit without scrolling
   @media (max-width: 600px) {
     aspect-ratio: 4 / 4.4;
     border-radius: 16px;
   }
 }
 
+.hero-carousel__track {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  transition: transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  will-change: transform;
+
+  &--dragging {
+    transition: none;
+  }
+}
+
 .hero-carousel__slide {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: flex-end;
   padding: clamp(20px, 4vw, 56px);
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  opacity: 0;
-  transform: scale(1.02);
-  transition:
-    opacity 600ms ease-out,
-    transform 1200ms ease-out;
-  will-change: opacity, transform;
-
-  &--active {
-    opacity: 1;
-    transform: scale(1);
-    z-index: 1;
-  }
 }
 
-// Diagonal scrim — darker at the bottom-left so the text block is always grounded
 .hero-carousel__scrim {
   position: absolute;
   inset: 0;
@@ -87,8 +91,6 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  // Stagger fade-up of text inside the active slide
-  animation: hero-content-in 700ms ease-out both;
 }
 
 .hero-carousel__eyebrow {
@@ -128,7 +130,6 @@
   }
 }
 
-// Chevrons — hidden on touch-only devices where swipe is the affordance.
 .hero-carousel__chevron {
   position: absolute;
   top: 50%;
@@ -157,7 +158,6 @@
   }
 }
 
-// Dots — bottom-right; the active dot is wider so the position is obvious at a glance.
 .hero-carousel__dots {
   position: absolute;
   right: clamp(16px, 3vw, 32px);
@@ -192,7 +192,6 @@
   }
 }
 
-// Visually-hidden helper for the aria-live announcement
 .sr-only {
   position: absolute;
   width: 1px;
@@ -205,25 +204,9 @@
   border: 0;
 }
 
-@keyframes hero-content-in {
-  0% {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-// Respect the operator's motion preference: no slide-in fade, no text-stagger fade-up.
 @media (prefers-reduced-motion: reduce) {
-  .hero-carousel__slide {
+  .hero-carousel__track {
     transition: none;
-    transform: none;
-  }
-  .hero-carousel__content {
-    animation: none;
   }
   .hero-carousel__dot {
     transition: none;

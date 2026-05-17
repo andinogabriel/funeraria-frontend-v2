@@ -52,4 +52,22 @@ describe('HeroCarouselComponent', () => {
     c.goTo(1);
     expect(c.activeIndex()).toBe(1);
   });
+
+  it('trackTransform combines the active-index offset with the live drag delta', () => {
+    const fixture = TestBed.createComponent(HeroCarouselComponent);
+    fixture.componentRef.setInput('slides', slides);
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance as unknown as {
+      goTo: (n: number) => void;
+      trackTransform: () => string;
+      dragOffset: { set: (value: number) => void };
+    };
+
+    expect(c.trackTransform()).toBe('translate3d(calc(0% + 0px), 0, 0)');
+    c.goTo(1);
+    expect(c.trackTransform()).toBe('translate3d(calc(-100% + 0px), 0, 0)');
+    c.dragOffset.set(-45);
+    expect(c.trackTransform()).toBe('translate3d(calc(-100% + -45px), 0, 0)');
+  });
 });

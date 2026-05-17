@@ -72,7 +72,11 @@ export class DashboardPage implements OnInit {
     this.tile(this.metricsService.snapshot()?.auditedEvents24h),
   );
 
-  /** Hero carousel slides — five themed messages cycle every 6 s. */
+  /**
+   * Hero carousel slides — five themed messages cycle every 6 s. CTAs are intentionally
+   * absent: the quick-actions bar right below the carousel already hosts the shortcut
+   * affordances, so an extra button per slide read as redundant during QA.
+   */
   protected readonly heroSlides: readonly HeroSlide[] = [
     {
       backgroundUrl: '/dashboard/slide-serenidad.svg',
@@ -80,7 +84,6 @@ export class DashboardPage implements OnInit {
       title: 'Una nueva forma de acompañar a las familias',
       subtitle:
         'Centralizá afiliados, planes y servicios en una sola consola, con la tranquilidad de que cada acción queda registrada.',
-      cta: { label: 'Registrar servicio', icon: 'add', routerLink: '/servicios/nuevo' },
     },
     {
       backgroundUrl: '/dashboard/slide-acompanamiento.svg',
@@ -88,7 +91,6 @@ export class DashboardPage implements OnInit {
       title: 'Gestioná el padrón con respeto y precisión',
       subtitle:
         'Altas, modificaciones y consultas integradas, con historial de auditoría completo para cumplimiento y trazabilidad.',
-      cta: { label: 'Ver afiliados', icon: 'group', routerLink: '/afiliados' },
     },
     {
       backgroundUrl: '/dashboard/slide-memoria.svg',
@@ -96,7 +98,6 @@ export class DashboardPage implements OnInit {
       title: 'Diseñá planes a la medida de cada familia',
       subtitle:
         'Combiná items del catálogo, definí márgenes y mantené el precio actualizado sin recalcular a mano.',
-      cta: { label: 'Explorar planes', icon: 'workspace_premium', routerLink: '/planes' },
     },
     {
       backgroundUrl: '/dashboard/slide-naturaleza.svg',
@@ -104,7 +105,6 @@ export class DashboardPage implements OnInit {
       title: 'Tu inventario, siempre al día',
       subtitle:
         'Items, marcas y categorías sincronizados entre formularios y reportes — un solo lugar para mantener el catálogo.',
-      cta: { label: 'Ir al catálogo', icon: 'inventory_2', routerLink: '/items' },
     },
     {
       backgroundUrl: '/dashboard/slide-cielo.svg',
@@ -112,7 +112,6 @@ export class DashboardPage implements OnInit {
       title: 'Confianza por diseño',
       subtitle:
         'Cada operación sensible queda registrada con quién, cuándo y qué — accesible solo para administradores.',
-      cta: { label: 'Ver auditoría', icon: 'policy', routerLink: '/auditoria' },
     },
   ];
 

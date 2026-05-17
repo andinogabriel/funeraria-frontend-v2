@@ -1,0 +1,29 @@
+<div class="nf">
+  <div class="nf__mesh" aria-hidden="true"></div>
+
+  <article class="nf__card">
+    <img
+      class="nf__art"
+      src="/404/not-found.svg"
+      alt="Lápida con la inscripción 404 y una cara X_X"
+      width="320"
+      height="280"
+    />
+    <p class="nf__eyebrow">Error 404</p>
+    <h1 class="nf__title">Esta página descansa en paz</h1>
+    <p class="nf__body">
+      No encontramos lo que buscabas. Puede haber sido movida, archivada, o nunca haber existido.
+    </p>
+
+    <div class="nf__actions">
+      <a mat-flat-button color="primary" class="!h-11" [routerLink]="primaryRoute">
+        <mat-icon class="material-symbols-outlined">home</mat-icon>
+        {{ primaryLabel }}
+      </a>
+      <button type="button" mat-stroked-button class="!h-11" (click)="goBack()">
+        <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+        Volver atrás
+      </button>
+    </div>
+  </article>
+</div>

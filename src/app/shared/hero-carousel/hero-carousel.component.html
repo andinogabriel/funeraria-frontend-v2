@@ -1,4 +1,5 @@
 <section
+  #carousel
   class="hero-carousel"
   role="region"
   aria-roledescription="carousel"
@@ -8,44 +9,57 @@
   (mouseleave)="onMouseLeave()"
   (focusin)="onFocus()"
   (focusout)="onBlur()"
-  (touchstart)="onTouchStart($event)"
-  (touchend)="onTouchEnd($event)"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerCancel()"
 >
   <!-- Live region for screen readers; politely announces slide changes -->
   <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
 
-  @for (slide of slides(); track slide.backgroundUrl; let i = $index) {
-    <article
-      class="hero-carousel__slide"
-      role="group"
-      aria-roledescription="slide"
-      [attr.aria-label]="slide.eyebrow + ': ' + slide.title"
-      [attr.aria-hidden]="i !== activeIndex()"
-      [class.hero-carousel__slide--active]="i === activeIndex()"
-      [style.backgroundImage]="'url(' + slide.backgroundUrl + ')'"
-    >
-      <!-- Darkening overlay so foreground text stays legible on any background -->
-      <span class="hero-carousel__scrim" aria-hidden="true"></span>
+  <!--
+    Track: a horizontal flex strip containing every slide side-by-side. The active slide is
+    the one whose left edge sits at x = 0; we slide between them by translating the whole
+    track. While a drag is in flight, the `--dragging` modifier disables the transition so
+    the strip follows the pointer one-for-one.
+  -->
+  <div
+    class="hero-carousel__track"
+    [class.hero-carousel__track--dragging]="dragging()"
+    [style.transform]="trackTransform()"
+  >
+    @for (slide of slides(); track slide.backgroundUrl; let i = $index) {
+      <article
+        class="hero-carousel__slide"
+        role="group"
+        aria-roledescription="slide"
+        [attr.aria-label]="slide.eyebrow + ': ' + slide.title"
+        [attr.aria-hidden]="i !== activeIndex()"
+        [style.backgroundImage]="'url(' + slide.backgroundUrl + ')'"
+      >
+        <!-- Darkening overlay so foreground text stays legible on any background -->
+        <span class="hero-carousel__scrim" aria-hidden="true"></span>
 
-      <div class="hero-carousel__content">
-        <p class="hero-carousel__eyebrow">{{ slide.eyebrow }}</p>
-        <h2 class="hero-carousel__title">{{ slide.title }}</h2>
-        <p class="hero-carousel__subtitle">{{ slide.subtitle }}</p>
+        <div class="hero-carousel__content">
+          <p class="hero-carousel__eyebrow">{{ slide.eyebrow }}</p>
+          <h2 class="hero-carousel__title">{{ slide.title }}</h2>
+          <p class="hero-carousel__subtitle">{{ slide.subtitle }}</p>
 
-        @if (slide.cta; as cta) {
-          <a
-            mat-flat-button
-            color="primary"
-            [routerLink]="cta.routerLink"
-            class="hero-carousel__cta !h-11"
-          >
-            <mat-icon class="material-symbols-outlined">{{ cta.icon }}</mat-icon>
-            {{ cta.label }}
-          </a>
-        }
-      </div>
-    </article>
-  }
+          @if (slide.cta; as cta) {
+            <a
+              mat-flat-button
+              color="primary"
+              [routerLink]="cta.routerLink"
+              class="hero-carousel__cta !h-11"
+            >
+              <mat-icon class="material-symbols-outlined">{{ cta.icon }}</mat-icon>
+              {{ cta.label }}
+            </a>
+          }
+        </div>
+      </article>
+    }
+  </div>
 
   <!-- Prev / next chevrons (hidden on touch-only via media query in SCSS) -->
   @if (slideCount() > 1) {

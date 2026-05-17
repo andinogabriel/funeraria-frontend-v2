@@ -1,27 +1,45 @@
 import { Routes } from '@angular/router';
 
 import { authGuard } from './core/auth/auth.guard';
+import { rootRedirectGuard } from './core/auth/root-redirect.guard';
 
 /**
  * Top-level route table. Every entry uses `loadComponent` for lazy code-splitting at the
- * feature boundary, which means a fresh visitor downloads the login bundle only and the
- * shell + dashboard arrive as separate chunks after authentication.
+ * feature boundary, which means a fresh visitor downloads the public landing bundle only
+ * and the shell + dashboard arrive as separate chunks after authentication.
  *
- * The shell route owns the authenticated experience: anything that needs the persistent
- * navigation surface goes inside its `children` array. Public-facing routes (login, the
- * eventual public landing page) sit at the top level so they never see the shell.
+ * Routing layers, top to bottom:
+ *
+ * 1. **Public surfaces** (`/home`, `/login`) — no guard, anyone can visit.
+ * 2. **Smart root** (`/`) — `rootRedirectGuard` routes authenticated visitors to
+ *    `/dashboard` and everyone else to `/home`, so the bare domain shows the landing
+ *    instead of bouncing the visitor to the login form.
+ * 3. **Authenticated shell** — every feature lives under here, gated by `authGuard`.
+ * 4. **404** — the wildcard renders `NotFoundPage` with the on-brand gravestone art.
  */
 export const routes: Routes = [
   {
+    path: 'home',
+    loadComponent: () => import('./features/home/home.page').then((m) => m.HomePage),
+  },
+  {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.page').then((m) => m.LoginPage),
+  },
+  {
+    // Smart root: the guard returns a UrlTree, so this route never renders a component.
+    // `pathMatch: 'full'` is mandatory — otherwise the empty prefix would gobble every
+    // URL and the shell underneath would never get a chance to match `/dashboard` &c.
+    path: '',
+    pathMatch: 'full',
+    canActivate: [rootRedirectGuard],
+    children: [],
   },
   {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./core/layout/shell.component').then((m) => m.ShellComponent),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
         path: 'dashboard',
         loadComponent: () =>
@@ -161,5 +179,8 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: '' },
+  {
+    path: '**',
+    loadComponent: () => import('./features/not-found/not-found.page').then((m) => m.NotFoundPage),
+  },
 ];
