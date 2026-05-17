@@ -36,9 +36,23 @@ export class FuneralService {
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
 
+  /**
+   * Separate cache for the "by user" surface so the admin grid and the
+   * operator-facing "Mis servicios" page don't stomp on each other. Keeping
+   * them apart also means an admin viewing both surfaces (admin+user
+   * roles) reads each list from its own endpoint.
+   */
+  private readonly _byUserList = signal<readonly Funeral[] | null>(null);
+  private readonly _byUserLoading = signal(false);
+  private readonly _byUserError = signal<string | null>(null);
+
   readonly list = this._list.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+
+  readonly byUserList = this._byUserList.asReadonly();
+  readonly byUserLoading = this._byUserLoading.asReadonly();
+  readonly byUserError = this._byUserError.asReadonly();
 
   /** `true` once a successful load has produced an empty list. */
   readonly empty = computed(() => {
@@ -67,6 +81,30 @@ export class FuneralService {
 
   findById(id: number): Funeral | undefined {
     return this._list()?.find((funeral) => funeral.id === id);
+  }
+
+  /**
+   * Lists the funerals owned by the authenticated user (`GET /funerals/by-user`,
+   * gated to `ROLE_USER` on the backend). Powers the "Mis servicios" page —
+   * the same operator that registered a service can come back later and see
+   * only their own records.
+   */
+  loadByUser(): Observable<readonly Funeral[]> {
+    this._byUserLoading.set(true);
+    this._byUserError.set(null);
+    return this.http.get<readonly FuneralWire[]>(`${this.baseUrl}/by-user`).pipe(
+      map((wire) => wire.map((entry) => normalizeFuneral(entry))),
+      tap({
+        next: (data) => {
+          this._byUserList.set(data);
+          this._byUserLoading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._byUserLoading.set(false);
+          this._byUserError.set(this.mapError(err));
+        },
+      }),
+    );
   }
 
   create(request: FuneralRequest): Observable<Funeral> {

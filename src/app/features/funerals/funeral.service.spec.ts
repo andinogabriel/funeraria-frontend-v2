@@ -145,6 +145,28 @@ describe('FuneralService', () => {
     expect(service.list()?.map((f) => f.id)).toEqual([8]);
   });
 
+  it('loadByUser hits /api/v1/funerals/by-user and populates the byUserList signal', () => {
+    service.loadByUser().subscribe();
+    expect(service.byUserLoading()).toBe(true);
+
+    http.expectOne('/api/v1/funerals/by-user').flush([wireFuneral({ id: 42 })]);
+
+    expect(service.byUserLoading()).toBe(false);
+    expect(service.byUserList()?.map((f) => f.id)).toEqual([42]);
+    // The admin cache stays untouched — the two surfaces don't bleed into each other.
+    expect(service.list()).toBeNull();
+  });
+
+  it('byUser surface reports a friendly error on 403 (no USER role)', () => {
+    service.loadByUser().subscribe({ error: () => undefined });
+    http
+      .expectOne('/api/v1/funerals/by-user')
+      .flush(null, { status: 403, statusText: 'Forbidden' });
+
+    expect(service.byUserLoading()).toBe(false);
+    expect(service.byUserError()).toBe('No tenés permiso para ver el listado de servicios.');
+  });
+
   it('findById returns the cached funeral or undefined', () => {
     service.loadAll().subscribe();
     http.expectOne('/api/v1/funerals').flush([wireFuneral({ id: 1 }), wireFuneral({ id: 2 })]);
