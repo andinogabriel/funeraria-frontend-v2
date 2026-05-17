@@ -4,7 +4,15 @@ import { Observable, of, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { toQueryParams } from '../../core/api/http-helpers';
-import type { City, DeathCause, Gender, Province, Relationship, Role } from './catalogs.types';
+import type {
+  City,
+  DeathCause,
+  Gender,
+  Province,
+  ReceiptType,
+  Relationship,
+  Role,
+} from './catalogs.types';
 
 /**
  * Single service for every read-only reference catalog the application consumes
@@ -45,6 +53,7 @@ export class CatalogsService {
   private readonly _relationships = signal<readonly Relationship[] | null>(null);
   private readonly _deathCauses = signal<readonly DeathCause[] | null>(null);
   private readonly _roles = signal<readonly Role[] | null>(null);
+  private readonly _receiptTypes = signal<readonly ReceiptType[] | null>(null);
 
   /** Cached provinces or `null` before the first load. */
   readonly provinces = this._provinces.asReadonly();
@@ -56,6 +65,7 @@ export class CatalogsService {
   readonly relationships = this._relationships.asReadonly();
   readonly deathCauses = this._deathCauses.asReadonly();
   readonly roles = this._roles.asReadonly();
+  readonly receiptTypes = this._receiptTypes.asReadonly();
 
   /**
    * Returns a computed signal scoped to a single province's cities. The signal evaluates
@@ -113,6 +123,15 @@ export class CatalogsService {
     return this.loadSimple(this._roles, 'roles', options);
   }
 
+  /**
+   * Receipt types catalog. Backend endpoint uses camelCase (`/receiptTypes`)
+   * unlike the other catalogs — see `ReceiptTypeController`. Kept as a one-
+   * liner so the next developer doesn't go hunting for a special case.
+   */
+  loadReceiptTypes(options: LoadOptions = {}): Observable<readonly ReceiptType[]> {
+    return this.loadSimple(this._receiptTypes, 'receiptTypes', options);
+  }
+
   /** Wipes every cached catalog. Mostly useful in tests; production rarely needs this. */
   reset(): void {
     this._provinces.set(null);
@@ -121,6 +140,7 @@ export class CatalogsService {
     this._relationships.set(null);
     this._deathCauses.set(null);
     this._roles.set(null);
+    this._receiptTypes.set(null);
   }
 
   /**

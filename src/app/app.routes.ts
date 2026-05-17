@@ -132,6 +132,23 @@ export const routes: Routes = [
           import('./features/categories/pages/category-form.page').then((m) => m.CategoryFormPage),
         data: { mode: 'edit' },
       },
+      {
+        path: 'servicios',
+        loadComponent: () =>
+          import('./features/funerals/pages/funeral-list.page').then((m) => m.FuneralListPage),
+      },
+      {
+        path: 'servicios/nuevo',
+        loadComponent: () =>
+          import('./features/funerals/pages/funeral-form.page').then((m) => m.FuneralFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'servicios/:id/editar',
+        loadComponent: () =>
+          import('./features/funerals/pages/funeral-form.page').then((m) => m.FuneralFormPage),
+        data: { mode: 'edit' },
+      },
     ],
   },
   { path: '**', redirectTo: '' },

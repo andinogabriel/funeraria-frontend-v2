@@ -108,40 +108,58 @@ describe('AffiliateService', () => {
     expect(service.list()).toBeNull();
   });
 
-  it('create POSTs the request payload and refetches the active list on success', () => {
-    service.create(request()).subscribe();
+  it('create POSTs the request payload and appends the normalised response to the cache', () => {
+    service.loadActive().subscribe();
+    http.expectOne('/api/v1/affiliates').flush([wireAffiliate({ dni: 30111222 })]);
 
+    service.create(request()).subscribe();
     const createReq = http.expectOne((r) => r.method === 'POST' && r.url === '/api/v1/affiliates');
     expect(createReq.request.body.dni).toBe(35123456);
     createReq.flush(wireAffiliate());
 
-    const refetch = http.expectOne((r) => r.method === 'GET' && r.url === '/api/v1/affiliates');
-    refetch.flush([wireAffiliate()]);
-    expect(service.list()).toHaveLength(1);
+    // No follow-up GET — the cache should have been patched in place.
+    expect(service.list()?.map((a) => a.dni)).toEqual([30111222, 35123456]);
   });
 
-  it('update PUTs to /affiliates/{dni} and refetches the active list', () => {
-    service.update(35123456, request({ firstName: 'Updated' })).subscribe();
+  it('update PUTs to /affiliates/{dni} and replaces the cached row from the response', () => {
+    service.loadActive().subscribe();
+    http.expectOne('/api/v1/affiliates').flush([wireAffiliate({ firstName: 'Old' })]);
 
+    service.update(35123456, request({ firstName: 'Updated' })).subscribe();
     const updateReq = http.expectOne(
       (r) => r.method === 'PUT' && r.url === '/api/v1/affiliates/35123456',
     );
     expect(updateReq.request.body.firstName).toBe('Updated');
     updateReq.flush(wireAffiliate({ firstName: 'Updated' }));
 
-    http.expectOne('/api/v1/affiliates').flush([wireAffiliate({ firstName: 'Updated' })]);
     expect(service.list()?.[0].firstName).toBe('Updated');
   });
 
-  it('delete DELETEs /affiliates/{dni} and refetches the active list', () => {
+  it('update drops the row from the active cache when the response flips deceased = true', () => {
+    service.loadActive().subscribe();
+    http
+      .expectOne('/api/v1/affiliates')
+      .flush([wireAffiliate(), wireAffiliate({ dni: 30111222, firstName: 'Maria' })]);
+
+    service.update(35123456, request()).subscribe();
+    http
+      .expectOne((r) => r.method === 'PUT' && r.url === '/api/v1/affiliates/35123456')
+      .flush(wireAffiliate({ deceased: true }));
+
+    expect(service.list()?.map((a) => a.dni)).toEqual([30111222]);
+  });
+
+  it('delete DELETEs /affiliates/{dni} and removes the row from the cache without refetching', () => {
+    service.loadActive().subscribe();
+    http
+      .expectOne('/api/v1/affiliates')
+      .flush([wireAffiliate(), wireAffiliate({ dni: 30111222, firstName: 'Maria' })]);
+
     service.delete(35123456).subscribe();
+    http
+      .expectOne((r) => r.method === 'DELETE' && r.url === '/api/v1/affiliates/35123456')
+      .flush(null);
 
-    const delReq = http.expectOne(
-      (r) => r.method === 'DELETE' && r.url === '/api/v1/affiliates/35123456',
-    );
-    delReq.flush(null);
-
-    http.expectOne('/api/v1/affiliates').flush([]);
-    expect(service.empty()).toBe(true);
+    expect(service.list()?.map((a) => a.dni)).toEqual([30111222]);
   });
 });

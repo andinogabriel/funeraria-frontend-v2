@@ -1,0 +1,471 @@
+<div class="flex flex-col gap-6">
+  <header class="flex items-center gap-3">
+    <a mat-icon-button routerLink="/servicios" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">{{ title }}</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        {{
+          mode === 'edit'
+            ? 'Actualizá los datos del servicio seleccionado.'
+            : 'Completá los datos para registrar un nuevo servicio funerario.'
+        }}
+      </p>
+    </div>
+  </header>
+
+  @if (isHandset()) {
+    <!--
+      Mobile wizard. Three steps backed by independent FormGroups so `[linear]`
+      can block "Siguiente" until the previous step is valid. Same horizontal
+      stepper chrome with `labelPosition="bottom"` and matStepperIcon overrides
+      used by the affiliate / item forms so indicators read as "1" / "2" / "3"
+      across every state.
+    -->
+    <mat-card class="!rounded-xl">
+      <mat-card-content class="!p-4 sm:!p-6">
+        <mat-stepper #stepper [linear]="true" orientation="horizontal" labelPosition="bottom">
+          <ng-template matStepperIcon="done" let-index="index">{{ index + 1 }}</ng-template>
+          <ng-template matStepperIcon="edit" let-index="index">{{ index + 1 }}</ng-template>
+
+          <mat-step [stepControl]="servicio" label="Servicio">
+            <div class="flex flex-col pt-4" [style.minHeight.px]="520">
+              <ng-container *ngTemplateOutlet="servicioFields" />
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+                <a mat-stroked-button routerLink="/servicios" class="!h-11">Cancelar</a>
+                <button
+                  type="button"
+                  mat-flat-button
+                  color="primary"
+                  class="!h-11"
+                  matStepperNext
+                  [disabled]="servicio.invalid"
+                >
+                  Siguiente
+                  <mat-icon iconPositionEnd class="material-symbols-outlined"
+                    >arrow_forward</mat-icon
+                  >
+                </button>
+              </div>
+            </div>
+          </mat-step>
+
+          <mat-step [stepControl]="fallecido" label="Fallecido">
+            <div class="flex flex-col pt-4" [style.minHeight.px]="520">
+              <ng-container *ngTemplateOutlet="fallecidoFields" />
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+                <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
+                  <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+                  Atrás
+                </button>
+                <button
+                  type="button"
+                  mat-flat-button
+                  color="primary"
+                  class="!h-11"
+                  matStepperNext
+                  [disabled]="fallecido.invalid"
+                >
+                  Siguiente
+                  <mat-icon iconPositionEnd class="material-symbols-outlined"
+                    >arrow_forward</mat-icon
+                  >
+                </button>
+              </div>
+            </div>
+          </mat-step>
+
+          <mat-step [stepControl]="planSelection" label="Plan">
+            <div class="flex flex-col pt-4" [style.minHeight.px]="520">
+              <ng-container *ngTemplateOutlet="planFields" />
+
+              @if (!catalogsReady()) {
+                <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0 mt-4">
+                  Cargando catálogos…
+                </p>
+              }
+
+              @if (errorMessage(); as message) {
+                <p
+                  class="text-sm m-0 mt-4 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+                  role="alert"
+                >
+                  {{ message }}
+                </p>
+              }
+
+              <div class="flex flex-col-reverse gap-2 pt-4 mt-auto">
+                <button type="button" mat-stroked-button class="!h-11" matStepperPrevious>
+                  <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+                  Atrás
+                </button>
+                <button
+                  type="button"
+                  mat-flat-button
+                  color="primary"
+                  class="!h-11"
+                  (click)="onSubmit()"
+                  [disabled]="
+                    submitting() ||
+                    !catalogsReady() ||
+                    servicio.invalid ||
+                    fallecido.invalid ||
+                    planSelection.invalid ||
+                    (mode === 'edit' &&
+                      servicio.pristine &&
+                      fallecido.pristine &&
+                      planSelection.pristine)
+                  "
+                >
+                  @if (submitting()) {
+                    <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+                  }
+                  {{ mode === 'edit' ? 'Guardar cambios' : 'Crear servicio' }}
+                </button>
+              </div>
+            </div>
+          </mat-step>
+        </mat-stepper>
+      </mat-card-content>
+    </mat-card>
+  } @else {
+    <mat-card class="!rounded-xl">
+      <mat-card-content class="!p-6 lg:!p-8 flex flex-col gap-8">
+        <section class="flex flex-col gap-4">
+          <header class="flex flex-col gap-1">
+            <h2 class="text-lg font-semibold m-0">Servicio</h2>
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Fecha, hora y datos del recibo.
+            </p>
+          </header>
+          <ng-container *ngTemplateOutlet="servicioFields" />
+        </section>
+
+        <mat-divider />
+
+        <section class="flex flex-col gap-4">
+          <header class="flex flex-col gap-1">
+            <h2 class="text-lg font-semibold m-0">Fallecido</h2>
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Identidad y datos personales. Activá «Es afiliado» para autocompletar desde el padrón.
+            </p>
+          </header>
+          <ng-container *ngTemplateOutlet="fallecidoFields" />
+        </section>
+
+        <mat-divider />
+
+        <section class="flex flex-col gap-4">
+          <header class="flex flex-col gap-1">
+            <h2 class="text-lg font-semibold m-0">Plan e items</h2>
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Elegí un plan y ajustá las cantidades para este servicio puntual.
+            </p>
+          </header>
+          <ng-container *ngTemplateOutlet="planFields" />
+          @if (!catalogsReady()) {
+            <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">Cargando catálogos…</p>
+          }
+        </section>
+
+        @if (errorMessage(); as message) {
+          <p
+            class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+            role="alert"
+          >
+            {{ message }}
+          </p>
+        }
+
+        <div class="flex justify-end gap-2 pt-2">
+          <a mat-stroked-button routerLink="/servicios" class="!h-11">Cancelar</a>
+          <button
+            type="button"
+            mat-flat-button
+            color="primary"
+            class="!h-11"
+            (click)="onSubmit()"
+            [disabled]="
+              submitting() ||
+              !catalogsReady() ||
+              servicio.invalid ||
+              fallecido.invalid ||
+              planSelection.invalid ||
+              (mode === 'edit' && servicio.pristine && fallecido.pristine && planSelection.pristine)
+            "
+          >
+            @if (submitting()) {
+              <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+            }
+            {{ mode === 'edit' ? 'Guardar cambios' : 'Crear servicio' }}
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+</div>
+
+<!-- ============================== Field templates ============================== -->
+
+<ng-template #servicioFields>
+  <form [formGroup]="servicio" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <mat-form-field appearance="fill">
+      <mat-label>Fecha del servicio</mat-label>
+      <input
+        matInput
+        [matDatepicker]="funeralDatePicker"
+        formControlName="funeralDate"
+        [min]="today"
+      />
+      <mat-datepicker-toggle matIconSuffix [for]="funeralDatePicker" />
+      <mat-datepicker #funeralDatePicker />
+      @if (
+        servicio.controls.funeralDate.touched && servicio.controls.funeralDate.hasError('required')
+      ) {
+        <mat-error>La fecha es obligatoria.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Hora</mat-label>
+      <input matInput formControlName="funeralTime" type="time" autocomplete="off" />
+      @if (
+        servicio.controls.funeralTime.touched && servicio.controls.funeralTime.hasError('pattern')
+      ) {
+        <mat-error>Formato HH:mm.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Tipo de recibo</mat-label>
+      <mat-select formControlName="receiptTypeId">
+        <mat-option [value]="null">Predeterminado</mat-option>
+        @for (rt of receiptTypes() ?? []; track rt.id) {
+          <mat-option [value]="rt.id">{{ rt.name }}</mat-option>
+        }
+      </mat-select>
+      <mat-hint>Si lo dejás vacío, se usa «Egreso».</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Serie del recibo</mat-label>
+      <input matInput formControlName="receiptSeries" autocomplete="off" maxlength="50" />
+      <mat-hint>Vacío → autogenerado por el servidor.</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Número del recibo</mat-label>
+      <input matInput formControlName="receiptNumber" autocomplete="off" maxlength="50" />
+      <mat-hint>Vacío → autogenerado por el servidor.</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill">
+      <mat-label>Impuesto (%)</mat-label>
+      <input
+        matInput
+        type="number"
+        formControlName="tax"
+        autocomplete="off"
+        inputmode="decimal"
+        min="0"
+        step="0.01"
+      />
+      <mat-hint>Vacío → 21 % por defecto.</mat-hint>
+    </mat-form-field>
+  </form>
+</ng-template>
+
+<ng-template #fallecidoFields>
+  <form [formGroup]="fallecido" class="flex flex-col gap-4">
+    <div class="flex flex-wrap items-center gap-4">
+      <mat-checkbox formControlName="isAffiliated" color="primary">Es afiliado</mat-checkbox>
+
+      @if (isAffiliated()) {
+        <mat-form-field appearance="fill" class="flex-1 min-w-[260px]">
+          <mat-label>Afiliado</mat-label>
+          <mat-select formControlName="affiliateDni">
+            <mat-option [value]="null">Seleccionar…</mat-option>
+            @for (affiliate of affiliates() ?? []; track affiliate.dni) {
+              <mat-option [value]="affiliate.dni">
+                {{ affiliate.firstName }} {{ affiliate.lastName }} · {{ affiliate.dni }}
+              </mat-option>
+            }
+          </mat-select>
+          <mat-hint>Autocompleta nombre, DNI, fecha de nacimiento, género y parentesco.</mat-hint>
+        </mat-form-field>
+      }
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <mat-form-field appearance="fill">
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="firstName" autocomplete="off" maxlength="60" />
+        @if (
+          fallecido.controls.firstName.touched && fallecido.controls.firstName.hasError('required')
+        ) {
+          <mat-error>El nombre es obligatorio.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Apellido</mat-label>
+        <input matInput formControlName="lastName" autocomplete="off" maxlength="60" />
+        @if (
+          fallecido.controls.lastName.touched && fallecido.controls.lastName.hasError('required')
+        ) {
+          <mat-error>El apellido es obligatorio.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>DNI</mat-label>
+        <input
+          matInput
+          type="number"
+          formControlName="dni"
+          autocomplete="off"
+          inputmode="numeric"
+        />
+        @if (fallecido.controls.dni.touched && fallecido.controls.dni.hasError('required')) {
+          <mat-error>El DNI es obligatorio.</mat-error>
+        }
+        @if (
+          fallecido.controls.dni.touched &&
+          (fallecido.controls.dni.hasError('min') || fallecido.controls.dni.hasError('max'))
+        ) {
+          <mat-error>DNI inválido.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Fecha de nacimiento</mat-label>
+        <input matInput [matDatepicker]="birthPicker" formControlName="birthDate" [max]="today" />
+        <mat-datepicker-toggle matIconSuffix [for]="birthPicker" />
+        <mat-datepicker #birthPicker />
+        @if (
+          fallecido.controls.birthDate.touched && fallecido.controls.birthDate.hasError('required')
+        ) {
+          <mat-error>La fecha de nacimiento es obligatoria.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Fecha de fallecimiento</mat-label>
+        <input matInput [matDatepicker]="deathPicker" formControlName="deathDate" [max]="today" />
+        <mat-datepicker-toggle matIconSuffix [for]="deathPicker" />
+        <mat-datepicker #deathPicker />
+        @if (
+          fallecido.controls.deathDate.touched && fallecido.controls.deathDate.hasError('required')
+        ) {
+          <mat-error>La fecha de fallecimiento es obligatoria.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Género</mat-label>
+        <mat-select formControlName="genderId">
+          <mat-option [value]="null">Seleccionar…</mat-option>
+          @for (gender of genders() ?? []; track gender.id) {
+            <mat-option [value]="gender.id">{{ gender.name }}</mat-option>
+          }
+        </mat-select>
+        @if (
+          fallecido.controls.genderId.touched && fallecido.controls.genderId.hasError('required')
+        ) {
+          <mat-error>Elegí un género.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Parentesco</mat-label>
+        <mat-select formControlName="deceasedRelationshipId">
+          <mat-option [value]="null">Seleccionar…</mat-option>
+          @for (rel of relationships() ?? []; track rel.id) {
+            <mat-option [value]="rel.id">{{ rel.name }}</mat-option>
+          }
+        </mat-select>
+        @if (
+          fallecido.controls.deceasedRelationshipId.touched &&
+          fallecido.controls.deceasedRelationshipId.hasError('required')
+        ) {
+          <mat-error>Elegí un parentesco.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Causa de muerte</mat-label>
+        <mat-select formControlName="deathCauseId">
+          <mat-option [value]="null">Seleccionar…</mat-option>
+          @for (cause of deathCauses() ?? []; track cause.id) {
+            <mat-option [value]="cause.id">{{ cause.name }}</mat-option>
+          }
+        </mat-select>
+        @if (
+          fallecido.controls.deathCauseId.touched &&
+          fallecido.controls.deathCauseId.hasError('required')
+        ) {
+          <mat-error>Elegí la causa de muerte.</mat-error>
+        }
+      </mat-form-field>
+    </div>
+  </form>
+</ng-template>
+
+<ng-template #planFields>
+  <form [formGroup]="planSelection" class="flex flex-col gap-4">
+    <mat-form-field appearance="fill" class="lg:max-w-[480px]">
+      <mat-label>Plan</mat-label>
+      <mat-select formControlName="planId">
+        <mat-option [value]="null">Seleccionar…</mat-option>
+        @for (plan of plans() ?? []; track plan.id) {
+          <mat-option [value]="plan.id">{{ plan.name }}</mat-option>
+        }
+      </mat-select>
+      @if (
+        planSelection.controls.planId.touched && planSelection.controls.planId.hasError('required')
+      ) {
+        <mat-error>Elegí un plan.</mat-error>
+      }
+    </mat-form-field>
+
+    @if (itemRows.length > 0) {
+      <div class="flex flex-col gap-2">
+        <h3 class="text-sm font-semibold m-0 text-[var(--mat-sys-on-surface-variant)]">
+          Cantidades por item
+        </h3>
+        <ul
+          class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)] rounded-md border border-[var(--mat-sys-outline-variant)]"
+          formArrayName="items"
+        >
+          @for (row of itemRows.controls; track row.controls.code.value; let i = $index) {
+            <li class="flex items-center gap-3 px-3 py-2" [formGroupName]="i">
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="text-sm truncate">{{ row.controls.name.value }}</span>
+                <span class="text-xs text-[var(--mat-sys-on-surface-variant)] font-mono">
+                  {{ row.controls.code.value }}
+                </span>
+              </div>
+              <mat-form-field appearance="fill" class="!w-[110px]" subscriptSizing="dynamic">
+                <mat-label>Cantidad</mat-label>
+                <input
+                  matInput
+                  type="number"
+                  formControlName="quantity"
+                  autocomplete="off"
+                  inputmode="numeric"
+                  min="1"
+                  max="200"
+                />
+              </mat-form-field>
+            </li>
+          }
+        </ul>
+      </div>
+    } @else if (planSelection.controls.planId.value !== null) {
+      <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
+        Este plan no tiene items asociados.
+      </p>
+    }
+  </form>
+</ng-template>

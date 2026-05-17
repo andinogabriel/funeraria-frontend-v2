@@ -25,8 +25,12 @@ import type { Affiliate, AffiliateRequest } from './affiliate.types';
  *   first load.
  * - {@link loading} / {@link error} — standard baseline signals.
  *
- * Writes (`create`, `update`, `delete`) refresh the cached list on success so the UI
- * binding stays consistent without each consumer having to remember to refetch.
+ * Writes patch the cached signal in place from the response payload (filter on
+ * delete) instead of refetching the whole active list — same approach as the
+ * brand / category / item / plan services. Mutations cost one round-trip, not
+ * two, and the table no longer flickers between optimistic state and refetch.
+ * If the cache is `null` (no prior `loadActive()`) we skip the patch; the next
+ * caller of `loadActive()` will hydrate it from scratch.
  */
 @Injectable({ providedIn: 'root' })
 export class AffiliateService {
@@ -88,27 +92,51 @@ export class AffiliateService {
       .pipe(map((wire) => wire.map((entry) => this.normalizeAffiliate(entry))));
   }
 
-  /** Creates a new affiliate. On success refetches the active list to stay in sync. */
+  /** Creates a new affiliate and appends it to the cached active list. */
   create(request: AffiliateRequest): Observable<Affiliate> {
     return this.http.post<AffiliateWire>(this.baseUrl, request).pipe(
       map((wire) => this.normalizeAffiliate(wire)),
-      tap(() => this.loadActive().subscribe()),
+      tap((affiliate) => {
+        const current = this._list();
+        if (current !== null && !affiliate.deceased) {
+          this._list.set([...current, affiliate]);
+        }
+      }),
     );
   }
 
-  /** Updates an affiliate identified by DNI. */
+  /**
+   * Updates an affiliate identified by DNI and patches the cached row from the
+   * response. If the update flips `deceased` to `true` the row drops out of the
+   * active list, since `loadActive()` only ships `deceased = false`.
+   */
   update(dni: number, request: AffiliateRequest): Observable<Affiliate> {
     return this.http.put<AffiliateWire>(`${this.baseUrl}/${dni}`, request).pipe(
       map((wire) => this.normalizeAffiliate(wire)),
-      tap(() => this.loadActive().subscribe()),
+      tap((affiliate) => {
+        const current = this._list();
+        if (current === null) {
+          return;
+        }
+        if (affiliate.deceased) {
+          this._list.set(current.filter((a) => a.dni !== dni));
+          return;
+        }
+        this._list.set(current.map((a) => (a.dni === dni ? affiliate : a)));
+      }),
     );
   }
 
-  /** Deletes the affiliate identified by DNI. */
+  /** Deletes the affiliate identified by DNI and removes it from the cache. */
   delete(dni: number): Observable<void> {
-    return this.http
-      .delete<void>(`${this.baseUrl}/${dni}`)
-      .pipe(tap(() => this.loadActive().subscribe()));
+    return this.http.delete<void>(`${this.baseUrl}/${dni}`).pipe(
+      tap(() => {
+        const current = this._list();
+        if (current !== null) {
+          this._list.set(current.filter((a) => a.dni !== dni));
+        }
+      }),
+    );
   }
 
   /**
