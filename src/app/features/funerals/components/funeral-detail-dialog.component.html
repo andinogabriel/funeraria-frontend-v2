@@ -1,0 +1,135 @@
+<h2 mat-dialog-title class="flex items-center gap-3 !pb-2">
+  <mat-icon class="material-symbols-outlined text-[var(--mat-sys-primary)]">church</mat-icon>
+  {{ title() }}
+</h2>
+
+<mat-dialog-content class="!min-w-[320px] sm:!min-w-[520px]">
+  <section>
+    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+      Servicio
+    </h3>
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha y hora</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ funeralDateLabel }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Plan</dt>
+      <dd class="text-sm m-0">{{ data.plan.name }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Items del plan</dt>
+      <dd class="text-sm m-0">{{ data.plan.itemsPlan.length }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Total</dt>
+      <dd class="text-sm m-0 tabular-nums font-medium">{{ totalLabel }}</dd>
+    </dl>
+  </section>
+
+  <mat-divider class="!my-4" />
+
+  <section>
+    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+      Fallecido
+    </h3>
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Nombre</dt>
+      <dd class="text-sm m-0">
+        {{ data.deceased.firstName }} {{ data.deceased.lastName }}
+        @if (data.deceased.affiliated) {
+          <span
+            class="ml-2 text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
+          >
+            Afiliado
+          </span>
+        }
+      </dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">DNI</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ data.deceased.dni }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha de nacimiento</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ birthDateLabel }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha de fallecimiento</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ deathDateLabel }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Género</dt>
+      <dd class="text-sm m-0">{{ data.deceased.gender.name }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Parentesco</dt>
+      <dd class="text-sm m-0">{{ data.deceased.deceasedRelationship.name }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Causa de muerte</dt>
+      <dd class="text-sm m-0">{{ data.deceased.deathCause.name }}</dd>
+
+      @if (placeOfDeathLabel(); as label) {
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Lugar de fallecimiento</dt>
+        <dd class="text-sm m-0">{{ label }}</dd>
+      }
+    </dl>
+  </section>
+
+  <mat-divider class="!my-4" />
+
+  <section>
+    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">Recibo</h3>
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Tipo</dt>
+      <dd class="text-sm m-0">{{ data.receiptType?.name ?? '—' }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Serie</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ data.receiptSeries ?? '—' }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Número</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ data.receiptNumber ?? '—' }}</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Impuesto</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ taxLabel }}</dd>
+    </dl>
+  </section>
+
+  @if (data.plan.itemsPlan.length > 0) {
+    <mat-divider class="!my-4" />
+    <section>
+      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+        Items del plan
+      </h3>
+      <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
+        @for (row of data.plan.itemsPlan; track row.item.code) {
+          <li class="flex items-center justify-between py-2 gap-3">
+            <div class="flex flex-col min-w-0">
+              <span class="text-sm truncate">{{ row.item.name }}</span>
+              <span class="text-xs text-[var(--mat-sys-on-surface-variant)] font-mono">
+                {{ row.item.code }}
+              </span>
+            </div>
+            <span
+              class="text-sm tabular-nums px-2 py-0.5 rounded-full bg-[var(--mat-sys-surface-variant)] text-[var(--mat-sys-on-surface-variant)]"
+            >
+              x{{ row.quantity }}
+            </span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  <mat-divider class="!my-4" />
+
+  <section>
+    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+      Auditoría
+    </h3>
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Registrado</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ registerDateLabel }}</dd>
+
+      @if (data.deceased.deceasedUser; as user) {
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Usuario vinculado</dt>
+        <dd class="text-sm m-0">{{ user.firstName }} {{ user.lastName }} · {{ user.email }}</dd>
+      }
+    </dl>
+  </section>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cerrar</button>
+</mat-dialog-actions>

@@ -1,0 +1,48 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      church
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Servicios</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Servicios funerarios registrados.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+
+    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+      Actualizar
+    </button>
+    <a mat-flat-button color="primary" routerLink="/servicios/nuevo">
+      <mat-icon class="material-symbols-outlined">add</mat-icon>
+      Nuevo servicio
+    </a>
+  </header>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  <app-selection-list-card
+    [searchControl]="searchControl"
+    searchLabel="Buscar por fallecido, DNI o recibo"
+    [data]="filtered()"
+    [columns]="columns"
+    [trackBy]="trackById"
+    storageKey="funerals.list"
+    [initialSort]="{ active: 'funeralDate', direction: 'desc' }"
+    [loading]="loading()"
+    emptyIcon="church"
+    emptyTitle="No hay servicios que coincidan con la búsqueda."
+    emptyHint="Probá con otro criterio o registrá un nuevo servicio."
+    [actions]="actions()"
+    [(selectedRow)]="selectedFuneral"
+  />
+</div>

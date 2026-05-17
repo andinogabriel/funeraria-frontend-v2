@@ -54,3 +54,13 @@ export interface Role {
   readonly id: number;
   readonly name: string;
 }
+
+/**
+ * Type of receipt issued for a funeral service (Egreso, Ingreso, …). The funeral
+ * form picks one and the backend defaults to "Egreso" when omitted, but the
+ * picker is still exposed so the operator can override the default.
+ */
+export interface ReceiptType {
+  readonly id: number;
+  readonly name: string;
+}
