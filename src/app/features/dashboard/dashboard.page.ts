@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 import { AuthStore } from '../../core/auth/auth.store';
 import { HeroCarouselComponent, type HeroSlide } from '../../shared/hero-carousel';
@@ -8,22 +10,30 @@ import {
   QuickActionsBarComponent,
   type QuickAction,
 } from './components/quick-actions-bar.component';
+import { MetricsService } from './metrics.service';
+import type { KpiMetric } from './metrics.types';
 
 /**
  * Operator dashboard. Composes the hero carousel, the bento KPI grid, the
  * quick-action bar and the recent-activity feed over a soft mesh-gradient
- * background. The page is the source of truth for the static content
- * (carousel slides, action shortcuts, sample activity entries) so a future
- * swap to backend-driven feeds only touches this file — the child components
- * stay presentational.
+ * background. The KPI tiles bind to the {@link MetricsService} snapshot which
+ * fetches `GET /api/v1/metrics/dashboard` on init and on the operator-facing
+ * refresh action.
  *
- * <h3>Placeholders</h3>
+ * <h3>Sparkline normalisation</h3>
  *
- * Until the metrics + activity endpoints land, KPI tiles ship with em-dash
- * placeholders + sample sparklines, and the activity feed renders a short
- * "demo" set so the layout is exercised end-to-end. The sparkline arrays use
- * gentle synthetic shapes (mostly stable, slight uptrend) so dark / light
- * mode comparisons during QA do not surface visual noise from random data.
+ * The backend ships raw counts (Long values); the {@code <app-kpi-tile>}
+ * contract takes a normalised `[0, 1]` array so the sparkline polyline stays
+ * inside the SVG viewBox regardless of magnitude. {@link normalizeSparkline}
+ * does the conversion per-tile so a single outlier in one metric does not
+ * flatten the curves of the others.
+ *
+ * <h3>Activity feed</h3>
+ *
+ * Until the outbox grows a real consumer the dashboard renders a small
+ * demo feed inline. The shape is already aligned with what the published
+ * domain events carry so the swap to a backend-driven feed only touches the
+ * source array.
  */
 @Component({
   selector: 'app-dashboard-page',
@@ -32,15 +42,35 @@ import {
     ActivityFeedComponent,
     HeroCarouselComponent,
     KpiTileComponent,
+    MatButtonModule,
+    MatIconModule,
     QuickActionsBarComponent,
   ],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
 })
-export class DashboardPage {
+export class DashboardPage implements OnInit {
   private readonly store = inject(AuthStore);
+  protected readonly metricsService = inject(MetricsService);
 
   protected readonly isAdmin = computed(() => this.store.authorities().includes('ROLE_ADMIN'));
+
+  protected readonly metricsLoading = this.metricsService.loading;
+  protected readonly metricsError = this.metricsService.error;
+
+  /** Pre-formatted KPI tiles derived from the backend snapshot. */
+  protected readonly affiliatesTile = computed(() =>
+    this.tile(this.metricsService.snapshot()?.affiliatesActive),
+  );
+  protected readonly plansTile = computed(() =>
+    this.tile(this.metricsService.snapshot()?.plansActive),
+  );
+  protected readonly funeralsTile = computed(() =>
+    this.tile(this.metricsService.snapshot()?.funeralsThisMonth),
+  );
+  protected readonly auditTile = computed(() =>
+    this.tile(this.metricsService.snapshot()?.auditedEvents24h),
+  );
 
   /** Hero carousel slides — five themed messages cycle every 6 s. */
   protected readonly heroSlides: readonly HeroSlide[] = [
@@ -127,16 +157,6 @@ export class DashboardPage {
   });
 
   /**
-   * Sample sparklines for the KPI tiles. Replace with real series once a
-   * metrics endpoint exists; the {@code <app-kpi-tile>} contract already
-   * accepts arbitrary normalised arrays.
-   */
-  protected readonly affiliatesSpark = [0.62, 0.65, 0.68, 0.66, 0.7, 0.72, 0.75, 0.78];
-  protected readonly plansSpark = [0.4, 0.42, 0.45, 0.48, 0.5, 0.52, 0.55, 0.58];
-  protected readonly funeralsSpark = [0.55, 0.5, 0.58, 0.62, 0.6, 0.66, 0.7, 0.72];
-  protected readonly auditSpark = [0.35, 0.4, 0.38, 0.45, 0.5, 0.48, 0.55, 0.6];
-
-  /**
    * Sample recent activity. When the outbox grows a real consumer the
    * dashboard will swap this for a backend-driven feed; the shape is
    * deliberately aligned with what the published events carry.
@@ -171,4 +191,55 @@ export class DashboardPage {
       time: 'Ayer, 18:42',
     },
   ];
+
+  ngOnInit(): void {
+    this.metricsService.load().subscribe({
+      // The service already records the error in its own signal; subscribing
+      // with a no-op error handler avoids an "unhandled error" warning when
+      // the user lands on the dashboard while their session is expiring.
+      error: () => undefined,
+    });
+  }
+
+  protected onRefresh(): void {
+    this.metricsService.load().subscribe({ error: () => undefined });
+  }
+
+  /**
+   * Maps a backend {@link KpiMetric} (raw counts) into the input set
+   * {@code <app-kpi-tile>} expects (display string + normalised sparkline +
+   * rounded trend number). Returns the placeholder em-dash variant when the
+   * snapshot has not loaded yet.
+   */
+  private tile(metric: KpiMetric | undefined): {
+    readonly value: string;
+    readonly trend: number | null;
+    readonly sparkline: readonly number[];
+  } {
+    if (!metric) {
+      return { value: '—', trend: null, sparkline: [] };
+    }
+    return {
+      value: new Intl.NumberFormat('es-AR').format(metric.value),
+      trend: metric.trendPercent !== null ? Math.round(metric.trendPercent) : null,
+      sparkline: normalizeSparkline(metric.sparkline),
+    };
+  }
+}
+
+/**
+ * Normalises a series of raw counts to the `[0, 1]` range the KPI tile's
+ * sparkline expects. Returns the input unchanged when every value is zero
+ * (the tile renders a flat baseline in that case). Returns an empty array
+ * when the input is empty so the tile suppresses the sparkline entirely.
+ */
+function normalizeSparkline(series: readonly number[]): readonly number[] {
+  if (series.length === 0) {
+    return [];
+  }
+  const max = Math.max(...series);
+  if (max <= 0) {
+    return series.map(() => 0);
+  }
+  return series.map((v) => v / max);
 }
