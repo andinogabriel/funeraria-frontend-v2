@@ -1,11 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 
 import { AuthStore } from '../../core/auth/auth.store';
+import { HeroCarouselComponent, type HeroSlide } from '../../shared/hero-carousel';
 import { ActivityFeedComponent, type ActivityItem } from './components/activity-feed.component';
-import {
-  DashboardHeroCarouselComponent,
-  type HeroSlide,
-} from './components/dashboard-hero-carousel.component';
 import { KpiTileComponent } from './components/kpi-tile.component';
 import {
   QuickActionsBarComponent,
@@ -33,7 +30,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ActivityFeedComponent,
-    DashboardHeroCarouselComponent,
+    HeroCarouselComponent,
     KpiTileComponent,
     QuickActionsBarComponent,
   ],
