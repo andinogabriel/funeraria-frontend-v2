@@ -33,33 +33,82 @@ html {
 }
 
 // -----------------------------------------------------------------------------
-// Dark mode — auto-detected from `prefers-color-scheme: dark`. Material 3 reads
-// the `color: (theme-type: dark, ...)` map and re-emits every `--mat-sys-*`
-// system token with its dark counterpart, so every surface, container, button
-// and outline in the app shifts to the dark palette without per-component
-// changes. The mesh gradient + glass surfaces on the dashboard pick it up
-// automatically because they consume `--mat-sys-*` for their colours.
+// Dark mode — three layers, in order of increasing specificity:
+//
+//   1. `@media (prefers-color-scheme: dark) html` — automatic OS preference. Only
+//      wins when the user has NOT picked a manual override (the explicit
+//      `.theme-light` class below cancels it).
+//   2. `html.theme-dark` — manual "dark" override. Wins on a light OS.
+//   3. `html.theme-light` inside the dark media query — manual "light" override
+//      that pushes back against the OS dark preference.
+//
+// `ThemeService` writes / removes the `theme-light` / `theme-dark` classes on
+// `<html>`. When no class is present we fall through to the media query (auto
+// mode). Specificity hierarchy: `html.theme-*` (0,1,1) beats bare `html` (0,0,1)
+// inside the media query.
 // -----------------------------------------------------------------------------
+@mixin app-dark-theme {
+  @include mat.theme(
+    (
+      color: (
+        theme-type: dark,
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: (
+        plain-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        brand-family: 'Inter, system-ui, sans-serif',
+      ),
+      density: 0,
+    )
+  );
+}
+
+@mixin app-light-theme {
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: (
+        plain-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        brand-family: 'Inter, system-ui, sans-serif',
+      ),
+      density: 0,
+    )
+  );
+}
+
 @media (prefers-color-scheme: dark) {
-  html {
-    @include mat.theme(
-      (
-        color: (
-          theme-type: dark,
-          primary: mat.$azure-palette,
-          tertiary: mat.$blue-palette,
-        ),
-        typography: (
-          plain-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-          brand-family: 'Inter, system-ui, sans-serif',
-        ),
-        density: 0,
-      )
-    );
+  html:not(.theme-light) {
+    @include app-dark-theme;
   }
 
-  body {
+  html:not(.theme-light) body {
     color-scheme: dark;
+  }
+}
+
+// Manual override: force dark regardless of OS preference.
+html.theme-dark {
+  @include app-dark-theme;
+}
+
+html.theme-dark body {
+  color-scheme: dark;
+}
+
+// Manual override: force light. Only relevant when the OS preference is dark —
+// otherwise the default `html` block above already paints light tokens. We still
+// re-emit them inside the dark media query so the override wins by specificity.
+@media (prefers-color-scheme: dark) {
+  html.theme-light {
+    @include app-light-theme;
+  }
+
+  html.theme-light body {
+    color-scheme: light;
   }
 }
 

@@ -20,6 +20,57 @@
     <mat-icon class="material-symbols-outlined !ml-1 !mr-2">local_florist</mat-icon>
     <span class="font-semibold text-lg">Funeraria</span>
     <span class="flex-1"></span>
+
+    <!--
+      Theme switcher. Tri-state menu (Auto / Claro / Oscuro) so the user can
+      either follow the OS preference or pin a specific palette. The trigger
+      icon reflects the effective theme — `dark_mode` when dark tokens are
+      live, `light_mode` otherwise — so it stays an honest indicator.
+    -->
+    <button
+      mat-icon-button
+      [matMenuTriggerFor]="themeMenu"
+      [attr.aria-label]="themeTooltip()"
+      [matTooltip]="themeTooltip()"
+    >
+      <mat-icon class="material-symbols-outlined">{{ themeIcon() }}</mat-icon>
+    </button>
+    <mat-menu #themeMenu="matMenu" xPosition="before">
+      <button
+        mat-menu-item
+        (click)="onThemeSelect('auto')"
+        [attr.aria-pressed]="theme.preference() === 'auto'"
+      >
+        <mat-icon class="material-symbols-outlined">brightness_auto</mat-icon>
+        <span>Automático</span>
+        @if (theme.preference() === 'auto') {
+          <mat-icon class="material-symbols-outlined !ml-auto !text-base">check</mat-icon>
+        }
+      </button>
+      <button
+        mat-menu-item
+        (click)="onThemeSelect('light')"
+        [attr.aria-pressed]="theme.preference() === 'light'"
+      >
+        <mat-icon class="material-symbols-outlined">light_mode</mat-icon>
+        <span>Claro</span>
+        @if (theme.preference() === 'light') {
+          <mat-icon class="material-symbols-outlined !ml-auto !text-base">check</mat-icon>
+        }
+      </button>
+      <button
+        mat-menu-item
+        (click)="onThemeSelect('dark')"
+        [attr.aria-pressed]="theme.preference() === 'dark'"
+      >
+        <mat-icon class="material-symbols-outlined">dark_mode</mat-icon>
+        <span>Oscuro</span>
+        @if (theme.preference() === 'dark') {
+          <mat-icon class="material-symbols-outlined !ml-auto !text-base">check</mat-icon>
+        }
+      </button>
+    </mat-menu>
+
     <button mat-icon-button (click)="onLogout()" aria-label="Cerrar sesión" matTooltip="Salir">
       <mat-icon class="material-symbols-outlined">logout</mat-icon>
     </button>
