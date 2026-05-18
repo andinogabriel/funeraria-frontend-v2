@@ -87,6 +87,10 @@
 .hero-carousel__content {
   position: relative;
   max-width: 720px;
+  // Cap at the slide width so a wide headline cannot bleed past the carousel and
+  // ultimately cause a horizontal scrollbar on the page.
+  width: 100%;
+  min-width: 0;
   color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -104,11 +108,18 @@
 
 .hero-carousel__title {
   margin: 0;
-  font-size: clamp(28px, 4.6vw, 56px);
-  line-height: 1.05;
+  // Lower the floor on the responsive title size so it definitely fits on narrow phones
+  // without overflowing horizontally. The visual difference between 22 px and 28 px on
+  // a 360 px viewport is meaningful for layout but invisible for the brand vibe.
+  font-size: clamp(22px, 4.6vw, 56px);
+  line-height: 1.1;
   font-weight: 600;
   letter-spacing: -0.02em;
   text-wrap: balance;
+  // Allow the long brand words to break if the viewport is genuinely smaller than the
+  // shortest unbreakable token. Belt-and-braces against horizontal overflow.
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .hero-carousel__subtitle {
@@ -118,6 +129,7 @@
   opacity: 0.94;
   max-width: 540px;
   text-wrap: pretty;
+  overflow-wrap: anywhere;
 }
 
 .hero-carousel__cta {
