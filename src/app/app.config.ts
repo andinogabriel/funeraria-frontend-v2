@@ -1,5 +1,8 @@
+import { registerLocaleData } from '@angular/common';
+import localeEsAr from '@angular/common/locales/es-AR';
 import {
   ApplicationConfig,
+  LOCALE_ID,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
@@ -15,6 +18,13 @@ import { correlationIdInterceptor } from './core/http/correlation-id.interceptor
 import { errorInterceptor } from './core/http/error.interceptor';
 import { routes } from './app.routes';
 import { PaginatorIntlEs } from './shared/paginator-intl.es';
+
+// Register the `es-AR` ICU data globally so any pipe / formatter that takes the locale
+// (CurrencyPipe, DatePipe, DecimalPipe, formatNumber, etc.) finds it. Without this call
+// Angular ships only `en-US` in the bundle and throws NG0701 the first time a template
+// renders `... | currency: 'ARS' : ... : 'es-AR'`. The import is module-scoped so the
+// data lives in the main bundle and not behind a lazy chunk.
+registerLocaleData(localeEsAr);
 
 /**
  * Root application configuration. Wires the modern Angular 20 surface:
@@ -43,6 +53,11 @@ export const appConfig: ApplicationConfig = {
     // a planned dep).
     provideNativeDateAdapter(),
     { provide: MAT_DATE_LOCALE, useValue: 'es-AR' },
+    // Angular's default LOCALE_ID is `en-US`. Setting it to `es-AR` aligns the implicit
+    // formatter behaviour with the one we already use through the explicit locale on
+    // currency / date pipes, so a developer that forgets the explicit arg still gets
+    // Argentine formatting instead of US.
+    { provide: LOCALE_ID, useValue: 'es-AR' },
     // Spanish paginator labels for every `<mat-paginator>` in the app — "1 of 2"
     // → "1 – 1 de 2", "Items per page" → "Filas por página", etc. See
     // {@link PaginatorIntlEs} for the full label set.

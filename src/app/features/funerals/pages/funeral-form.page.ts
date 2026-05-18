@@ -212,7 +212,9 @@ export class FuneralFormPage {
   protected readonly placeOfDeath = this.fb.group({
     include: this.fb.control(false),
     provinceId: this.fb.control<number | null>(null),
-    cityId: this.fb.control<number | null>(null),
+    // cityId starts disabled so the operator can't pick a city before a province resolves.
+    // The province-cascade effect below toggles enable / disable as cities load.
+    cityId: this.fb.control<number | null>({ value: null, disabled: true }),
     streetName: this.fb.control('', { validators: [Validators.maxLength(120)] }),
     blockStreet: this.fb.control<number | null>(null),
     apartment: this.fb.control('', { validators: [Validators.maxLength(20)] }),
@@ -361,15 +363,25 @@ export class FuneralFormPage {
     // Province → city cascade. Picking a province lazily loads its cities
     // (cached per-province inside CatalogsService) and clears any stale city
     // selection so the form never ships an inconsistent (province, city) pair.
+    // The cityId control's disabled state is also driven from here — disabled while no
+    // province is set, while a new province's cities are in flight, and enabled the
+    // moment the list resolves. This is the reactive-form-friendly pattern (Angular warns
+    // when `[disabled]` is mixed with `formControlName` in the template).
     effect(() => {
       const provinceId = this.selectedProvinceId();
+      const cityCtrl = this.placeOfDeath.controls.cityId;
       if (provinceId === null) {
         this.cities.set(null);
-        this.placeOfDeath.controls.cityId.setValue(null, { emitEvent: false });
+        cityCtrl.setValue(null, { emitEvent: false });
+        cityCtrl.disable({ emitEvent: false });
         return;
       }
-      this.placeOfDeath.controls.cityId.setValue(null, { emitEvent: false });
-      this.catalogs.loadCities(provinceId).subscribe((list) => this.cities.set(list));
+      cityCtrl.setValue(null, { emitEvent: false });
+      cityCtrl.disable({ emitEvent: false });
+      this.catalogs.loadCities(provinceId).subscribe((list) => {
+        this.cities.set(list);
+        cityCtrl.enable({ emitEvent: false });
+      });
     });
 
     // Rebuild the items FormArray whenever a different plan is picked. Each
@@ -629,7 +641,12 @@ export class FuneralFormPage {
         cityId: place.city.id,
       });
       if (provinceId !== null) {
-        this.catalogs.loadCities(provinceId).subscribe((list) => this.cities.set(list));
+        this.catalogs.loadCities(provinceId).subscribe((list) => {
+          this.cities.set(list);
+          // Re-enable cityId now that the dropdown has data — the form was built with it
+          // disabled so the operator cannot pick before a province resolves.
+          this.placeOfDeath.controls.cityId.enable({ emitEvent: false });
+        });
       }
     }
 

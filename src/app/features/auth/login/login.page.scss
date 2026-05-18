@@ -15,10 +15,16 @@
   overflow: hidden;
   background: var(--mat-sys-surface);
 
+  // Mobile / tablet: stack the hero strip on top, let the form pane size to its content
+  // and scroll the whole page naturally. `min-height: 100dvh` + `overflow: hidden` clipped
+  // the submit button on tall phones — the carousel was eating the visual real estate the
+  // form needed. `auto` row sizing + `min-height: auto` + lifting the overflow clip lets
+  // the page flow vertically the way the operator expects.
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    min-height: 100dvh;
+    grid-template-rows: auto auto;
+    min-height: auto;
+    overflow: visible;
   }
 }
 
@@ -160,14 +166,18 @@
 }
 
 .login__carousel--mobile {
+  // Cinematic strip so the carousel reads as a brand cue without pushing the form
+  // way below the fold. The previous 16:8 / 16:9 made the carousel eat half the
+  // viewport on a typical phone and the operator had to scroll past it just to
+  // reach the email input.
   ::ng-deep .hero-carousel {
-    aspect-ratio: 16 / 8;
+    aspect-ratio: 16 / 7;
     border-radius: 18px;
   }
 
   @media (max-width: 600px) {
     ::ng-deep .hero-carousel {
-      aspect-ratio: 16 / 9;
+      aspect-ratio: 16 / 8;
       border-radius: 16px;
     }
   }

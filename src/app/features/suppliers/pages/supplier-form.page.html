@@ -202,12 +202,13 @@
 
                   <mat-form-field appearance="fill">
                     <mat-label>Localidad</mat-label>
-                    <mat-select
-                      formControlName="cityId"
-                      [disabled]="
-                        row.controls.provinceId.value === null || citiesForRow(i) === null
-                      "
-                    >
+                    <!--
+                      The disabled state is owned by the FormControl itself (see
+                      `createAddressGroup` + `wireCityCascade` in the .ts) so this template
+                      stays clean and Angular does not warn about mixing the `[disabled]`
+                      attribute with a reactive form directive.
+                    -->
+                    <mat-select formControlName="cityId">
                       <mat-option [value]="null">Seleccionar…</mat-option>
                       @for (city of citiesForRow(i) ?? []; track city.id) {
                         <mat-option [value]="city.id">{{ city.name }}</mat-option>
