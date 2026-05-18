@@ -9,22 +9,28 @@
   position: relative;
   min-height: 100vh;
   display: grid;
+  // `minmax(0, ...)` instead of `1fr` so a child with `min-width: auto` cannot force the
+  // grid track wider than the viewport — that was leaking a horizontal scrollbar in mobile
+  // when a hero slide's title rendered before wrapping.
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
   gap: 0;
   isolation: isolate;
   overflow: hidden;
   background: var(--mat-sys-surface);
+  max-width: 100%;
 
   // Mobile / tablet: stack the hero strip on top, let the form pane size to its content
   // and scroll the whole page naturally. `min-height: 100dvh` + `overflow: hidden` clipped
-  // the submit button on tall phones — the carousel was eating the visual real estate the
-  // form needed. `auto` row sizing + `min-height: auto` + lifting the overflow clip lets
-  // the page flow vertically the way the operator expects.
+  // the submit button on tall phones. `auto` row sizing + `min-height: auto` lets the page
+  // flow vertically; `overflow-x: hidden` keeps horizontal overflow trapped (no sideways
+  // scrollbar) while `overflow-y: visible` lets the form's bottom edge reach into the
+  // page's normal scroll context.
   @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto;
     min-height: auto;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: visible;
   }
 }
 

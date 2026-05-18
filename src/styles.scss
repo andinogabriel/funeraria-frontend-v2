@@ -84,6 +84,21 @@ body {
   height: 100%;
 }
 
+// Lock horizontal scroll on the document. Without this, any descendant that even briefly
+// renders wider than the viewport (a long word in a hero headline, a select option with
+// a long supplier name, a backdrop mesh that bleeds past its container) leaks a horizontal
+// scrollbar that traps the layout. Individual surfaces that genuinely need horizontal
+// scroll opt in via their own container with `overflow-x: auto`.
+html,
+body {
+  overflow-x: hidden;
+  // Defensive max-width so a 0-margin / 0-padding miscalculation upstream cannot push the
+  // page wider than the viewport. `100vw` includes the scrollbar gutter on desktops, which
+  // is fine — mobile devices size `100vw` to the visual viewport so it never disagrees with
+  // the actual page width.
+  max-width: 100vw;
+}
+
 // -----------------------------------------------------------------------------
 // Material form-field × Tailwind v4 preflight bridge.
 //
