@@ -19,16 +19,18 @@
   background: var(--mat-sys-surface);
   max-width: 100%;
 
-  // Mobile / tablet: stack the hero strip on top, let the form pane size to its content
-  // and scroll the whole page naturally. `min-height: 100dvh` + `overflow: hidden` clipped
-  // the submit button on tall phones. `auto` row sizing + `min-height: auto` lets the page
-  // flow vertically; `overflow-x: hidden` keeps horizontal overflow trapped (no sideways
-  // scrollbar) while `overflow-y: visible` lets the form's bottom edge reach into the
-  // page's normal scroll context.
+  // Mobile / tablet layout:
+  //   - Hero row grows to fill the leftover viewport height (`minmax(0, 1fr)`).
+  //   - Form row hugs its content at the bottom.
+  //   - `min-height: 100dvh` gives the grid a viewport-sized canvas so the hero can expand
+  //     into the empty space below the form on tall phones — the previous setup left a slab
+  //     of background colour under the form because both rows were `auto`.
+  //   - Horizontal overflow stays clipped; vertical overflow scrolls naturally if the form
+  //     ever ends up taller than the viewport.
   @media (max-width: 1024px) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    min-height: auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 100dvh;
     overflow-x: hidden;
     overflow-y: visible;
   }
@@ -145,6 +147,10 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px;
+  // `min-height: 0` is required on a flex container nested inside a CSS grid track that
+  // uses `1fr`: without it the flex children's intrinsic size keeps the row from
+  // collapsing, defeating the expand-to-fill behaviour we want for the carousel.
+  min-height: 0;
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--mat-sys-primary-container) 80%, transparent),
@@ -172,18 +178,30 @@
 }
 
 .login__carousel--mobile {
-  // Cinematic strip so the carousel reads as a brand cue without pushing the form
-  // way below the fold. The previous 16:8 / 16:9 made the carousel eat half the
-  // viewport on a typical phone and the operator had to scroll past it just to
-  // reach the email input.
+  // The mobile-hero is a flex column inside a CSS-grid `1fr` row. Setting `flex: 1` on
+  // the carousel lets it absorb every spare pixel above the form card, so the operator
+  // gets a generous brand pane on tall phones and the form sits flush at the bottom of
+  // the viewport. `min-height: 0` is the canonical "allow flex item to shrink" escape;
+  // without it the carousel keeps its intrinsic size and the row never fills.
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+
+  // Drop the fixed aspect-ratio and let the carousel fill the flex slot. A floor of
+  // ~220 px guarantees the brand cue stays readable on short viewports (e.g. iPhone SE
+  // in landscape) and pushes the grid past 100dvh — triggering the natural vertical
+  // scroll — instead of collapsing to a sliver of headline above the form.
   ::ng-deep .hero-carousel {
-    aspect-ratio: 16 / 7;
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: 220px;
+    width: 100%;
     border-radius: 18px;
   }
 
   @media (max-width: 600px) {
     ::ng-deep .hero-carousel {
-      aspect-ratio: 16 / 8;
+      min-height: 200px;
       border-radius: 16px;
     }
   }
