@@ -216,7 +216,16 @@ export class SupplierFormPage {
   private createAddressGroup() {
     return this.fb.group({
       provinceId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
-      cityId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
+      // cityId starts disabled because picking a city before a province is meaningless. The
+      // cascade in `wireCityCascade` enables it once the cities for the chosen province
+      // resolve and disables it again when the province goes back to null. Setting the
+      // disabled state on the control itself (instead of `[disabled]` in the template) is
+      // the Angular-recommended pattern — using the attribute with reactive forms triggers
+      // a console warning and can produce expression-changed-after-checked errors.
+      cityId: this.fb.control<number | null>(
+        { value: null, disabled: true },
+        { validators: [Validators.required] },
+      ),
       streetName: this.fb.control('', {
         validators: [Validators.required, Validators.maxLength(120)],
       }),
@@ -244,13 +253,18 @@ export class SupplierFormPage {
           next.delete(index);
           this.citiesByRow.set(next);
           group.controls.cityId.setValue(null, { emitEvent: false });
+          group.controls.cityId.disable({ emitEvent: false });
           return;
         }
+        // Reset + keep disabled until the cities list resolves so the operator cannot pick
+        // a city for the old province while the new list is in flight.
         group.controls.cityId.setValue(null, { emitEvent: false });
+        group.controls.cityId.disable({ emitEvent: false });
         this.catalogs.loadCities(provinceId).subscribe((list) => {
           const refreshed = new Map(this.citiesByRow());
           refreshed.set(index, list);
           this.citiesByRow.set(refreshed);
+          group.controls.cityId.enable({ emitEvent: false });
         });
       });
   }
@@ -299,6 +313,9 @@ export class SupplierFormPage {
           const refreshed = new Map(this.citiesByRow());
           refreshed.set(index, list);
           this.citiesByRow.set(refreshed);
+          // Re-enable the city control now that the dropdown has data — the form was built
+          // with cityId disabled so the operator cannot pick before a province resolves.
+          group.controls.cityId.enable({ emitEvent: false });
         });
       }
     });
