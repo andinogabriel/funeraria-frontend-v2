@@ -11,6 +11,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenav, MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -19,6 +20,7 @@ import { map } from 'rxjs/operators';
 
 import { AuthService } from '../auth/auth.service';
 import { AuthStore } from '../auth/auth.store';
+import { ThemeService, type ThemePreference } from '../theme/theme.service';
 
 /**
  * Authenticated application shell. Renders the persistent navigation surface (sidenav +
@@ -55,6 +57,7 @@ import { AuthStore } from '../auth/auth.store';
     MatButtonModule,
     MatIconModule,
     MatListModule,
+    MatMenuModule,
     MatSidenavModule,
     MatToolbarModule,
     MatTooltipModule,
@@ -71,6 +74,29 @@ export class ShellComponent {
   private readonly breakpointObserver = inject(BreakpointObserver);
 
   protected readonly store = inject(AuthStore);
+  protected readonly theme = inject(ThemeService);
+
+  /**
+   * Icon for the toolbar theme button. Reflects the currently rendered theme,
+   * not the preference — that way a user on `auto` sees the actual paint
+   * (sun on light OS, moon on dark OS) and the icon shifts honestly when they
+   * toggle the OS preference.
+   */
+  protected readonly themeIcon = computed(() =>
+    this.theme.effective() === 'dark' ? 'dark_mode' : 'light_mode',
+  );
+
+  /** Tooltip mentions the current preference so "Auto" mode is discoverable. */
+  protected readonly themeTooltip = computed(() => {
+    const pref = this.theme.preference();
+    if (pref === 'auto') return 'Tema: automático';
+    if (pref === 'dark') return 'Tema: oscuro';
+    return 'Tema: claro';
+  });
+
+  protected onThemeSelect(pref: ThemePreference): void {
+    this.theme.setPreference(pref);
+  }
 
   /**
    * Top-level nav entries.

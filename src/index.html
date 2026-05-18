@@ -12,6 +12,25 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Apply the stored theme preference before Angular bootstraps. Without this,
+      a user that picked dark would see a flash of light surface for the couple
+      of frames it takes the ThemeService to come online. Mirrors the read in
+      `core/theme/theme.service.ts`; if you change the storage key there, change
+      it here too.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('funeraria.theme');
+          if (t === 'light' || t === 'dark') {
+            document.documentElement.classList.add('theme-' + t);
+          }
+        } catch (e) {
+          /* private mode / SSR — fall back to the media query */
+        }
+      })();
+    </script>
   </head>
   <body class="mat-typography">
     <app-root></app-root>
