@@ -1,0 +1,102 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      receipt_long
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Ingresos</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Compras a proveedores con detalle de items, impuesto y total.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+
+    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+      Actualizar
+    </button>
+    <a mat-flat-button color="primary" routerLink="/ingresos/nuevo">
+      <mat-icon class="material-symbols-outlined">add</mat-icon>
+      Nuevo ingreso
+    </a>
+  </header>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  <!-- Action toolbar: selected receipt drives the three buttons. -->
+  <div class="flex flex-wrap items-center gap-2">
+    <button mat-stroked-button [disabled]="!hasSelection()" (click)="onShowDetail()" class="!h-10">
+      <mat-icon class="material-symbols-outlined">visibility</mat-icon>
+      Detalle
+    </button>
+    <button mat-stroked-button [disabled]="!hasSelection()" (click)="onEdit()" class="!h-10">
+      <mat-icon class="material-symbols-outlined">edit</mat-icon>
+      Editar
+    </button>
+    <button
+      mat-stroked-button
+      color="warn"
+      [disabled]="!hasSelection()"
+      (click)="onDelete()"
+      class="!h-10"
+    >
+      <mat-icon class="material-symbols-outlined">delete</mat-icon>
+      Eliminar
+    </button>
+
+    @if (loading()) {
+      <span
+        class="text-xs text-[var(--mat-sys-on-surface-variant)] inline-flex items-center gap-2 ml-2"
+      >
+        <mat-icon class="material-symbols-outlined animate-spin !text-base !w-4 !h-4">
+          progress_activity
+        </mat-icon>
+        Actualizando…
+      </span>
+    }
+  </div>
+
+  <!--
+    Server-side paginated table. The previous page's rows stay visible while a new page is
+    loading (stale-while-revalidate), so the operator never sees a blank flash between
+    paginator clicks.
+  -->
+  <app-data-table
+    [data]="rows()"
+    [columns]="columns"
+    [trackBy]="trackByReceiptNumber"
+    storageKey="incomes.list"
+    [serverSide]="true"
+    [totalElements]="totalElements()"
+    [initialSort]="sortState()"
+    [initialPageIndex]="pageIndex()"
+    [initialPageSize]="pageSize()"
+    [selectable]="true"
+    [(selectedRow)]="selectedIncome"
+    (pageChange)="onPageChange($event)"
+    (sortChange)="onSortChange($event)"
+  />
+
+  @if (!loading() && rows().length === 0 && totalElements() === 0) {
+    <div
+      class="rounded-lg border border-dashed border-[var(--mat-sys-outline-variant)] p-8 text-center"
+    >
+      <mat-icon
+        class="material-symbols-outlined !text-5xl !w-12 !h-12 text-[var(--mat-sys-on-surface-variant)] opacity-60"
+      >
+        receipt_long
+      </mat-icon>
+      <p class="text-sm font-medium mt-3 mb-1">No hay ingresos registrados.</p>
+      <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
+        Sumá uno desde «Nuevo ingreso» arriba a la derecha.
+      </p>
+    </div>
+  }
+</div>

@@ -105,6 +105,13 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   /** Initial page size before any persisted preference. */
   readonly initialPageSize = input<number>(10);
 
+  /**
+   * Initial page index. Honoured in server-side mode so the parent can restore the page
+   * from a URL query param after a refresh / back-navigation. Ignored in client-side mode
+   * where the parent has no need to drive the paginator — the table owns the slice.
+   */
+  readonly initialPageIndex = input<number>(0);
+
   /** Page size choices offered in the paginator. */
   readonly pageSizeOptions = input<readonly number[]>([10, 25, 50, 100]);
 
@@ -466,6 +473,10 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       this.sortState.set(this.initialSort());
       this.pageSize.set(this.initialPageSize());
     }
+    // Restore the page index from the input — only meaningful in server-side mode where
+    // the parent owns the URL. Client-side mode resets to 0 after sort / filter changes
+    // anyway, so the persisted value never makes it here.
+    this.pageIndex.set(this.initialPageIndex());
 
     this.hydrated.set(true);
   }
