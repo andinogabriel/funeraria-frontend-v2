@@ -1,0 +1,262 @@
+<div class="flex flex-col gap-6">
+  <header class="flex items-center gap-3">
+    <a mat-icon-button routerLink="/ingresos" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">{{ title }}</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        {{
+          mode === 'edit'
+            ? 'Actualizá los datos del ingreso seleccionado.'
+            : 'Completá los datos para registrar una nueva compra a un proveedor.'
+        }}
+      </p>
+    </div>
+  </header>
+
+  <mat-card class="!rounded-xl">
+    <mat-card-content class="!p-6 lg:!p-8 flex flex-col gap-8" [formGroup]="form">
+      <section class="flex flex-col gap-4">
+        <header class="flex flex-col gap-1">
+          <h2 class="text-lg font-semibold m-0">Recibo</h2>
+          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+            Tipo, serie y número. Si dejás vacíos serie y número el backend autogenera.
+          </p>
+        </header>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <mat-form-field appearance="fill">
+            <mat-label>Tipo de recibo</mat-label>
+            <mat-select formControlName="receiptTypeId">
+              <mat-option [value]="null">Predeterminado</mat-option>
+              @for (rt of receiptTypes() ?? []; track rt.id) {
+                <mat-option [value]="rt.id">{{ rt.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Serie</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="receiptSeries"
+              autocomplete="off"
+              inputmode="numeric"
+              min="0"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Número</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="receiptNumber"
+              autocomplete="off"
+              inputmode="numeric"
+              min="0"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Proveedor (opcional)</mat-label>
+            <mat-select formControlName="supplierNif">
+              <mat-option [value]="null">Sin proveedor</mat-option>
+              @for (supplier of suppliers() ?? []; track supplier.nif) {
+                <mat-option [value]="supplier.nif">
+                  {{ supplier.name }} · {{ supplier.nif }}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Impuesto (%)</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="tax"
+              autocomplete="off"
+              inputmode="decimal"
+              min="0"
+              max="100"
+              step="0.01"
+            />
+            @if (form.controls.tax.touched && form.controls.tax.hasError('required')) {
+              <mat-error>El impuesto es obligatorio.</mat-error>
+            }
+          </mat-form-field>
+        </div>
+      </section>
+
+      <mat-divider />
+
+      <!-- Detalle de items -->
+      <section class="flex flex-col gap-3">
+        <header class="flex items-center justify-between gap-3">
+          <div class="flex flex-col gap-1">
+            <h2 class="text-lg font-semibold m-0">Items comprados</h2>
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+              Item, cantidad, precio de compra y de venta sugerida.
+            </p>
+          </div>
+          <button
+            type="button"
+            mat-stroked-button
+            class="!h-10"
+            (click)="onAddDetail()"
+            aria-label="Agregar item al ingreso"
+          >
+            <mat-icon class="material-symbols-outlined">add</mat-icon>
+            Agregar item
+          </button>
+        </header>
+
+        @if (details.length === 0) {
+          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+            Sin items cargados. Sumá al menos uno para registrar el ingreso.
+          </p>
+        } @else {
+          <ul class="m-0 p-0 list-none flex flex-col gap-3" formArrayName="details">
+            @for (row of details.controls; track $index; let i = $index) {
+              <li
+                class="flex flex-col gap-3 rounded-lg border border-[var(--mat-sys-outline-variant)] p-3"
+                [formGroupName]="i"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <span class="text-sm font-medium text-[var(--mat-sys-on-surface-variant)]">
+                    Item {{ i + 1 }}
+                  </span>
+                  <button
+                    type="button"
+                    mat-icon-button
+                    (click)="onRemoveDetail(i)"
+                    matTooltip="Quitar item"
+                    aria-label="Quitar item"
+                  >
+                    <mat-icon class="material-symbols-outlined">delete</mat-icon>
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <mat-form-field appearance="fill" class="lg:col-span-2">
+                    <mat-label>Item</mat-label>
+                    <mat-select formControlName="itemCode">
+                      <mat-option [value]="null">Seleccionar…</mat-option>
+                      @for (item of items() ?? []; track item.code) {
+                        <mat-option [value]="item.code">
+                          {{ item.name }} · {{ item.code }}
+                        </mat-option>
+                      }
+                    </mat-select>
+                    @if (
+                      row.controls.itemCode.touched && row.controls.itemCode.hasError('required')
+                    ) {
+                      <mat-error>Elegí un item.</mat-error>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill">
+                    <mat-label>Cantidad</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      formControlName="quantity"
+                      autocomplete="off"
+                      inputmode="numeric"
+                      min="1"
+                    />
+                    @if (
+                      row.controls.quantity.touched &&
+                      (row.controls.quantity.hasError('required') ||
+                        row.controls.quantity.hasError('min'))
+                    ) {
+                      <mat-error>Mínimo 1.</mat-error>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill">
+                    <mat-label>Precio de compra</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      formControlName="purchasePrice"
+                      autocomplete="off"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.01"
+                    />
+                    @if (
+                      row.controls.purchasePrice.touched &&
+                      row.controls.purchasePrice.hasError('required')
+                    ) {
+                      <mat-error>Obligatorio.</mat-error>
+                    }
+                  </mat-form-field>
+
+                  <mat-form-field appearance="fill">
+                    <mat-label>Precio de venta</mat-label>
+                    <input
+                      matInput
+                      type="number"
+                      formControlName="salePrice"
+                      autocomplete="off"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.01"
+                    />
+                    @if (
+                      row.controls.salePrice.touched && row.controls.salePrice.hasError('required')
+                    ) {
+                      <mat-error>Obligatorio.</mat-error>
+                    }
+                  </mat-form-field>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (details.length > 0) {
+          <p
+            class="text-sm text-right text-[var(--mat-sys-on-surface-variant)] tabular-nums m-0 mt-2"
+          >
+            Total estimado (con impuesto):
+            <span class="font-semibold text-[var(--mat-sys-on-surface)]">
+              {{ previewTotal() | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+            </span>
+          </p>
+        }
+      </section>
+
+      @if (errorMessage(); as message) {
+        <p
+          class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+          role="alert"
+        >
+          {{ message }}
+        </p>
+      }
+
+      <div class="flex justify-end gap-2 pt-2">
+        <a mat-stroked-button routerLink="/ingresos" class="!h-11">Cancelar</a>
+        <button
+          type="button"
+          mat-flat-button
+          color="primary"
+          class="!h-11"
+          (click)="onSubmit()"
+          [disabled]="
+            submitting() || !catalogsReady() || form.invalid || (mode === 'edit' && form.pristine)
+          "
+        >
+          @if (submitting()) {
+            <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+          }
+          {{ mode === 'edit' ? 'Guardar cambios' : 'Crear ingreso' }}
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

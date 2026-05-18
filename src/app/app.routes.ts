@@ -197,6 +197,26 @@ export const routes: Routes = [
           import('./features/suppliers/pages/supplier-form.page').then((m) => m.SupplierFormPage),
         data: { mode: 'edit' },
       },
+      {
+        // Admin-only on the backend. The list page is server-side paginated against
+        // `/api/v1/incomes/paginated` with the operator's page / size / sort persisted in
+        // the URL so refresh + back-button preserve state.
+        path: 'ingresos',
+        loadComponent: () =>
+          import('./features/incomes/pages/income-list.page').then((m) => m.IncomeListPage),
+      },
+      {
+        path: 'ingresos/nuevo',
+        loadComponent: () =>
+          import('./features/incomes/pages/income-form.page').then((m) => m.IncomeFormPage),
+        data: { mode: 'create' },
+      },
+      {
+        path: 'ingresos/:receiptNumber/editar',
+        loadComponent: () =>
+          import('./features/incomes/pages/income-form.page').then((m) => m.IncomeFormPage),
+        data: { mode: 'edit' },
+      },
     ],
   },
   {

@@ -92,6 +92,7 @@ export class ShellComponent {
     { path: '/marcas', label: 'Marcas', icon: 'sell' },
     { path: '/categorias', label: 'Categorías', icon: 'category' },
     { path: '/proveedores', label: 'Proveedores', icon: 'local_shipping', requiresAdmin: true },
+    { path: '/ingresos', label: 'Ingresos', icon: 'receipt_long', requiresAdmin: true },
     { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
   ];
 
