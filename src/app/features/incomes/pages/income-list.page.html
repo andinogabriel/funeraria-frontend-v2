@@ -30,6 +30,75 @@
     </div>
   }
 
+  <!--
+    Filters bar. Bound to a typed FormGroup; valueChanges is debounced 250 ms before
+    pushing to the URL so the operator can type in the search field without flooding the
+    history stack. Each change resets the page to 0 because staying on page N after
+    narrowing the result set would usually render an empty grid.
+  -->
+  <section class="income-filters" aria-label="Filtros de ingresos" [formGroup]="filterForm">
+    <mat-form-field appearance="fill" class="income-filters__search" subscriptSizing="dynamic">
+      <mat-label>Buscar</mat-label>
+      <input
+        matInput
+        type="text"
+        formControlName="q"
+        autocomplete="off"
+        placeholder="Razón social, NIF o número de recibo"
+        aria-label="Buscar por razón social, NIF o número de recibo"
+      />
+      <mat-icon matIconPrefix class="material-symbols-outlined">search</mat-icon>
+      @if (filterState().q.length > 0) {
+        <button
+          type="button"
+          mat-icon-button
+          matIconSuffix
+          (click)="filterForm.controls.q.setValue('')"
+          aria-label="Limpiar búsqueda"
+        >
+          <mat-icon class="material-symbols-outlined">close</mat-icon>
+        </button>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="income-filters__supplier" subscriptSizing="dynamic">
+      <mat-label>Proveedor</mat-label>
+      <mat-select formControlName="supplierNif">
+        <mat-option [value]="null">Todos</mat-option>
+        @for (supplier of suppliers() ?? []; track supplier.nif) {
+          <mat-option [value]="supplier.nif">{{ supplier.name }} · {{ supplier.nif }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="income-filters__date" subscriptSizing="dynamic">
+      <mat-label>Desde</mat-label>
+      <input matInput [matDatepicker]="fromPicker" formControlName="from" />
+      <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+      <mat-datepicker #fromPicker />
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="income-filters__date" subscriptSizing="dynamic">
+      <mat-label>Hasta</mat-label>
+      <input matInput [matDatepicker]="toPicker" formControlName="to" />
+      <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+      <mat-datepicker #toPicker />
+    </mat-form-field>
+
+    @if (hasActiveFilters()) {
+      <button
+        type="button"
+        mat-stroked-button
+        class="income-filters__clear !h-11"
+        (click)="onClearFilters()"
+        aria-label="Limpiar todos los filtros"
+      >
+        <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
+        Limpiar
+      </button>
+    }
+  </section>
+
   <!-- Action toolbar: selected receipt drives the three buttons. -->
   <div class="flex flex-wrap items-center gap-2">
     <button mat-stroked-button [disabled]="!hasSelection()" (click)="onShowDetail()" class="!h-10">
@@ -64,9 +133,8 @@
   </div>
 
   <!--
-    Server-side paginated table. The previous page's rows stay visible while a new page is
-    loading (stale-while-revalidate), so the operator never sees a blank flash between
-    paginator clicks.
+    Server-side paginated table. Stale-while-revalidate keeps the previous page's rows
+    visible while a new page is loading so paginator clicks don't flash a skeleton.
   -->
   <app-data-table
     [data]="rows()"
@@ -93,9 +161,19 @@
       >
         receipt_long
       </mat-icon>
-      <p class="text-sm font-medium mt-3 mb-1">No hay ingresos registrados.</p>
+      <p class="text-sm font-medium mt-3 mb-1">
+        @if (hasActiveFilters()) {
+          No hay ingresos que coincidan con los filtros.
+        } @else {
+          No hay ingresos registrados.
+        }
+      </p>
       <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
-        Sumá uno desde «Nuevo ingreso» arriba a la derecha.
+        @if (hasActiveFilters()) {
+          Ajustá o limpiá los filtros para volver a ver el listado completo.
+        } @else {
+          Sumá uno desde «Nuevo ingreso» arriba a la derecha.
+        }
       </p>
     </div>
   }

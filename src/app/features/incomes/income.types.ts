@@ -78,4 +78,12 @@ export interface IncomePageQuery {
   readonly sortBy?: string;
   readonly sortDir?: 'asc' | 'desc';
   readonly isDeleted?: boolean;
+  /** Fuzzy substring match against supplier name, supplier NIF and receipt number. */
+  readonly q?: string;
+  /** Exact match on the linked supplier's NIF. */
+  readonly supplierNif?: string;
+  /** Inclusive lower bound on incomeDate as ISO `yyyy-MM-dd`; expanded to start of day. */
+  readonly from?: string;
+  /** Inclusive upper bound on incomeDate as ISO `yyyy-MM-dd`; expanded to end of day. */
+  readonly to?: string;
 }
