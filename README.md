@@ -76,7 +76,11 @@ The migration from the Angular 14 codebase is structured as a chain of small PRs
 ## Documentation
 
 - [`AGENTS.md`](AGENTS.md) — hard rules for any contributor or coding agent.
-- [`CLAUDE.md`](CLAUDE.md) — Claude Code quick reference (paths, commands, gotchas).
+- [`CLAUDE.md`](CLAUDE.md) — Claude Code quick reference (paths, commands, gotchas, and how
+  to run the bundled review agents before opening a PR).
+- [`.claude/agents/`](.claude/agents) — read-only review agents (`frontend-architect`,
+  `test-coverage-auditor`) Claude Code discovers automatically when you open the repo.
+  See `CLAUDE.md` for usage.
 - [`docs/adr/`](docs/adr/) — architecture decision records, indexed by [`docs/adr/README.md`](docs/adr/README.md).
 
 ## Related repositories

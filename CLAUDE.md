@@ -64,6 +64,33 @@ CI runs format → lint → test → build, in that order. Local sequence before
 - **Records don't exist either**, but `interface` for value shapes and `class` only when behavior is involved. Avoid `type` aliases for object shapes when an `interface` would do (better error messages).
 - **No emojis in code or commits** unless explicitly requested.
 
+## Review agents — run before opening a PR
+
+This repo ships two read-only Claude Code subagents under `.claude/agents/`. Claude Code
+discovers them automatically when you open the repo in a session — there is no extra setup,
+no API key, and they consume the same plan as the rest of your session (Pro / Max / API).
+
+| Agent | What it checks | When to call it |
+| --- | --- | --- |
+| `frontend-architect` | Standalone + OnPush, signals vs `BehaviorSubject`, `@if`/`@for`, `minmax(0,...)` grid tracks, URL-sync for paginated lists, `[disabled]` mixed with FormControl, locale registration, Material system tokens, ARIA on icon-only buttons. | Right before `gh pr create`, after `npm run lint && npm test && npm run build`. |
+| `test-coverage-auditor` | The branches humans forget: stale service mocks after a method rename, the 403 path, the empty-optional-params branch, the URL ↔ form round-trip on paginated lists. | After the architect passes; before declaring a feature done. |
+
+Invocation from a Claude Code session:
+
+```text
+Agent({ subagent_type: "frontend-architect",    prompt: "Review the diff against main in this branch" })
+Agent({ subagent_type: "test-coverage-auditor", prompt: "Audit coverage for the current branch" })
+```
+
+Both agents are read-only: they call `Read`, `Grep`, `Glob` and `git diff` / `gh pr view`,
+and return a structured report (Blockers / Worth fixing / Follow-ups) with file:line
+citations. They never edit files, run `npm test`, or push commits — that is your job, on
+purpose. If you disagree with a blocker, open `.claude/agents/<name>.md` and you will see
+the exact rule it cited.
+
+If you are not using Claude Code, you can still read the agent files as living checklists —
+they are plain Markdown describing every convention this repo enforces.
+
 ## Don't
 
 - Don't add a class-based guard, resolver, or HTTP interceptor — functional only.
