@@ -1,0 +1,35 @@
+# Keep the Docker build context small — every byte here ships into the daemon
+# on every build, so excluding node_modules and the dist cache turns a 200 MB
+# context into a < 5 MB one.
+
+.angular
+.git
+.github
+.idea
+.vscode
+.husky
+.nyc_output
+.cache
+
+node_modules
+dist
+out-tsc
+tmp
+coverage
+
+# Editor + OS noise
+*.log
+.DS_Store
+Thumbs.db
+
+# Local-only files that should never end up in the image
+.env
+.env.*
+!.env.example
+
+# Docs and CI metadata not needed inside the runtime image
+README.md
+AGENTS.md
+CLAUDE.md
+docs
+.claude

@@ -27,12 +27,59 @@ Angular 20 frontend for the [`backend-funeraria-app`](https://github.com/andinog
 
 ## Getting started
 
+The fastest path: run the backend in Docker, then the frontend with `ng serve`.
+
+### Step 1: start the backend
+
+In the [`backend-funeraria-app`](https://github.com/andinogabriel/backend-funeraria-app)
+repo (clone it next to this one):
+
 ```bash
-npm ci --legacy-peer-deps        # one-time install
-npm start                         # ng serve via http://localhost:4200, proxies /api → :8081
+docker compose up -d
+# Backend ready on http://localhost:8081, postgres on :5432.
 ```
 
-The dev server proxies `/api` and `/actuator` to `http://localhost:8081` (`proxy.conf.json`); start the backend with `docker compose up -d` from the `backend-funeraria-app` repo before running the frontend.
+### Step 2: install + run the frontend
+
+```bash
+nvm use                          # picks up Node version from .nvmrc (22.x)
+npm ci --legacy-peer-deps        # one-time install — see CLAUDE.md for why the flag
+npm start                        # ng serve on http://localhost:4200
+```
+
+The dev server's `proxy.conf.json` forwards `/api` and `/actuator` to
+`http://localhost:8081` so the browser sees same-origin requests — no CORS, no
+env-specific base URLs in the bundle. Open `http://localhost:4200/login` and
+sign in with the bootstrap admin credentials documented in the backend's README.
+
+### Step 3 (optional): prod-like local stack with Docker
+
+Sometimes you want to test the production build (nginx serving the hashed
+bundle, gzip on, cache headers) instead of `ng serve`.
+
+```bash
+# Build the frontend image + start it. Backend is expected to be already up
+# (step 1) on the shared `funeraria-net` Docker network.
+docker compose --profile frontend up --build
+# Frontend now on http://localhost:4200 (nginx, prod build).
+```
+
+The Dockerfile is multi-stage: Node 22 builds the app, nginx:alpine serves
+it. `nginx.conf` proxies `/api` and `/actuator` to the backend so the browser
+still sees same-origin. See [`Dockerfile`](Dockerfile) and
+[`nginx.conf`](nginx.conf) for the full picture.
+
+### Troubleshooting
+
+- **`Cannot find module @angular/...` after pull**: rerun
+  `npm ci --legacy-peer-deps`. Angular 20 minors sometimes change peer ranges.
+- **Backend connection refused**: the proxy expects `:8081`. Confirm the
+  backend container is healthy with `docker compose ps` in the backend repo.
+- **`NG0701: Missing locale data for "es-AR"`**: only happens if someone removes the
+  `registerLocaleData(localeEsAr)` call from `app.config.ts`. The locale is
+  required by the currency / date pipes.
+- **Login appears but submit does nothing**: usually a mismatched CSRF
+  token from a stale browser session. Hard refresh + clear site data.
 
 ## Scripts
 
@@ -75,13 +122,25 @@ The migration from the Angular 14 codebase is structured as a chain of small PRs
 
 ## Documentation
 
+Read in this order if you are landing for the first time:
+
 - [`AGENTS.md`](AGENTS.md) — hard rules for any contributor or coding agent.
-- [`CLAUDE.md`](CLAUDE.md) — Claude Code quick reference (paths, commands, gotchas, and how
-  to run the bundled review agents before opening a PR).
-- [`.claude/agents/`](.claude/agents) — read-only review agents (`frontend-architect`,
-  `test-coverage-auditor`) Claude Code discovers automatically when you open the repo.
-  See `CLAUDE.md` for usage.
-- [`docs/adr/`](docs/adr/) — architecture decision records, indexed by [`docs/adr/README.md`](docs/adr/README.md).
+  Standalone components only, signals first, functional interceptors,
+  zoneless, etc. Non-negotiable.
+- [`docs/MEMORY_BANK.md`](docs/MEMORY_BANK.md) — system context: auth flow,
+  HTTP pipeline, state strategy, Material × Tailwind division, theme, tests,
+  build budgets, performance.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — folder layout + copy-and-
+  adapt recipes for adding a feature, a service, a guard, an interceptor, a
+  shared component.
+- [`CLAUDE.md`](CLAUDE.md) — Claude Code quick reference (paths, commands,
+  gotchas, how to run the bundled review agents before `gh pr create`).
+- [`.claude/agents/`](.claude/agents) — read-only review agents
+  (`frontend-architect`, `test-coverage-auditor`) Claude Code discovers
+  automatically when you open the repo. See `CLAUDE.md` for usage.
+- [`docs/adr/`](docs/adr/) — architecture decision records, indexed by
+  [`docs/adr/README.md`](docs/adr/README.md). Open the matching ADR before
+  changing anything in the area it covers.
 
 ## Related repositories
 

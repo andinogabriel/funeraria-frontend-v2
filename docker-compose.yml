@@ -1,0 +1,63 @@
+# =============================================================================
+# Local docker-compose for funeraria-frontend-v2.
+#
+# Two ways to use this file:
+#
+# 1) Frontend-only against a backend you already run elsewhere (preferred for
+#    day-to-day frontend work — backend keeps its own docker-compose at
+#    https://github.com/andinogabriel/backend-funeraria-app):
+#
+#       # In the backend repo:   docker compose up -d
+#       # Here:                  docker compose --profile frontend up --build
+#
+#    The frontend nginx proxies /api → backend container resolved via the
+#    shared `funeraria-net` network (see backend's docker-compose; both
+#    declare the same external network so they meet halfway).
+#
+# 2) Frontend only, backend on host (running `mvn spring-boot:run` outside
+#    Docker): override the backend hostname so nginx points at the host
+#    network:
+#
+#       BACKEND_HOST=host.docker.internal docker compose up --build
+#
+# The image itself ships in `Dockerfile` (multi-stage build → nginx:alpine).
+# =============================================================================
+
+services:
+  frontend:
+    profiles: ["frontend", "fullstack"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: funeraria-frontend-v2:local
+    container_name: funeraria-frontend
+    ports:
+      # Same port as `ng serve` so the URL stays consistent across
+      # dev (npm start) and prod-like (this compose).
+      - "4200:80"
+    environment:
+      # nginx.conf hardcodes the backend hostname to `backend` for the
+      # compose-shared-network path. If you need to override (eg. backend on
+      # host), use the alternative `extra_hosts` block below.
+      BACKEND_HOST: ${BACKEND_HOST:-backend}
+    # Uncomment when running with backend on the host:
+    # extra_hosts:
+    #   - "backend:host-gateway"
+    networks:
+      - funeraria-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  # The backend repo declares the same network as `external: true` so both
+  # composes share it without one depending on the other's startup order.
+  # If you run the frontend alone with backend on host, this still works —
+  # the network exists, the backend just is not in it.
+  funeraria-net:
+    name: funeraria-net
+    driver: bridge
