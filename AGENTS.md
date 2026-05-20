@@ -2,10 +2,11 @@
 
 Mandatory entry point for coding agents and new contributors working on `funeraria-frontend-v2`. Read in this order, then come back here:
 
-1. [`README.md`](README.md) — project overview, stack, scripts.
-2. [`MEMORY_BANK.md`](MEMORY_BANK.md) is intentionally not duplicated — there is none yet; the *why* lives in the ADRs.
-3. [`docs/adr/README.md`](docs/adr/README.md) — index of architectural decisions. Open the matching ADR before changing anything in the area it covers.
-4. [`CLAUDE.md`](CLAUDE.md) — Claude-Code-specific shortcuts (paths, commands, gotchas).
+1. [`README.md`](README.md) — project overview, stack, scripts, local setup (Docker + dev server).
+2. [`docs/MEMORY_BANK.md`](docs/MEMORY_BANK.md) — system context: auth, HTTP pipeline, state strategy, Material × Tailwind, theme, tests, build budgets, performance.
+3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — folder layout + copy-and-adapt recipes for adding a feature, a service, a guard, an interceptor, a shared component. Read this before adding new code.
+4. [`docs/adr/README.md`](docs/adr/README.md) — index of architectural decisions. Open the matching ADR before changing anything in the area it covers.
+5. [`CLAUDE.md`](CLAUDE.md) — Claude-Code-specific shortcuts (paths, commands, gotchas, how to run the bundled review agents under `.claude/agents/` before `gh pr create`).
 
 ## Non-negotiable architectural rules
 

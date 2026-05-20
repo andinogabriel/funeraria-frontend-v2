@@ -4,8 +4,10 @@ Fast entry point for Claude when working in this repo. Read in this order:
 
 1. **This file** — paths, commands, decisions you'd otherwise have to discover.
 2. [`AGENTS.md`](AGENTS.md) — hard rules (architecture, testing, docs).
-3. [`docs/adr/README.md`](docs/adr/README.md) — index of architectural decisions; open the matching ADR before changing anything in its area.
-4. [`README.md`](README.md) — operational onboarding when a human needs it.
+3. [`docs/MEMORY_BANK.md`](docs/MEMORY_BANK.md) — system context: auth flow, HTTP pipeline, state, theme, testing, build budgets, performance.
+4. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — folder layout + copy-and-adapt recipes for adding a feature, service, guard, interceptor, shared component.
+5. [`docs/adr/README.md`](docs/adr/README.md) — index of architectural decisions; open the matching ADR before changing anything in its area.
+6. [`README.md`](README.md) — operational onboarding when a human needs it (Docker + dev-server flows).
 
 ## What this is
 
