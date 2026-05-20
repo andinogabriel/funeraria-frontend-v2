@@ -81,11 +81,22 @@
       <article class="dashboard__activity">
         <header class="dashboard__activity-head">
           <h2 class="dashboard__activity-title">Actividad reciente</h2>
-          <p class="dashboard__activity-sub">
-            Últimos eventos de la consola — datos en vivo cuando el broker se conecte.
-          </p>
+          @if (activityFeedError(); as message) {
+            <p class="dashboard__activity-sub" role="alert">{{ message }}</p>
+          } @else {
+            <p class="dashboard__activity-sub">
+              Últimos eventos proyectados desde el outbox.
+              @if (activityFeedLoading()) {
+                <span class="dashboard__activity-loading"> · Actualizando…</span>
+              }
+            </p>
+          }
         </header>
-        <app-activity-feed [items]="recentActivity" />
+        @if (recentActivity().length > 0) {
+          <app-activity-feed [items]="recentActivity()" />
+        } @else if (!activityFeedLoading() && !activityFeedError()) {
+          <p class="dashboard__activity-empty">Todavía no hay eventos recientes en el feed.</p>
+        }
       </article>
     </section>
   </div>
