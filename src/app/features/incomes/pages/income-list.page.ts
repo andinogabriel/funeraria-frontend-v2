@@ -7,25 +7,21 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import {
   DataTableComponent,
   type DataTableColumn,
+  type DataTableColumnFilterValue,
+  type DataTableEmptyState,
   type DataTableSort,
 } from '../../../shared/data-table';
-import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeDetailDialogComponent } from '../components/income-detail-dialog.component';
 import { IncomeService } from '../income.service';
 import type { Income, IncomePageQuery } from '../income.types';
@@ -35,49 +31,42 @@ import type { Income, IncomePageQuery } from '../income.types';
  * `GET /api/v1/incomes/paginated` — the table only holds the current slice and the
  * paginator's total comes from the response payload.
  *
+ * <h3>Touch-first data table (replaces the legacy top-bar filters)</h3>
+ *
+ * All filter inputs live inside the per-column header menus the data-table now ships
+ * with. The page no longer renders a FormGroup with q / supplierNif / from / to
+ * controls above the grid; instead, each column declares its filter type, the user
+ * taps the column name to open a menu, types / picks a value, and the data-table
+ * emits `(columnFilterChange)` (debounced 250 ms). The page maps each column's
+ * filter to the backend filter param that semantically matches:
+ *
+ * - `receiptNumber` (`Recibo`) text filter → `q` (the backend multi-purpose search
+ *   already matches receipt numbers + supplier name + supplier nif).
+ * - `incomeDate` (`Fecha`) dateRange filter → `from` / `to`.
+ * - Other columns expose sort-only menus.
+ *
  * <h3>URL-sync of state</h3>
  *
- * Pagination (`page`, `size`, `sortBy`, `sortDir`) AND filters (`q`, `supplierNif`,
- * `from`, `to`) all live in the URL. The browser back button restores the previous slice,
- * a refresh keeps the filter, and a link to a filtered + paginated view can be shared with
- * another operator. The component reads the URL on init + every time it changes, and
- * writes back through `router.navigate` with `replaceUrl: true` so the back stack does not
- * accumulate one entry per keystroke.
- *
- * <h3>Filter debouncing</h3>
- *
- * The filter FormGroup's `valueChanges` is debounced 250 ms before each push to the URL.
- * That keeps the URL bar quiet while the operator is typing in the search field, and the
- * supplier picker / date pickers still feel immediate because they emit one change per
- * interaction.
+ * Pagination (`page`, `size`, `sortBy`, `sortDir`) AND filters (`q`, `from`, `to`)
+ * all live in the URL. Browser back / forward / refresh / shareable link all work
+ * because the page reads the URL on init + every change, drives the data-table
+ * inputs from those signals, and writes back through `router.navigate({ replaceUrl })`.
  *
  * <h3>Stale-while-revalidate</h3>
  *
- * The previous page's rows stay visible while a new page is loading so the table does not
- * flash a skeleton between clicks; an "Actualizando…" hint appears next to the action
- * toolbar so the operator knows a request is in flight.
+ * The previous page's rows stay visible while a new page is loading so the table
+ * does not flash a skeleton between clicks; an "Actualizando…" hint appears next to
+ * the action toolbar so the operator knows a request is in flight.
  */
 @Component({
   selector: 'app-income-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DataTableComponent,
-    MatButtonModule,
-    MatDatepickerModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatSelectModule,
-    ReactiveFormsModule,
-    RouterLink,
-  ],
+  imports: [DataTableComponent, MatButtonModule, MatIconModule, MatTooltipModule, RouterLink],
   templateUrl: './income-list.page.html',
   styleUrl: './income-list.page.scss',
 })
 export class IncomeListPage {
-  private readonly fb = inject(NonNullableFormBuilder);
   private readonly service = inject(IncomeService);
-  private readonly supplierService = inject(SupplierService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
@@ -87,7 +76,6 @@ export class IncomeListPage {
   protected readonly error = this.service.error;
   protected readonly rows = this.service.rows;
   protected readonly totalElements = this.service.totalElements;
-  protected readonly suppliers = this.supplierService.list;
 
   protected readonly selectedIncome = signal<Income | null>(null);
   protected readonly hasSelection = computed(() => this.selectedIncome() !== null);
@@ -97,14 +85,6 @@ export class IncomeListPage {
     initialValue: this.route.snapshot.queryParamMap,
   });
 
-  /** Filter FormGroup. Bound to the inputs in the template. Synced both ways with the URL. */
-  protected readonly filterForm = this.fb.group({
-    q: this.fb.control<string>(''),
-    supplierNif: this.fb.control<string | null>(null),
-    from: this.fb.control<Date | null>(null),
-    to: this.fb.control<Date | null>(null),
-  });
-
   /** Page index parsed from the URL; defaults to 0. */
   protected readonly pageIndex = computed(() => {
     const raw = this.query().get('page');
@@ -112,11 +92,11 @@ export class IncomeListPage {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
   });
 
-  /** Page size parsed from the URL; defaults to 20. */
+  /** Page size parsed from the URL; defaults to 10 (matches the data-table fixed height). */
   protected readonly pageSize = computed(() => {
     const raw = this.query().get('size');
-    const parsed = raw === null ? 20 : Number.parseInt(raw, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 20;
+    const parsed = raw === null ? 10 : Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
   });
 
   /** Sort state parsed from the URL; defaults to `incomeDate desc`. */
@@ -126,19 +106,53 @@ export class IncomeListPage {
     return { active, direction: dirParam };
   });
 
-  /** Filter values parsed from the URL — feed into the backend call and the form. */
+  /** Filter values parsed from the URL — feed into the backend call and the data-table. */
   protected readonly filterState = computed(() => ({
     q: this.query().get('q') ?? '',
-    supplierNif: this.query().get('supplierNif') ?? null,
     from: this.query().get('from') ?? null,
     to: this.query().get('to') ?? null,
   }));
 
+  /**
+   * Per-column filter map passed into the data-table. Maps the URL filter state back
+   * into the discriminated-union shape the table expects. The page is the source of
+   * truth (URL); the data-table is a controlled renderer that re-emits user edits
+   * through `(columnFilterChange)`.
+   */
+  protected readonly columnFilters = computed<ReadonlyMap<string, DataTableColumnFilterValue>>(
+    () => {
+      const f = this.filterState();
+      const map = new Map<string, DataTableColumnFilterValue>();
+      if (f.q.length > 0) {
+        map.set('receiptNumber', { type: 'text', value: f.q });
+      }
+      if (f.from !== null || f.to !== null) {
+        map.set('incomeDate', { type: 'dateRange', from: f.from, to: f.to });
+      }
+      return map;
+    },
+  );
+
   /** `true` when any filter is active — drives the "limpiar filtros" affordance. */
   protected readonly hasActiveFilters = computed(() => {
     const f = this.filterState();
-    return f.q.length > 0 || f.supplierNif !== null || f.from !== null || f.to !== null;
+    return f.q.length > 0 || f.from !== null || f.to !== null;
   });
+
+  /** Empty-state config rendered inside the table when totalElements === 0. */
+  protected readonly emptyState = computed<DataTableEmptyState>(() =>
+    this.hasActiveFilters()
+      ? {
+          icon: 'filter_alt_off',
+          title: 'Sin resultados',
+          body: 'Ajustá o limpiá los filtros para volver a ver el listado completo.',
+        }
+      : {
+          icon: 'receipt_long',
+          title: 'No hay ingresos registrados',
+          body: 'Sumá uno desde «Nuevo ingreso» arriba a la derecha.',
+        },
+  );
 
   protected readonly columns: readonly DataTableColumn<Income>[] = [
     {
@@ -147,12 +161,14 @@ export class IncomeListPage {
       value: (income) => income.receiptNumber,
       cellClass: 'font-mono',
       hideable: false,
+      filter: 'text',
     },
     {
       key: 'incomeDate',
       label: 'Fecha',
       value: (income) => income.incomeDate,
       cellClass: 'tabular-nums whitespace-nowrap',
+      filter: 'dateRange',
     },
     {
       key: 'supplier',
@@ -180,42 +196,6 @@ export class IncomeListPage {
   protected readonly trackByReceiptNumber = (_: number, row: Income): string => row.receiptNumber;
 
   constructor() {
-    // Catalog: suppliers feed the picker. Admin-only on the backend; the page itself is
-    // admin-gated so the call is safe to fire unconditionally on init.
-    this.supplierService.loadAll().subscribe({ error: () => undefined });
-
-    // URL → form sync. Patch the form whenever the URL changes (back button, refresh,
-    // direct link) so the inputs reflect the active filters. `emitEvent: false` short-
-    // circuits the inverse "form → URL" pipe so the patch never loops back.
-    effect(() => {
-      const f = this.filterState();
-      this.filterForm.patchValue(
-        {
-          q: f.q,
-          supplierNif: f.supplierNif,
-          from: f.from === null ? null : parseIsoDate(f.from),
-          to: f.to === null ? null : parseIsoDate(f.to),
-        },
-        { emitEvent: false },
-      );
-    });
-
-    // Form → URL sync. 250 ms debounce so the URL bar stays quiet while the operator is
-    // mid-typing in the search field; supplier / date pickers still feel instant because
-    // they emit one change per interaction. Filter changes reset the page to 0 — staying
-    // on page 5 after applying a filter that returns one page would render an empty grid.
-    this.filterForm.valueChanges
-      .pipe(debounceTime(250), takeUntilDestroyed())
-      .subscribe((value) => {
-        this.pushToUrl({
-          q: trimmedOrNull(value.q ?? ''),
-          supplierNif: value.supplierNif ?? null,
-          from: value.from ? toIsoDate(value.from) : null,
-          to: value.to ? toIsoDate(value.to) : null,
-          page: 0,
-        });
-      });
-
     // URL → backend. Re-fetches the page whenever any URL param changes. Back / forward
     // navigation, refresh, manual filter change and paginator click all converge here so
     // there's a single source of truth for "load the right slice".
@@ -227,7 +207,6 @@ export class IncomeListPage {
         sortBy: this.sortState().active,
         sortDir: this.sortState().direction === 'asc' ? 'asc' : 'desc',
         q: f.q || undefined,
-        supplierNif: f.supplierNif ?? undefined,
         from: f.from ?? undefined,
         to: f.to ?? undefined,
       };
@@ -241,6 +220,34 @@ export class IncomeListPage {
       .subscribe(() => this.selectedIncome.set(null));
   }
 
+  /**
+   * Handler for the data-table's column-menu filter. Maps each column key to the
+   * backend filter param it semantically owns. `value === null` means "filter
+   * cleared" and the corresponding URL params drop out via `pushToUrl(null)`.
+   */
+  protected onColumnFilterChange(event: {
+    key: string;
+    value: DataTableColumnFilterValue | null;
+  }): void {
+    if (event.key === 'receiptNumber') {
+      const text = event.value && event.value.type === 'text' ? event.value.value : null;
+      this.pushToUrl({ q: text, page: 0 });
+      return;
+    }
+    if (event.key === 'incomeDate') {
+      if (event.value === null) {
+        this.pushToUrl({ from: null, to: null, page: 0 });
+        return;
+      }
+      if (event.value.type === 'dateRange') {
+        this.pushToUrl({ from: event.value.from, to: event.value.to, page: 0 });
+      }
+    }
+    // Other column keys without a backend mapping are silently ignored — the data-
+    // table will still apply visual feedback (active-filter dot) so the operator
+    // can see their input is registered locally, but no URL change happens.
+  }
+
   /** Handler for the data-table paginator. Writes the new page into the URL. */
   protected onPageChange(event: { pageIndex: number; pageSize: number }): void {
     this.pushToUrl({
@@ -249,7 +256,7 @@ export class IncomeListPage {
     });
   }
 
-  /** Handler for the data-table sort header. Writes the new sort into the URL. */
+  /** Handler for the data-table sort menu. Writes the new sort into the URL. */
   protected onSortChange(sort: DataTableSort | null): void {
     if (sort === null || sort.direction === '') {
       this.pushToUrl({ sortBy: null, sortDir: null, page: 0 });
@@ -262,15 +269,15 @@ export class IncomeListPage {
     });
   }
 
-  /** Clears the four filter inputs in one click. */
+  /** Clears every active filter in one tap; URL goes back to default-sort + page 0. */
   protected onClearFilters(): void {
-    this.filterForm.reset({ q: '', supplierNif: null, from: null, to: null });
+    this.pushToUrl({ q: null, from: null, to: null, page: 0 });
   }
 
   /**
-   * Writes a partial query update to the URL. Null values are removed from the URL so the
-   * link stays clean when the user goes back to a default. Uses `replaceUrl` so the back
-   * stack does not accumulate one entry per keystroke.
+   * Writes a partial query update to the URL. Null values are removed from the URL so
+   * the link stays clean when the user goes back to a default. Uses `replaceUrl` so
+   * the back stack does not accumulate one entry per keystroke.
    */
   private pushToUrl(patch: Record<string, string | number | null>): void {
     const next: Record<string, string | undefined> = {};
@@ -298,7 +305,6 @@ export class IncomeListPage {
         sortBy: this.sortState().active,
         sortDir: this.sortState().direction === 'asc' ? 'asc' : 'desc',
         q: f.q || undefined,
-        supplierNif: f.supplierNif ?? undefined,
         from: f.from ?? undefined,
         to: f.to ?? undefined,
       })
@@ -345,8 +351,6 @@ export class IncomeListPage {
       if (confirmed !== true) {
         return;
       }
-      // Optimistic delete: the row disappears from the local snapshot immediately, then
-      // we refetch the current page to keep the totals + sort order honest.
       this.service.removeFromCachedPage(income.receiptNumber);
 
       this.service.delete(income.receiptNumber).subscribe({
@@ -356,7 +360,6 @@ export class IncomeListPage {
           this.onRefresh();
         },
         error: () => {
-          // Reconcile against the server — the row we hid may still exist.
           this.onRefresh();
           this.snackBar.open('No se pudo eliminar el ingreso', 'Cerrar');
         },
@@ -371,29 +374,4 @@ function formatCurrency(value: number): string {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-/** Returns the trimmed string, or `null` when the result is empty. */
-function trimmedOrNull(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-/** Converts a JS Date to the ISO `yyyy-MM-dd` string the backend filter expects. */
-function toIsoDate(date: Date): string {
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-/**
- * Parses ISO `yyyy-MM-dd` back to a JS Date for the datepicker. Returns `null` for
- * malformed input so the form does not wedge with `Invalid Date`.
- */
-function parseIsoDate(value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    return null;
-  }
-  const [, year, month, day] = match;
-  return new Date(Number(year), Number(month) - 1, Number(day));
 }

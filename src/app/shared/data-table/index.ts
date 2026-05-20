@@ -1,6 +1,9 @@
 export { DataTableComponent } from './data-table.component';
 export type {
   DataTableColumn,
+  DataTableColumnFilterType,
+  DataTableColumnFilterValue,
+  DataTableEmptyState,
   DataTablePreferences,
   DataTableSort,
   DataTableSortDirection,

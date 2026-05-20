@@ -5,6 +5,7 @@ import {
   Component,
   ContentChild,
   computed,
+  DestroyRef,
   effect,
   inject,
   input,
@@ -15,17 +16,29 @@ import {
   TemplateRef,
   ViewChild,
 } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
-import { MatSort, MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { debounceTime } from 'rxjs/operators';
 
-import type { DataTableColumn, DataTablePreferences, DataTableSort } from './data-table.types';
+import type {
+  DataTableColumn,
+  DataTableColumnFilterValue,
+  DataTableEmptyState,
+  DataTablePreferences,
+  DataTableSort,
+  DataTableSortDirection,
+} from './data-table.types';
 import { TablePreferencesService } from './table-preferences.service';
 
 /**
@@ -35,11 +48,21 @@ import { TablePreferencesService } from './table-preferences.service';
  *
  * - Column rendering from a {@link DataTableColumn} array — no per-column template
  *   projection required for the common case.
- * - Client-side sorting via {@link MatSort}; sort direction loops `asc → desc → none`
- *   on the same column.
+ * - **Touch-friendly column-header menu** (ADR-0014 of the FE): clicking a header opens
+ *   a `mat-menu` carrying the column's filter input (text or date range) plus three
+ *   sort options (asc / desc / clear). The whole header cell is a 44 px hit target,
+ *   with a hover affordance and an active-filter dot when the column constrains the
+ *   result set. No filter inputs above the table — the menu is the only entry point.
+ * - **Per-column filtering** through a controlled-component contract: parent passes
+ *   {@link columnFilters}, table emits {@link columnFilterChange} on debounced input.
+ *   The parent maps each column's filter to whichever backend param applies on that
+ *   page (eg. `Recibo` text → `q`, `Fecha` dateRange → `from`/`to`).
+ * - **Always-fixed-height** body: every page pads to `pageSize` row heights so the
+ *   table footprint never shrinks just because the result set is shorter. When the
+ *   result is empty the body renders {@link emptyState} centred over the same
+ *   reserved height instead of collapsing.
  * - Column chooser exposed as a `mat-menu` of checkboxes plus an "Aplicar" button —
- *   selections are staged inside the menu and only commit on confirm, matching the
- *   user's request that toggling does not partially re-render the grid.
+ *   selections are staged inside the menu and only commit on confirm.
  * - Pagination through {@link MatPaginator}, with selectable page sizes.
  * - Optional persistence of (visible columns, sort, page size) to localStorage when
  *   the caller passes a `storageKey`.
@@ -48,26 +71,26 @@ import { TablePreferencesService } from './table-preferences.service';
  *
  * Default (`serverSide=false`): the table consumes the full dataset through
  * `data` and applies sort + pagination internally. Best for small datasets
- * that fit in memory comfortably.
+ * that fit in memory comfortably. Column filters are NOT applied locally in
+ * v1 — the parent owns the filter→data pipeline (most call sites already
+ * fetch filtered data anyway).
  *
- * Server-side (`serverSide=true`): the parent owns sort + paging state. The
- * table:
+ * Server-side (`serverSide=true`): the parent owns sort + paging + filtering.
+ * The table:
  * - Renders `data` as-is — no internal sort, no internal slicing.
  * - Uses `totalElements` instead of `data.length` for the paginator length so
  *   the prev/next arrows reflect the full dataset.
- * - Emits `sortChange` and `pageChange` so the parent can re-fetch the
- *   matching page from the server.
+ * - Emits `sortChange`, `pageChange` and `columnFilterChange` so the parent
+ *   can re-fetch the matching page from the server.
  * - Skips persisting page state — the page index is volatile across
  *   navigations and persisting it would surprise users on return.
- *
- * Text filter is always parent-owned (each page's UX is page-specific) and
- * filtered rows arrive through `data`.
  *
  * <h3>Action column</h3>
  *
  * Callers project a single `<ng-template #actions let-row>` content child. When
  * present, it is rendered as a trailing column whose label is configurable through
- * `actionsLabel`. The action column is non-sortable and non-hideable.
+ * `actionsLabel`. The action column is non-sortable, non-hideable, and its header
+ * does NOT open a column menu.
  */
 @Component({
   selector: 'app-data-table',
@@ -75,20 +98,27 @@ import { TablePreferencesService } from './table-preferences.service';
   imports: [
     MatButtonModule,
     MatCheckboxModule,
+    MatDatepickerModule,
     MatDividerModule,
+    MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatMenuModule,
     MatPaginatorModule,
-    MatSortModule,
     MatTableModule,
     MatTooltipModule,
     NgTemplateOutlet,
+    ReactiveFormsModule,
   ],
   templateUrl: './data-table.component.html',
   styleUrl: './data-table.component.scss',
 })
 export class DataTableComponent<T> implements OnInit, AfterViewInit {
   private readonly preferences = inject(TablePreferencesService);
+  // Captured in the field initialiser so we can pass it to `takeUntilDestroyed()`
+  // calls that happen outside the constructor injection context (`ngOnInit`'s
+  // `wireFilterControls` is the call site that needs it today).
+  private readonly destroyRef = inject(DestroyRef);
 
   /** Rows to render. The component does not mutate this array. */
   readonly data = input.required<readonly T[]>();
@@ -129,20 +159,26 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   readonly hidePageSizeSelector = input<boolean>(false);
 
   /**
-   * Pads the rendered page with empty placeholder rows so the table always shows
-   * `pageSize` row heights. Visual goal: the table footprint never shrinks just
-   * because the data is shorter than a full page — useful in dashboards where the
-   * layout is expected to stay stable across data refreshes.
+   * Active filter values, keyed by column key. The table renders the matching input
+   * inside the column-header menu pre-populated from this map; user edits are
+   * debounced and emitted through {@link columnFilterChange}. The parent stays the
+   * canonical owner of filter state (typical URL-sync flow).
    */
-  readonly padToPageSize = input<boolean>(false);
+  readonly columnFilters = input<ReadonlyMap<string, DataTableColumnFilterValue>>(new Map());
+
+  /**
+   * Empty-state visuals rendered inside the table body when `data.length === 0`. The
+   * header + paginator stay visible. When omitted, the empty body renders blank
+   * placeholder rows (the previous behaviour, kept for backwards compat).
+   */
+  readonly emptyState = input<DataTableEmptyState | null>(null);
 
   /**
    * Enables single-row selection. When true, clicking a data row sets
-   * `selectedRow`; clicking the already-selected row clears it. Placeholder rows
-   * (from `padToPageSize`) are not selectable. The selected row gets a Material
-   * "secondary container" highlight so callers can drive selection-dependent
-   * affordances (toolbar buttons, etc.) off the model without inventing a
-   * parallel state channel.
+   * `selectedRow`; clicking the already-selected row clears it. Placeholder rows are
+   * not selectable. The selected row gets a Material "primary container" highlight
+   * so callers can drive selection-dependent affordances (toolbar buttons, etc.) off
+   * the model without inventing a parallel state channel.
    */
   readonly selectable = input<boolean>(false);
 
@@ -162,7 +198,8 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    *   only the current page's rows.
    * - Uses {@link totalElements} for the paginator's total count instead of
    *   the `data.length` fallback.
-   * - Emits `(sortChange)` / `(pageChange)` so the parent can re-fetch.
+   * - Emits `(sortChange)` / `(pageChange)` / `(columnFilterChange)` so the
+   *   parent can re-fetch.
    * - Skips persisting page state through `storageKey` (sort + visible columns
    *   are still persisted — those are stable preferences worth restoring).
    */
@@ -176,12 +213,10 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   readonly totalElements = input<number>(0);
 
   /**
-   * Fires when the user changes the sort header in server-side mode. The
+   * Fires when the user changes the sort via a column-menu sort option. The
    * emitted value matches the internal sort signal so the parent can pass it
-   * straight to a `Pageable` request without further translation. Also fires
-   * in client-side mode if a parent wants to observe sort changes — the
-   * component does not gate the emission on `serverSide`, so the contract is
-   * "subscribe if you care, ignore if you don't".
+   * straight to a `Pageable` request without further translation. `null` is
+   * emitted when the user clicks "Quitar orden".
    */
   readonly sortChange = output<DataTableSort | null>();
 
@@ -192,6 +227,18 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    */
   readonly pageChange = output<{ pageIndex: number; pageSize: number }>();
 
+  /**
+   * Fires (debounced 250 ms) when a column filter input inside a header menu changes.
+   * `value === null` signals "filter cleared" — the parent should drop the
+   * corresponding URL param. Server-side parents typically map this directly to a
+   * fetch + page reset; client-side parents that want filtering today filter their
+   * own data and pass the result back through `data`.
+   */
+  readonly columnFilterChange = output<{
+    key: string;
+    value: DataTableColumnFilterValue | null;
+  }>();
+
   /** Label of the trailing action column when an `actions` template is projected. */
   readonly actionsLabel = input<string>('Acciones');
 
@@ -200,7 +247,7 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
 
   /**
    * Internal wrapper around the caller's `trackBy` that tolerates `null` placeholder
-   * rows emitted when `padToPageSize` is on. The wrapper short-circuits to a stable
+   * rows emitted as filler. The wrapper short-circuits to a stable
    * `__placeholder_<index>` id for nulls so MatTable can dedupe placeholder rows
    * across re-renders without the caller having to know about padding semantics.
    */
@@ -211,7 +258,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   @ContentChild('actions', { read: TemplateRef })
   protected actionsTemplate: TemplateRef<{ $implicit: T }> | null = null;
 
-  @ViewChild(MatSort) protected sort?: MatSort;
   @ViewChild(MatPaginator) protected paginator?: MatPaginator;
 
   /** Persisted sort, mirrored as a signal so the template can read it synchronously. */
@@ -225,6 +271,15 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
 
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = signal(10);
+
+  /**
+   * Form controls backing the in-menu filter inputs. We hold ONE control per filter
+   * row (text columns get a single string control; dateRange columns get two date
+   * controls keyed `<key>:from` / `<key>:to`). The map is keyed by column key + a
+   * `:from` / `:to` suffix for dateRange so the template's `formControl` binding
+   * stays trivial and we do not have to thread `FormGroup` instances per column.
+   */
+  protected readonly filterControls = new Map<string, FormControl<string | Date | null>>();
 
   /**
    * Sorted view over `data()`. In server-side mode the parent is responsible
@@ -247,9 +302,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       return rows;
     }
     const direction = current.direction === 'asc' ? 1 : -1;
-    // Materialise the array so the input is never mutated. Null handling is applied
-    // BEFORE the direction multiplier so empty rows always sort last regardless of
-    // asc/desc — flipping direction must not promote null entries to the top.
     return [...rows].sort((a, b) => {
       const va = column.value(a);
       const vb = column.value(b);
@@ -263,27 +315,36 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
 
   /**
    * Rows MatTable actually renders. In server-side mode `data()` already IS
-   * the current page, so we render it as-is (after optional null padding).
-   * In client-side mode we slice the sorted view to the current page bounds.
+   * the current page, so we render it as-is (after null padding). In
+   * client-side mode we slice the sorted view to the current page bounds.
    *
-   * When `padToPageSize` is enabled, the result is right-padded with `null`
-   * placeholders so the rendered row count always matches the page size.
-   * Cell and action templates skip `null` rows (no `value` accessor is
-   * invoked for them) so the placeholder visuals are blank.
+   * The result is always right-padded with `null` placeholders so the rendered
+   * row count matches the page size — the table footprint stays stable
+   * regardless of result count. Cell and action templates skip `null` rows
+   * (no `value` accessor is invoked for them) so the placeholder visuals are
+   * blank. When the actual data is empty, {@link showEmptyState} flips and
+   * the body renders the empty-state overlay instead of the placeholder rows.
    */
   protected readonly pagedData = computed<readonly (T | null)[]>(() => {
     const all = this.sortedData();
     const slice = this.serverSide()
       ? all
       : all.slice(this.pageIndex() * this.pageSize(), (this.pageIndex() + 1) * this.pageSize());
-    if (!this.padToPageSize()) {
-      return slice;
-    }
     const missing = this.pageSize() - slice.length;
     if (missing <= 0) {
       return slice;
     }
     return [...slice, ...(Array(missing).fill(null) as null[])];
+  });
+
+  /**
+   * `true` when there are zero real rows in the current page. Drives the
+   * empty-state overlay vs. the regular padded body. Server-side mode keys off
+   * `totalElements`; client-side mode keys off the local dataset.
+   */
+  protected readonly showEmptyState = computed<boolean>(() => {
+    const realRowCount = this.serverSide() ? this.totalElements() : this.sortedData().length;
+    return realRowCount === 0 && this.emptyState() !== null;
   });
 
   /**
@@ -310,10 +371,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     // Persist on every relevant change once we're past the initial hydration. We guard
     // against the first run with a signal so we don't overwrite the user's existing
     // preferences with the page-default values during construction.
-    // Note: we persist `sort`, `visibleColumns` and `pageSize` regardless of mode —
-    // those are stable user preferences. `pageIndex` is intentionally not persisted
-    // (volatile across navigations); server-side parents that need to remember it
-    // can stash it themselves in route state.
     effect(() => {
       if (!this.hydrated()) {
         return;
@@ -330,6 +387,39 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       };
       this.preferences.save(key, payload);
     });
+
+    // Parent → menu: keep the per-column form controls in sync with the parent-owned
+    // filter map on every change (URL navigation, programmatic reset, etc.). The
+    // `emitValueEvent: false` patches avoid bouncing the user's input back through
+    // the debounced output below — we only want to emit when the user types, not when
+    // the parent acknowledges.
+    effect(() => {
+      const filters = this.columnFilters();
+      for (const column of this.columns()) {
+        if (!column.filter) {
+          continue;
+        }
+        const value = filters.get(column.key);
+        if (column.filter === 'text') {
+          const control = this.ensureControl(column.key);
+          const next = value && value.type === 'text' ? value.value : '';
+          if (control.value !== next) {
+            control.setValue(next, { emitEvent: false });
+          }
+        } else if (column.filter === 'dateRange') {
+          const fromControl = this.ensureControl(`${column.key}:from`);
+          const toControl = this.ensureControl(`${column.key}:to`);
+          const fromVal = value && value.type === 'dateRange' ? parseIsoDate(value.from) : null;
+          const toVal = value && value.type === 'dateRange' ? parseIsoDate(value.to) : null;
+          if (!datesEqual(fromControl.value as Date | null, fromVal)) {
+            fromControl.setValue(fromVal, { emitEvent: false });
+          }
+          if (!datesEqual(toControl.value as Date | null, toVal)) {
+            toControl.setValue(toVal, { emitEvent: false });
+          }
+        }
+      }
+    });
   }
 
   /** Tracks whether the component finished applying defaults/persisted state. */
@@ -337,28 +427,10 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.hydrateFromPreferences();
+    this.wireFilterControls();
   }
 
   ngAfterViewInit(): void {
-    // Wire MatSort's stream into our signal so the computed view stays in sync. We do
-    // this in AfterViewInit because the directive is queried with @ViewChild.
-    // We also emit `sortChange` so server-side parents can re-fetch — the emission
-    // is unconditional (client-side parents that subscribe just get a notification
-    // they're free to ignore).
-    this.sort?.sortChange.subscribe((next: Sort) => {
-      const nextSort: DataTableSort = {
-        active: next.active,
-        direction: next.direction,
-      };
-      this.sortState.set(nextSort);
-      this.pageIndex.set(0);
-      this.sortChange.emit(nextSort);
-      // Reset to page 0 also notifies server-side parents that the page changed.
-      if (this.serverSide()) {
-        this.pageChange.emit({ pageIndex: 0, pageSize: this.pageSize() });
-      }
-    });
-
     this.paginator?.page.subscribe((event) => {
       this.pageIndex.set(event.pageIndex);
       this.pageSize.set(event.pageSize);
@@ -366,7 +438,80 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     });
   }
 
-  /** Opens the chooser — seed the staging set from the current visible columns. */
+  /**
+   * Builds (or returns the existing) FormControl backing a filter input. The control
+   * map is created lazily so columns without `filter` never carry an unused control,
+   * and the same control identity persists across re-renders so Material's
+   * `[formControl]` binding stays stable.
+   */
+  protected ensureControl(key: string): FormControl<string | Date | null> {
+    let control = this.filterControls.get(key);
+    if (!control) {
+      // The control accepts string | Date | null so the same map can back text and
+      // dateRange columns. Type narrowing happens in the wiring code below.
+      control = new FormControl<string | Date | null>('', { nonNullable: false });
+      this.filterControls.set(key, control);
+    }
+    return control;
+  }
+
+  /** Public template accessor — keeps the HTML tidy. */
+  protected textControl(key: string): FormControl<string | Date | null> {
+    return this.ensureControl(key);
+  }
+
+  protected dateControl(key: string, end: 'from' | 'to'): FormControl<string | Date | null> {
+    return this.ensureControl(`${key}:${end}`);
+  }
+
+  /**
+   * Subscribes to each filter control's debounced valueChanges and emits
+   * `columnFilterChange` on the discriminated-union shape. The emission for a
+   * dateRange combines from + to into a single payload so the parent only updates the
+   * URL once per user action.
+   */
+  private wireFilterControls(): void {
+    for (const column of this.columns()) {
+      if (column.filter === 'text') {
+        const control = this.ensureControl(column.key);
+        control.valueChanges
+          .pipe(debounceTime(250), takeUntilDestroyed(this.destroyRef))
+          .subscribe((raw) => {
+            const value = typeof raw === 'string' ? raw.trim() : '';
+            this.columnFilterChange.emit({
+              key: column.key,
+              value: value.length === 0 ? null : { type: 'text', value },
+            });
+          });
+      } else if (column.filter === 'dateRange') {
+        const fromControl = this.ensureControl(`${column.key}:from`);
+        const toControl = this.ensureControl(`${column.key}:to`);
+        // Both ends emit through the same combined event so the parent only updates
+        // the URL once per user action — a debounce of 0 would suffice here but we
+        // keep 250 ms to match the text filter cadence.
+        const emit = (): void => {
+          const from = fromControl.value instanceof Date ? toIsoDate(fromControl.value) : null;
+          const to = toControl.value instanceof Date ? toIsoDate(toControl.value) : null;
+          if (from === null && to === null) {
+            this.columnFilterChange.emit({ key: column.key, value: null });
+          } else {
+            this.columnFilterChange.emit({
+              key: column.key,
+              value: { type: 'dateRange', from, to },
+            });
+          }
+        };
+        fromControl.valueChanges
+          .pipe(debounceTime(250), takeUntilDestroyed(this.destroyRef))
+          .subscribe(emit);
+        toControl.valueChanges
+          .pipe(debounceTime(250), takeUntilDestroyed(this.destroyRef))
+          .subscribe(emit);
+      }
+    }
+  }
+
+  /** Opens the column chooser — seed the staging set from the current visible columns. */
   protected onChooserOpen(): void {
     this.draftVisibleColumns.set(new Set(this.visibleColumns()));
   }
@@ -395,9 +540,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     const ordered = this.columns()
       .filter((c) => draft.has(c.key) || c.hideable === false)
       .map((c) => c.key);
-    // At least one user-toggleable column must remain visible — otherwise the user
-    // ends up with just the action column and no way to tell rows apart. Reject the
-    // empty case by keeping the previous selection.
     if (ordered.filter((k) => this.hideableColumns().some((c) => c.key === k)).length === 0) {
       return;
     }
@@ -422,11 +564,53 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   protected readonly draftCount = computed(() => this.draftVisibleColumns().size);
 
   /**
+   * Applies an explicit sort direction selected from a column-menu item. `null`
+   * clears the sort. Always resets to page 0 — staying on page N after a sort that
+   * reorders the dataset would surprise the user.
+   */
+  protected applySort(columnKey: string, direction: DataTableSortDirection): void {
+    if (direction === '') {
+      this.sortState.set(null);
+      this.sortChange.emit(null);
+    } else {
+      const next: DataTableSort = { active: columnKey, direction };
+      this.sortState.set(next);
+      this.sortChange.emit(next);
+    }
+    this.pageIndex.set(0);
+    if (this.serverSide()) {
+      this.pageChange.emit({ pageIndex: 0, pageSize: this.pageSize() });
+    }
+  }
+
+  /**
+   * Reads whether a column currently carries a filter value. Drives the active-filter
+   * dot on the column header so the user can tell at a glance which columns are
+   * constraining the result set.
+   */
+  protected hasActiveFilter(key: string): boolean {
+    const value = this.columnFilters().get(key);
+    if (!value) {
+      return false;
+    }
+    if (value.type === 'text') {
+      return value.value.length > 0;
+    }
+    return value.from !== null || value.to !== null;
+  }
+
+  /**
+   * Whether the column header currently carries the active sort. Drives the active
+   * sort icon + tints the dot.
+   */
+  protected currentSortDirection(key: string): DataTableSortDirection {
+    const current = this.sortState();
+    return current && current.active === key ? current.direction : '';
+  }
+
+  /**
    * Row click handler driving the single-row selection model. Ignored when
-   * `selectable` is off or when the clicked row is a `null` placeholder. Clicking
-   * the already-selected row clears the selection — that's the discoverable
-   * "click again to deselect" pattern and avoids stranding the user with a
-   * selection they cannot drop without using the keyboard.
+   * `selectable` is off or when the clicked row is a `null` placeholder.
    */
   protected onRowClick(row: T | null): void {
     if (!this.selectable() || row === null) {
@@ -436,14 +620,8 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   }
 
   /**
-   * Computes the class list applied to each rendered row. We keep the logic in
-   * TS so the template can stay declarative and `:hover` styles still flow
-   * through Tailwind utilities without leaking into the component's own SCSS.
-   *
-   * The `!` modifier on the selected-row background forces `!important` because
-   * Material's `mat-mdc-row` ships its own background-color rule at the same
-   * selector specificity — without `!important` the highlight silently lost
-   * the cascade and the user could not tell which row was active.
+   * Computes the class list applied to each rendered row. Keeps logic in TS so the
+   * template stays declarative.
    */
   protected rowClasses(row: T | null): string {
     if (!this.selectable() || row === null) {
@@ -460,8 +638,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     const persisted = key ? this.preferences.load(key) : null;
 
     if (persisted) {
-      // Filter persisted keys against the current column config — a column might have
-      // been removed since the preferences were saved.
       const validVisible = persisted.visibleColumns.filter((k) =>
         this.columns().some((c) => c.key === k),
       );
@@ -473,9 +649,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       this.sortState.set(this.initialSort());
       this.pageSize.set(this.initialPageSize());
     }
-    // Restore the page index from the input — only meaningful in server-side mode where
-    // the parent owns the URL. Client-side mode resets to 0 after sort / filter changes
-    // anyway, so the persisted value never makes it here.
     this.pageIndex.set(this.initialPageIndex());
 
     this.hydrated.set(true);
@@ -488,11 +661,7 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   }
 }
 
-/**
- * Returns a direction-independent ordering when either value is nullish (so empty
- * rows always sort last), or `null` to signal "both values are present, fall back to
- * `compareValues` and apply the asc/desc multiplier upstream".
- */
+/** Returns a direction-independent nullish ordering, or `null` to defer to `compareValues`. */
 function compareNullish(
   a: string | number | Date | null | undefined,
   b: string | number | Date | null | undefined,
@@ -511,11 +680,6 @@ function compareNullish(
   return null;
 }
 
-/**
- * Compares two non-nullish values from a column accessor. Strings sort
- * case-insensitively with locale-aware collation; numbers and dates compare
- * natively. The caller is responsible for filtering nullish values first.
- */
 function compareValues(
   a: string | number | Date | null | undefined,
   b: string | number | Date | null | undefined,
@@ -527,4 +691,34 @@ function compareValues(
     return a - b;
   }
   return String(a).localeCompare(String(b), undefined, { sensitivity: 'base', numeric: true });
+}
+
+/** ISO `yyyy-MM-dd` → JS Date for the datepicker. `null` on bad input. */
+function parseIsoDate(value: string | null): Date | null {
+  if (value === null) {
+    return null;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
+
+/** JS Date → ISO `yyyy-MM-dd` (no timezone shift; pulls local Y/M/D). */
+function toIsoDate(date: Date): string {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** Equality on dates with both possibly null. */
+function datesEqual(a: Date | null, b: Date | null): boolean {
+  if (a === null && b === null) {
+    return true;
+  }
+  if (a === null || b === null) {
+    return false;
+  }
+  return a.getTime() === b.getTime();
 }

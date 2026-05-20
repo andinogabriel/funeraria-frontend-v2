@@ -1,5 +1,142 @@
-// Bring the column-chooser menu's internal click handler into the host stylesheet so
-// the cursor reads as interactive even on the padding around the controls.
+// =============================================================================
+// data-table styles. Two concerns:
+//
+//   1. Trim the padding around the column-chooser / column-menu content so the
+//      menus feel snug (Material's default mat-mdc-menu-content adds 8px which
+//      stacks awkwardly on top of our own padding).
+//
+//   2. Header cell affordances: hover state, focus ring, tactile-sized hit
+//      target. The whole header cell acts as a button — making that
+//      discoverable is half the UX of the column-menu pattern.
+// =============================================================================
+
 :host ::ng-deep .data-table-menu .mat-mdc-menu-content {
   padding: 0;
+}
+
+// -----------------------------------------------------------------------------
+// Column header as an interactive trigger.
+//
+// The button-shaped element fills the header cell so the full label width is a
+// hit target — comfortable on touch (no precise tap on the small caret) and
+// honest about the click affordance on mouse. The hover background uses a
+// surface-container token so it sits within the Material 3 palette regardless
+// of light / dark theme.
+// -----------------------------------------------------------------------------
+.data-table__header-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  // 44px tap target on touch surfaces. Falls back to the natural row height
+  // on mouse hover (the cell is taller than the inline button anyway).
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background-color: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  // The active-filter chip indicator: when a column carries a filter value,
+  // the header trigger's chevron darkens + a small dot lights up. Cheap
+  // visual cue that the column is constraining the result set.
+  &[data-active='true'] {
+    color: var(--mat-sys-primary);
+  }
+
+  // Right-aligned columns mirror the layout so the chevron sits next to the
+  // label without overlapping the numeric content of the row below.
+  &[data-align='end'] {
+    flex-direction: row-reverse;
+  }
+}
+
+// Active-filter dot. Sized small enough to never visually compete with the
+// label but large enough to register through peripheral vision.
+.data-table__header-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--mat-sys-primary);
+  display: inline-block;
+}
+
+// -----------------------------------------------------------------------------
+// Column-menu content: filter input + sort options. The matMenuPanel wrapper
+// has its own padding zero'd (above); the inner padding is owned here so the
+// menu looks the same on text vs date-range columns.
+// -----------------------------------------------------------------------------
+.data-table__column-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  max-width: 320px;
+}
+
+.data-table__column-menu-section {
+  padding: 12px 16px;
+
+  & + & {
+    border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+  }
+}
+
+.data-table__column-menu-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant);
+  margin: 0 0 6px;
+}
+
+// -----------------------------------------------------------------------------
+// Empty-state overlay rendered inside the table body when data.length === 0.
+// The overlay is positioned over the fixed-height padded body so the table
+// footprint stays stable — switching from "has data" to "no data" never
+// reflows the parent card.
+// -----------------------------------------------------------------------------
+.data-table__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+
+  mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    opacity: 0.55;
+  }
+}
+
+.data-table__empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface);
+  margin: 0;
+}
+
+.data-table__empty-body {
+  font-size: 12px;
+  margin: 0;
 }
