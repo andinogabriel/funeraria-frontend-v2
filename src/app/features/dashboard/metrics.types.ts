@@ -20,3 +20,23 @@ export interface DashboardMetrics {
   readonly funeralsThisMonth: KpiMetric;
   readonly auditedEvents24h: KpiMetric;
 }
+
+/**
+ * Single row of `GET /api/v1/metrics/activity-feed`. Mirrors `ActivityFeedEntryDto` on the
+ * backend (ADR-0014). The `eventId` is the stable trackBy key; `summary` is the
+ * operator-facing Spanish description the dashboard renders as the row body.
+ */
+export interface ActivityFeedEntry {
+  readonly eventId: string;
+  readonly eventType: string;
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+  readonly summary: string;
+  /** ISO-8601 UTC timestamp string (eg. `"2026-05-19T14:30:00Z"`). */
+  readonly occurredAt: string;
+}
+
+/** Envelope for the activity-feed endpoint; mirrors `ActivityFeedResponseDto`. */
+export interface ActivityFeedResponse {
+  readonly entries: readonly ActivityFeedEntry[];
+}

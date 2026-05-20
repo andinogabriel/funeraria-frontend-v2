@@ -145,3 +145,21 @@
   color: var(--mat-sys-on-surface-variant);
   line-height: 1.4;
 }
+
+// Subtle inline indicator while the feed refetches; sits next to the static
+// description so the header height does not jump when loading toggles.
+.dashboard__activity-loading {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+// Empty-state copy for the feed: shown only after a successful load that
+// returned zero rows (the template gates this branch on !loading && !error so
+// it never competes with the spinner or the error pill).
+.dashboard__activity-empty {
+  margin: 0;
+  padding: 16px 4px;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+}

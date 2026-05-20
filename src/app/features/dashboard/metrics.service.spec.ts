@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { MetricsService } from './metrics.service';
-import type { DashboardMetrics } from './metrics.types';
+import type { ActivityFeedResponse, DashboardMetrics } from './metrics.types';
 
 describe('MetricsService', () => {
   let service: MetricsService;
@@ -60,5 +60,73 @@ describe('MetricsService', () => {
       .error(new ProgressEvent('error'), { status: 0, statusText: '' });
 
     expect(service.error()).toBe('No se pudo contactar al servidor.');
+  });
+
+  // --------------------------------------------------------------------------
+  // Activity feed (ADR-0014)
+  // --------------------------------------------------------------------------
+
+  function feedPayload(): ActivityFeedResponse {
+    return {
+      entries: [
+        {
+          eventId: '11111111-1111-1111-1111-111111111111',
+          eventType: 'FUNERAL_CREATED',
+          aggregateType: 'FUNERAL',
+          aggregateId: '42',
+          summary: 'Nuevo servicio registrado: recibo REC-001 para Juan Pérez (total $250000)',
+          occurredAt: '2026-05-19T12:00:00Z',
+        },
+      ],
+    };
+  }
+
+  it('GETs /api/v1/metrics/activity-feed without a limit when the caller omits it', () => {
+    service.loadActivityFeed().subscribe();
+    expect(service.activityFeedLoading()).toBe(true);
+
+    const req = http.expectOne((r) => r.url === '/api/v1/metrics/activity-feed');
+    expect(req.request.params.has('limit')).toBe(false);
+    req.flush(feedPayload());
+
+    expect(service.activityFeedLoading()).toBe(false);
+    expect(service.activityFeed()).toEqual(feedPayload().entries);
+    expect(service.activityFeedError()).toBeNull();
+  });
+
+  it('forwards the supplied limit onto the activity-feed request', () => {
+    service.loadActivityFeed(10).subscribe();
+
+    const req = http.expectOne((r) => r.url === '/api/v1/metrics/activity-feed');
+    expect(req.request.params.get('limit')).toBe('10');
+    req.flush(feedPayload());
+  });
+
+  it('drops a non-positive limit so the backend default applies', () => {
+    service.loadActivityFeed(0).subscribe();
+
+    const req = http.expectOne((r) => r.url === '/api/v1/metrics/activity-feed');
+    expect(req.request.params.has('limit')).toBe(false);
+    req.flush(feedPayload());
+  });
+
+  it('exposes a friendly Spanish error and clears loading on 403 of the activity feed', () => {
+    service.loadActivityFeed().subscribe({ error: () => undefined });
+    http
+      .expectOne((r) => r.url === '/api/v1/metrics/activity-feed')
+      .flush(null, { status: 403, statusText: 'Forbidden' });
+
+    expect(service.activityFeedLoading()).toBe(false);
+    expect(service.activityFeedError()).toBe('No tenés permiso para ver los indicadores.');
+    expect(service.activityFeed()).toBeNull();
+  });
+
+  it('exposes an empty entries list as an empty array (not null) so the page distinguishes loaded-empty from never-loaded', () => {
+    service.loadActivityFeed().subscribe();
+    http
+      .expectOne((r) => r.url === '/api/v1/metrics/activity-feed')
+      .flush({ entries: [] } satisfies ActivityFeedResponse);
+
+    expect(service.activityFeed()).toEqual([]);
   });
 });
