@@ -1,7 +1,7 @@
 <div class="flex flex-col">
   <!--
-    Toolbar row: column chooser. Hidden entirely when `hideColumnChooser` is set
-    so curated tables (fixed column set) keep a clean header.
+    Toolbar row: column chooser. Hidden entirely when `hideColumnChooser` is set so
+    curated tables (fixed column set) keep a clean header.
   -->
   @if (!hideColumnChooser()) {
     <div
@@ -20,11 +20,6 @@
       </button>
 
       <mat-menu #columnsMenu="matMenu" class="data-table-menu">
-        <!--
-          Plain content (no `mat-menu-item` directives) does not auto-close the menu,
-          so we can render checkboxes + buttons directly. The Apply button carries
-          `matMenuTriggerClose` for the explicit commit step.
-        -->
         <div class="flex flex-col gap-1 p-3 min-w-[240px]">
           <p class="text-xs uppercase tracking-wide text-[var(--mat-sys-on-surface-variant)] m-0">
             Columnas visibles
@@ -65,87 +60,232 @@
   }
 
   <div class="overflow-x-auto">
-    <table
-      mat-table
-      [dataSource]="pagedData()"
-      [trackBy]="effectiveTrackBy"
-      matSort
-      [matSortActive]="sortState()?.active ?? ''"
-      [matSortDirection]="sortState()?.direction ?? ''"
-      class="w-full min-w-[720px]"
-    >
-      @for (column of columns(); track column.key) {
-        <ng-container [matColumnDef]="column.key">
-          <th
-            mat-header-cell
-            *matHeaderCellDef
-            [mat-sort-header]="column.sortable === false ? '' : column.key"
-            [disabled]="column.sortable === false"
-            [class.text-right]="column.align === 'end'"
-            class="!font-medium {{ column.headerClass ?? '' }}"
-          >
-            {{ column.label }}
-          </th>
-          <td
-            mat-cell
-            *matCellDef="let row"
-            [class.text-right]="column.align === 'end'"
-            class="{{ column.cellClass ?? '' }}"
-          >
+    <!--
+      Empty-state container: rendered INSTEAD of the MatTable when the result set
+      is empty AND a config is supplied. Reserves the same vertical footprint
+      (`min-height: 480px` ≈ 10 row heights of 44 px + header) so the layout never
+      collapses on filter wipe. Matches the user-requested behaviour "sin mostrar
+      la data table" — only the centered illustration + message lives here.
+    -->
+    @if (showEmptyState()) {
+      <div
+        class="flex items-center justify-center min-h-[480px] w-full"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="data-table__empty">
+          <mat-icon class="material-symbols-outlined">{{ emptyState()!.icon }}</mat-icon>
+          <p class="data-table__empty-title">{{ emptyState()!.title }}</p>
+          @if (emptyState()!.body) {
+            <p class="data-table__empty-body">{{ emptyState()!.body }}</p>
+          }
+        </div>
+      </div>
+    } @else {
+      <table
+        mat-table
+        [dataSource]="pagedData()"
+        [trackBy]="effectiveTrackBy"
+        class="w-full min-w-[720px]"
+      >
+        @for (column of columns(); track column.key) {
+          <ng-container [matColumnDef]="column.key">
             <!--
-              Placeholder rows (when `padToPageSize` is set) render as `null` so the
-              accessor is never invoked. `&nbsp;` keeps the cell at the same line
-              height as data rows so the row visually counts toward the reserved
-              height of the table.
-            -->
-            @if (row) {
-              @if (column.cellTemplate) {
-                <ng-container
-                  *ngTemplateOutlet="column.cellTemplate; context: { $implicit: row }"
-                />
+            Header cell. The whole label is a button that opens a per-column menu.
+            Hover + focus-visible state lives in data-table.component.scss so the
+            affordance is consistent across light/dark/active-filter combinations.
+          -->
+            <th
+              mat-header-cell
+              *matHeaderCellDef
+              [class.text-right]="column.align === 'end'"
+              class="!font-medium {{ column.headerClass ?? '' }}"
+            >
+              <button
+                type="button"
+                class="data-table__header-trigger"
+                [matMenuTriggerFor]="columnMenu"
+                [attr.data-active]="
+                  hasActiveFilter(column.key) || currentSortDirection(column.key) !== ''
+                    ? 'true'
+                    : null
+                "
+                [attr.data-align]="column.align === 'end' ? 'end' : 'start'"
+                [attr.aria-label]="'Opciones de columna ' + column.label"
+              >
+                <span>{{ column.label }}</span>
+                @if (currentSortDirection(column.key) === 'asc') {
+                  <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
+                    >arrow_upward</mat-icon
+                  >
+                } @else if (currentSortDirection(column.key) === 'desc') {
+                  <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
+                    >arrow_downward</mat-icon
+                  >
+                }
+                @if (hasActiveFilter(column.key)) {
+                  <span class="data-table__header-dot" aria-hidden="true"></span>
+                }
+              </button>
+
+              <mat-menu #columnMenu="matMenu" class="data-table-menu">
+                <!--
+                Filter section. Rendered only when the column declares a filter type.
+                The wrapping div carries `(click).stopPropagation()` so clicking inside
+                the form fields does not close the menu — mat-menu auto-closes on any
+                click that bubbles to its host.
+              -->
+                @if (column.filter === 'text') {
+                  <div
+                    class="data-table__column-menu-section"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown.escape)="$event.stopPropagation()"
+                  >
+                    <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+                      <mat-label>Contiene</mat-label>
+                      <input
+                        matInput
+                        type="text"
+                        [formControl]="textControl(column.key)"
+                        autocomplete="off"
+                      />
+                      @if (hasActiveFilter(column.key)) {
+                        <button
+                          type="button"
+                          mat-icon-button
+                          matIconSuffix
+                          (click)="textControl(column.key).setValue('')"
+                          aria-label="Limpiar filtro"
+                        >
+                          <mat-icon class="material-symbols-outlined">close</mat-icon>
+                        </button>
+                      }
+                    </mat-form-field>
+                  </div>
+                } @else if (column.filter === 'dateRange') {
+                  <div
+                    class="data-table__column-menu-section"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown.escape)="$event.stopPropagation()"
+                  >
+                    <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+                      <mat-label>Desde</mat-label>
+                      <input
+                        matInput
+                        [matDatepicker]="fromPicker"
+                        [formControl]="dateControl(column.key, 'from')"
+                      />
+                      <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+                      <mat-datepicker #fromPicker />
+                    </mat-form-field>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full mt-2">
+                      <mat-label>Hasta</mat-label>
+                      <input
+                        matInput
+                        [matDatepicker]="toPicker"
+                        [formControl]="dateControl(column.key, 'to')"
+                      />
+                      <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+                      <mat-datepicker #toPicker />
+                    </mat-form-field>
+                  </div>
+                }
+
+                <!--
+                Sort section. Always present so the menu has a consistent shape; if the
+                column has `sortable === false` we render a single disabled note instead.
+              -->
+                <div class="data-table__column-menu-section">
+                  <p class="data-table__column-menu-label">Ordenar</p>
+                  @if (column.sortable === false) {
+                    <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
+                      Esta columna no admite ordenamiento.
+                    </p>
+                  } @else {
+                    <button
+                      type="button"
+                      mat-menu-item
+                      (click)="applySort(column.key, 'asc')"
+                      [class.!font-semibold]="currentSortDirection(column.key) === 'asc'"
+                    >
+                      <mat-icon class="material-symbols-outlined">arrow_upward</mat-icon>
+                      <span>Ascendente</span>
+                    </button>
+                    <button
+                      type="button"
+                      mat-menu-item
+                      (click)="applySort(column.key, 'desc')"
+                      [class.!font-semibold]="currentSortDirection(column.key) === 'desc'"
+                    >
+                      <mat-icon class="material-symbols-outlined">arrow_downward</mat-icon>
+                      <span>Descendente</span>
+                    </button>
+                    @if (currentSortDirection(column.key) !== '') {
+                      <button type="button" mat-menu-item (click)="applySort(column.key, '')">
+                        <mat-icon class="material-symbols-outlined">close</mat-icon>
+                        <span>Quitar orden</span>
+                      </button>
+                    }
+                  }
+                </div>
+              </mat-menu>
+            </th>
+
+            <td
+              mat-cell
+              *matCellDef="let row"
+              [class.text-right]="column.align === 'end'"
+              class="{{ column.cellClass ?? '' }}"
+            >
+              @if (row) {
+                @if (column.cellTemplate) {
+                  <ng-container
+                    *ngTemplateOutlet="column.cellTemplate; context: { $implicit: row }"
+                  />
+                } @else {
+                  {{ column.value(row) ?? '' }}
+                }
               } @else {
-                {{ column.value(row) ?? '' }}
+                &nbsp;
               }
-            } @else {
-              &nbsp;
-            }
-          </td>
-        </ng-container>
-      }
+            </td>
+          </ng-container>
+        }
 
-      @if (actionsTemplate) {
-        <ng-container matColumnDef="__actions__">
-          <th mat-header-cell *matHeaderCellDef class="!font-medium text-right">
-            {{ actionsLabel() }}
-          </th>
-          <td mat-cell *matCellDef="let row" class="text-right">
-            @if (row) {
-              <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row }" />
-            } @else {
-              &nbsp;
-            }
-          </td>
-        </ng-container>
-      }
+        @if (actionsTemplate) {
+          <ng-container matColumnDef="__actions__">
+            <th mat-header-cell *matHeaderCellDef class="!font-medium text-right">
+              {{ actionsLabel() }}
+            </th>
+            <td mat-cell *matCellDef="let row" class="text-right">
+              @if (row) {
+                <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row }" />
+              } @else {
+                &nbsp;
+              }
+            </td>
+          </ng-container>
+        }
 
-      <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
-      <tr
-        mat-row
-        *matRowDef="let row; columns: displayedColumns()"
-        [class]="rowClasses(row)"
-        (click)="onRowClick(row)"
-      ></tr>
-    </table>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
+        <tr
+          mat-row
+          *matRowDef="let row; columns: displayedColumns()"
+          [class]="rowClasses(row)"
+          (click)="onRowClick(row)"
+        ></tr>
+      </table>
+    }
   </div>
 
   <!--
-    Paginator pins to the bottom of the nearest scrolling ancestor (typically
-    the parent card on mobile, where the card itself becomes the scroll
-    container with `overflow-y-auto`). When no scrolling ancestor is set,
-    `position: sticky` behaves like `position: static` and the paginator sits
-    at its natural place — so callers that don't opt into internal scrolling
-    are unaffected. The bg/z-index pair keeps the paginator readable on top
-    of the scrolling rows.
+    Paginator pins to the bottom of the nearest scrolling ancestor (typically the
+    parent card on mobile). When no scrolling ancestor is set, `position: sticky`
+    behaves like `position: static` and the paginator sits at its natural place.
   -->
   <mat-paginator
     class="sticky bottom-0 z-10 !bg-[var(--mat-sys-surface)]"

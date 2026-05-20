@@ -1,9 +1,16 @@
 import { Component, ViewChild } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { afterEach, vi } from 'vitest';
 
 import { DataTableComponent } from './data-table.component';
-import type { DataTableColumn } from './data-table.types';
+import type {
+  DataTableColumn,
+  DataTableColumnFilterValue,
+  DataTableEmptyState,
+  DataTableSort,
+} from './data-table.types';
 import { TablePreferencesService } from './table-preferences.service';
 
 interface Row {
@@ -13,10 +20,9 @@ interface Row {
 }
 
 /**
- * Host component used by tests so we can pass inputs through `[data]` / `[columns]`
- * bindings instead of poking the standalone component's signal inputs directly.
- * Working through the regular Angular API also keeps the tests honest about the
- * public contract callers will use.
+ * Host component used by tests so we can pass inputs through bindings instead of
+ * poking the standalone component's signal inputs directly. Working through the
+ * regular Angular API keeps the tests honest about the public contract callers use.
  */
 @Component({
   imports: [DataTableComponent],
@@ -27,12 +33,14 @@ interface Row {
       [storageKey]="storageKey"
       [initialSort]="initialSort"
       [initialPageSize]="initialPageSize"
-      [padToPageSize]="padToPageSize"
       [selectable]="selectable"
       [serverSide]="serverSide"
       [totalElements]="totalElements"
+      [columnFilters]="columnFilters"
+      [emptyState]="emptyState"
       (sortChange)="lastSortChange = $event"
       (pageChange)="lastPageChange = $event"
+      (columnFilterChange)="lastColumnFilterChange = $event"
     />
   `,
 })
@@ -40,14 +48,17 @@ class HostComponent {
   rows: readonly Row[] = [];
   columns: readonly DataTableColumn<Row>[] = [];
   storageKey: string | undefined = undefined;
-  initialSort: { active: string; direction: 'asc' | 'desc' | '' } | null = null;
+  initialSort: DataTableSort | null = null;
   initialPageSize = 50;
-  padToPageSize = false;
   selectable = false;
   serverSide = false;
   totalElements = 0;
-  lastSortChange: { active: string; direction: 'asc' | 'desc' | '' } | null | undefined = undefined;
+  columnFilters: ReadonlyMap<string, DataTableColumnFilterValue> = new Map();
+  emptyState: DataTableEmptyState | null = null;
+  lastSortChange: DataTableSort | null | undefined = undefined;
   lastPageChange: { pageIndex: number; pageSize: number } | undefined = undefined;
+  lastColumnFilterChange: { key: string; value: DataTableColumnFilterValue | null } | undefined =
+    undefined;
 
   @ViewChild(DataTableComponent) table!: DataTableComponent<Row>;
 }
@@ -58,7 +69,7 @@ describe('DataTableComponent', () => {
 
   const columns: readonly DataTableColumn<Row>[] = [
     { key: 'id', label: 'ID', value: (r) => r.id, hideable: false },
-    { key: 'name', label: 'Nombre', value: (r) => r.name },
+    { key: 'name', label: 'Nombre', value: (r) => r.name, filter: 'text' },
     { key: 'score', label: 'Puntaje', value: (r) => r.score, defaultVisible: false },
   ];
 
@@ -69,7 +80,13 @@ describe('DataTableComponent', () => {
   ];
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [HostComponent, NoopAnimationsModule] });
+    // `provideNativeDateAdapter` is needed for the dateRange-filter test case to
+    // boot the MatDatepicker inside the column menu. Bundling it in the global
+    // TestBed config keeps every fixture date-aware without per-test wiring.
+    TestBed.configureTestingModule({
+      imports: [HostComponent, NoopAnimationsModule],
+      providers: [provideNativeDateAdapter()],
+    });
     fixture = TestBed.createComponent(HostComponent);
     host = fixture.componentInstance;
     host.rows = rows;
@@ -88,6 +105,7 @@ describe('DataTableComponent', () => {
       onApplyColumns: () => void;
       onResetColumns: () => void;
       onChooserOpen: () => void;
+      applySort: (key: string, direction: 'asc' | 'desc' | '') => void;
     };
   }
 
@@ -118,9 +136,6 @@ describe('DataTableComponent', () => {
     api().onDraftToggle('score', true);
     api().onApplyColumns();
 
-    // 'id' is non-hideable so it must remain regardless of the draft set; 'score' was
-    // promoted, 'name' was demoted. The resulting order matches the column config,
-    // NOT the toggle order.
     expect(host.table['visibleColumns']()).toEqual(['id', 'score']);
   });
 
@@ -130,7 +145,6 @@ describe('DataTableComponent', () => {
     api().onDraftToggle('score', false);
     api().onApplyColumns();
 
-    // Previous selection remains because the apply was rejected.
     expect(host.table['visibleColumns']()).toEqual(['id', 'name']);
   });
 
@@ -170,14 +184,12 @@ describe('DataTableComponent', () => {
     });
   });
 
-  it('pads the page with null placeholders up to the page size when padToPageSize is on', () => {
-    // Spin up a fresh fixture so `initialPageSize` is applied during hydration —
-    // the shared `beforeEach` already detected changes with the host's default 50.
+  it('always pads the page with null placeholders up to the page size', () => {
+    // Fresh fixture so initialPageSize applies during hydration.
     const f = TestBed.createComponent(HostComponent);
     f.componentInstance.rows = rows;
     f.componentInstance.columns = columns;
     f.componentInstance.initialPageSize = 5;
-    f.componentInstance.padToPageSize = true;
     f.detectChanges();
 
     const page = f.componentInstance.table['pagedData']();
@@ -186,20 +198,7 @@ describe('DataTableComponent', () => {
     expect(page.slice(3).every((r) => r === null)).toBe(true);
   });
 
-  it('does not pad when padToPageSize is off (default)', () => {
-    const f = TestBed.createComponent(HostComponent);
-    f.componentInstance.rows = rows;
-    f.componentInstance.columns = columns;
-    f.componentInstance.initialPageSize = 5;
-    f.detectChanges();
-
-    expect(f.componentInstance.table['pagedData']()).toHaveLength(3);
-  });
-
   it('returns a stable placeholder id from the internal trackBy for null rows', () => {
-    host.padToPageSize = true;
-    fixture.detectChanges();
-
     const trackBy = host.table['effectiveTrackBy'];
     expect(trackBy(0, null)).toBe('__placeholder_0');
     expect(trackBy(7, null)).toBe('__placeholder_7');
@@ -260,6 +259,152 @@ describe('DataTableComponent', () => {
     expect(table.selectedRow()).toBeNull();
   });
 
+  describe('column-menu sort', () => {
+    it('emits sortChange with the picked direction and resets to page 0', () => {
+      api().applySort('name', 'desc');
+
+      expect(host.lastSortChange).toEqual({ active: 'name', direction: 'desc' });
+      expect(host.table['sortState']()).toEqual({ active: 'name', direction: 'desc' });
+      expect(host.table['pageIndex']()).toBe(0);
+    });
+
+    it('emits null and clears the sort state when direction is the empty string', () => {
+      api().applySort('name', 'asc');
+      api().applySort('name', '');
+
+      expect(host.lastSortChange).toBeNull();
+      expect(host.table['sortState']()).toBeNull();
+    });
+
+    it('emits a pageChange to page 0 in server-side mode so the parent re-fetches', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 50;
+      f.componentInstance.initialPageSize = 10;
+      f.detectChanges();
+
+      const apiOf = f.componentInstance.table as unknown as {
+        applySort: (key: string, direction: 'asc' | 'desc' | '') => void;
+      };
+      apiOf.applySort('name', 'asc');
+
+      expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 10 });
+    });
+  });
+
+  describe('column-menu filters', () => {
+    // Vitest fake timers (not Angular's `fakeAsync`) because the project runs zoneless
+    // and `zone.js/testing` is not on the classpath. We advance manually past the
+    // 250 ms debounceTime in the component's filter wiring.
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('emits a debounced text filter through columnFilterChange', () => {
+      const control = host.table['textControl']('name');
+      control.setValue('alf');
+      vi.advanceTimersByTime(250);
+
+      expect(host.lastColumnFilterChange).toEqual({
+        key: 'name',
+        value: { type: 'text', value: 'alf' },
+      });
+    });
+
+    it('emits null when the text filter is cleared so the parent drops the URL param', () => {
+      const control = host.table['textControl']('name');
+      control.setValue('something');
+      vi.advanceTimersByTime(250);
+
+      control.setValue('');
+      vi.advanceTimersByTime(250);
+
+      expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
+    });
+
+    it('trims whitespace before emitting so leading spaces do not pollute the URL', () => {
+      const control = host.table['textControl']('name');
+      control.setValue('   ');
+      vi.advanceTimersByTime(250);
+
+      expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
+    });
+
+    it('emits a combined dateRange payload when either end of the range changes', () => {
+      const dateColumns: readonly DataTableColumn<Row>[] = [
+        ...columns,
+        { key: 'when', label: 'Cuándo', value: () => null, filter: 'dateRange' },
+      ];
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = dateColumns;
+      f.detectChanges();
+
+      const from = f.componentInstance.table['dateControl']('when', 'from');
+      from.setValue(new Date(2026, 0, 5));
+      vi.advanceTimersByTime(250);
+
+      expect(f.componentInstance.lastColumnFilterChange).toEqual({
+        key: 'when',
+        value: { type: 'dateRange', from: '2026-01-05', to: null },
+      });
+    });
+
+    it('pre-fills the menu control from columnFilters input (URL → form sync)', () => {
+      host.columnFilters = new Map<string, DataTableColumnFilterValue>([
+        ['name', { type: 'text', value: 'preloaded' }],
+      ]);
+      fixture.detectChanges();
+
+      expect(host.table['textControl']('name').value).toBe('preloaded');
+    });
+
+    it('reports an active filter through hasActiveFilter when the column carries a value', () => {
+      host.columnFilters = new Map<string, DataTableColumnFilterValue>([
+        ['name', { type: 'text', value: 'x' }],
+      ]);
+      fixture.detectChanges();
+
+      const apiOf = host.table as unknown as { hasActiveFilter: (key: string) => boolean };
+      expect(apiOf.hasActiveFilter('name')).toBe(true);
+      expect(apiOf.hasActiveFilter('id')).toBe(false);
+    });
+  });
+
+  describe('empty state', () => {
+    it('flips showEmptyState when data is empty AND an emptyState config is supplied', () => {
+      host.rows = [];
+      host.emptyState = { icon: 'inbox', title: 'No data', body: 'Try again' };
+      fixture.detectChanges();
+
+      expect(host.table['showEmptyState']()).toBe(true);
+    });
+
+    it('stays hidden when data is empty but no emptyState config is provided', () => {
+      host.rows = [];
+      fixture.detectChanges();
+
+      expect(host.table['showEmptyState']()).toBe(false);
+    });
+
+    it('keys server-side mode off totalElements, not the local data length', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = [];
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 0;
+      f.componentInstance.emptyState = { icon: 'inbox', title: 'Nada' };
+      f.detectChanges();
+
+      expect(f.componentInstance.table['showEmptyState']()).toBe(true);
+    });
+  });
+
   describe('server-side mode', () => {
     it('renders data as-is without applying internal sort', () => {
       const f = TestBed.createComponent(HostComponent);
@@ -274,9 +419,6 @@ describe('DataTableComponent', () => {
         sortedData: () => readonly Row[];
       };
 
-      // Setting a sort signal would normally re-order client-side; in server-side
-      // mode the rows must come through untouched (parent is responsible for
-      // sorting the page on the server before passing it in).
       table.sortState.set({ active: 'name', direction: 'asc' });
       f.detectChanges();
 
@@ -289,21 +431,21 @@ describe('DataTableComponent', () => {
       f.componentInstance.columns = columns;
       f.componentInstance.serverSide = true;
       f.componentInstance.totalElements = 100;
-      f.componentInstance.initialPageSize = 2;
+      f.componentInstance.initialPageSize = 10;
       f.detectChanges();
 
       const table = f.componentInstance.table as unknown as {
         pagedData: () => readonly (Row | null)[];
       };
 
-      // Even with pageSize=2 and 3 rows, server-side should render all 3 because
-      // the parent supposedly hand-picked exactly this page.
-      expect(table.pagedData()).toHaveLength(rows.length);
+      // 10 page size, 3 rows → padded to 10. The 3 real rows survive untouched.
+      const page = table.pagedData();
+      expect(page.slice(0, 3)).toEqual(rows);
     });
 
     it('uses totalElements for paginatorLength instead of data.length', () => {
       const f = TestBed.createComponent(HostComponent);
-      f.componentInstance.rows = rows; // 3 rows in the page
+      f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
       f.componentInstance.serverSide = true;
       f.componentInstance.totalElements = 248;
@@ -311,29 +453,6 @@ describe('DataTableComponent', () => {
 
       const table = f.componentInstance.table as unknown as { paginatorLength: () => number };
       expect(table.paginatorLength()).toBe(248);
-    });
-
-    it('emits sortChange with the new sort and resets to page 0 with a pageChange', async () => {
-      const f = TestBed.createComponent(HostComponent);
-      f.componentInstance.rows = rows;
-      f.componentInstance.columns = columns;
-      f.componentInstance.serverSide = true;
-      f.componentInstance.totalElements = 50;
-      f.componentInstance.initialPageSize = 10;
-      f.detectChanges();
-
-      // Drive the MatSort stream the same way the user would by clicking a header.
-      // We reach into the view-child reference and emit a Sort event manually so
-      // the test does not depend on DOM interaction plumbing.
-      const internal = f.componentInstance.table as unknown as {
-        sort: {
-          sortChange: { emit: (s: { active: string; direction: 'asc' | 'desc' | '' }) => void };
-        };
-      };
-      internal.sort.sortChange.emit({ active: 'name', direction: 'desc' });
-
-      expect(f.componentInstance.lastSortChange).toEqual({ active: 'name', direction: 'desc' });
-      expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 10 });
     });
   });
 
