@@ -1,13 +1,5 @@
 // =============================================================================
-// data-table styles. Two concerns:
-//
-//   1. Trim the padding around the column-chooser / column-menu content so the
-//      menus feel snug (Material's default mat-mdc-menu-content adds 8px which
-//      stacks awkwardly on top of our own padding).
-//
-//   2. Header cell affordances: hover state, focus ring, tactile-sized hit
-//      target. The whole header cell acts as a button — making that
-//      discoverable is half the UX of the column-menu pattern.
+// data-table styles.
 // =============================================================================
 
 :host ::ng-deep .data-table-menu .mat-mdc-menu-content {
@@ -16,19 +8,11 @@
 
 // -----------------------------------------------------------------------------
 // Column header as an interactive trigger.
-//
-// The button-shaped element fills the header cell so the full label width is a
-// hit target — comfortable on touch (no precise tap on the small caret) and
-// honest about the click affordance on mouse. The hover background uses a
-// surface-container token so it sits within the Material 3 palette regardless
-// of light / dark theme.
 // -----------------------------------------------------------------------------
 .data-table__header-trigger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  // 44px tap target on touch surfaces. Falls back to the natural row height
-  // on mouse hover (the cell is taller than the inline button anyway).
   min-height: 44px;
   padding: 0 8px;
   border-radius: 6px;
@@ -42,32 +26,31 @@
     background-color 120ms ease,
     color 120ms ease;
 
-  &:hover,
-  &:focus-visible {
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
     background-color: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent);
   }
 
-  &:focus-visible {
+  &:focus-visible:not(:disabled) {
     outline: 2px solid var(--mat-sys-primary);
     outline-offset: 2px;
   }
 
-  // The active-filter chip indicator: when a column carries a filter value,
-  // the header trigger's chevron darkens + a small dot lights up. Cheap
-  // visual cue that the column is constraining the result set.
-  &[data-active='true'] {
+  // Disabled state: empty table. Label stays readable but no hover, no pointer.
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  &[data-active='true']:not(:disabled) {
     color: var(--mat-sys-primary);
   }
 
-  // Right-aligned columns mirror the layout so the chevron sits next to the
-  // label without overlapping the numeric content of the row below.
   &[data-align='end'] {
     flex-direction: row-reverse;
   }
 }
 
-// Active-filter dot. Sized small enough to never visually compete with the
-// label but large enough to register through peripheral vision.
 .data-table__header-dot {
   width: 6px;
   height: 6px;
@@ -77,17 +60,8 @@
 }
 
 // -----------------------------------------------------------------------------
-// Column-menu content: filter input + sort options. The matMenuPanel wrapper
-// has its own padding zero'd (above); the inner padding is owned here so the
-// menu looks the same on text vs date-range columns.
+// Column-menu sections.
 // -----------------------------------------------------------------------------
-.data-table__column-menu {
-  display: flex;
-  flex-direction: column;
-  min-width: 260px;
-  max-width: 320px;
-}
-
 .data-table__column-menu-section {
   padding: 12px 16px;
 
@@ -105,12 +79,74 @@
   margin: 0 0 6px;
 }
 
+// Aceptar button sits in its own section right-aligned.
+.data-table__column-menu-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 // -----------------------------------------------------------------------------
-// Empty-state overlay rendered inside the table body when data.length === 0.
-// The overlay is positioned over the fixed-height padded body so the table
-// footprint stays stable — switching from "has data" to "no data" never
-// reflows the parent card.
+// Autocomplete options list (rendered inside the menu for supplier-like filters).
+// Kept as a styled <ul> with <button> items so the list lives inside the same
+// mat-menu overlay — Material's mat-autocomplete uses a separate overlay that
+// stacks awkwardly above a mat-menu host.
 // -----------------------------------------------------------------------------
+.data-table__autocomplete-options {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent);
+  border-radius: 8px;
+  background-color: var(--mat-sys-surface);
+}
+
+.data-table__autocomplete-option {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    background-color: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+  }
+
+  &--active {
+    background-color: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+    font-weight: 500;
+  }
+}
+
+.data-table__autocomplete-hint {
+  margin: 8px 0 0;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+  font-style: italic;
+}
+
+// -----------------------------------------------------------------------------
+// Empty-state visuals.
+// -----------------------------------------------------------------------------
+.data-table__empty-region {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // ~10 row heights at 44 px so switching between empty and non-empty does not
+  // collapse the container. The header above + this region together replicate
+  // the table footprint operators are used to.
+  min-height: 440px;
+  border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 40%, transparent);
+}
+
 .data-table__empty {
   display: flex;
   flex-direction: column;

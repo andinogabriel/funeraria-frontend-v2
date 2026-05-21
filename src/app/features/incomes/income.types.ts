@@ -78,9 +78,13 @@ export interface IncomePageQuery {
   readonly sortBy?: string;
   readonly sortDir?: 'asc' | 'desc';
   readonly isDeleted?: boolean;
-  /** Fuzzy substring match against supplier name, supplier NIF and receipt number. */
-  readonly q?: string;
-  /** Exact match on the linked supplier's NIF. */
+  /** Case-insensitive substring match against the income's receipt number. */
+  readonly receiptNumber?: string;
+  /**
+   * Exact match on the linked supplier's NIF. The list page feeds this from an in-menu
+   * autocomplete that lets the operator search by supplier name and commits the picked
+   * supplier's NIF.
+   */
   readonly supplierNif?: string;
   /** Inclusive lower bound on incomeDate as ISO `yyyy-MM-dd`; expanded to start of day. */
   readonly from?: string;

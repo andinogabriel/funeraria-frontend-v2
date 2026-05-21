@@ -1,5 +1,7 @@
 export { DataTableComponent } from './data-table.component';
 export type {
+  DataTableAutocompleteConfig,
+  DataTableAutocompleteOption,
   DataTableColumn,
   DataTableColumnFilterType,
   DataTableColumnFilterValue,
