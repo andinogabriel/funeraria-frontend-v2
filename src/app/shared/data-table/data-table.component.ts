@@ -201,8 +201,14 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   /** Row track-by accessor. Defaults to identity (Angular's default) when unset. */
   readonly trackBy = input<(index: number, row: T) => unknown>((_, row) => row);
 
-  protected readonly effectiveTrackBy = (index: number, row: T): unknown =>
-    this.trackBy()(index, row);
+  /**
+   * Internal trackBy that tolerates the `null` placeholder rows the padding logic
+   * appends to short pages. The wrapper short-circuits to a stable
+   * `__placeholder_<index>` id for nulls so MatTable can dedupe them across
+   * re-renders without the caller having to know about padding semantics.
+   */
+  protected readonly effectiveTrackBy = (index: number, row: T | null): unknown =>
+    row === null ? `__placeholder_${index}` : this.trackBy()(index, row);
 
   /** Optional content-projected trailing column for row actions. */
   @ContentChild('actions', { read: TemplateRef })
@@ -280,22 +286,30 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   });
 
   /**
-   * Rows MatTable actually renders. No padding — the table is wrapped in a
-   * fixed-height scroll container (~10 row heights) so the page footprint stays
-   * stable while pageSize stays honest. With pageSize=20 the operator sees the
-   * first ~10 rows and scrolls vertically inside the wrapper to reveal the rest.
-   * When the dataset is empty AND `emptyState` is provided, the body renders
-   * nothing and the sibling empty-state div fills the same reserved height.
+   * Rows MatTable actually renders. ALWAYS padded with `null` placeholders up to
+   * the configured `pageSize` so the table footprint stays stable when the
+   * result set is smaller than the page (eg. 3 rows + pageSize=10 → 7 placeholder
+   * rows keep the visual block at 10 row heights). When `pageSize > 10` the
+   * inner viewport (see SCSS `.data-table__viewport`) caps the height at ~10
+   * rows and the body scrolls vertically; the placeholder rows are still
+   * appended so a sparse last page does not collapse.
+   *
+   * When the dataset is empty AND an `emptyState` is configured the body renders
+   * nothing; the sibling empty-state div absorbs the reserved height.
    */
-  protected readonly pagedData = computed<readonly T[]>(() => {
+  protected readonly pagedData = computed<readonly (T | null)[]>(() => {
     if (this.showEmptyState()) {
       return [];
     }
     const all = this.sortedData();
-    if (this.serverSide()) {
-      return all;
+    const slice = this.serverSide()
+      ? all
+      : all.slice(this.pageIndex() * this.pageSize(), (this.pageIndex() + 1) * this.pageSize());
+    const missing = this.pageSize() - slice.length;
+    if (missing <= 0) {
+      return slice;
     }
-    return all.slice(this.pageIndex() * this.pageSize(), (this.pageIndex() + 1) * this.pageSize());
+    return [...slice, ...(Array(missing).fill(null) as null[])];
   });
 
   /** `true` when there are zero real rows AND an emptyState is configured. */
