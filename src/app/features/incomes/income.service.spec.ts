@@ -70,12 +70,12 @@ describe('IncomeService', () => {
     req.flush(wirePage());
   });
 
-  it('forwards q / supplierNif / from / to onto the request when present', () => {
+  it('forwards receiptNumber / supplierNif / from / to onto the request when present', () => {
     service
       .loadPage({
         page: 0,
         limit: 20,
-        q: '  acme  ',
+        receiptNumber: '  1001  ',
         supplierNif: '30-12345678-9',
         from: '2026-05-01',
         to: '2026-05-31',
@@ -83,17 +83,17 @@ describe('IncomeService', () => {
       .subscribe();
     const req = http.expectOne((r) => r.url === '/api/v1/incomes/paginated');
     // Trim happens inside the service so the URL stays clean.
-    expect(req.request.params.get('q')).toBe('acme');
+    expect(req.request.params.get('receiptNumber')).toBe('1001');
     expect(req.request.params.get('supplierNif')).toBe('30-12345678-9');
     expect(req.request.params.get('from')).toBe('2026-05-01');
     expect(req.request.params.get('to')).toBe('2026-05-31');
     req.flush(wirePage());
   });
 
-  it('drops blank filter strings (e.g. empty search) so the URL stays clean', () => {
-    service.loadPage({ page: 0, q: '   ', supplierNif: '' }).subscribe();
+  it('drops blank filter strings (e.g. empty receipt search) so the URL stays clean', () => {
+    service.loadPage({ page: 0, receiptNumber: '   ', supplierNif: '' }).subscribe();
     const req = http.expectOne((r) => r.url === '/api/v1/incomes/paginated');
-    expect(req.request.params.has('q')).toBe(false);
+    expect(req.request.params.has('receiptNumber')).toBe(false);
     expect(req.request.params.has('supplierNif')).toBe(false);
     req.flush(wirePage());
   });

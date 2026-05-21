@@ -15,22 +15,24 @@ import type { TemplateRef } from '@angular/core';
  * Per-column filter type opened from the header menu. Omit (leave `undefined`) when
  * the column should only expose sort options.
  *
- * - `'text'` — a single text input. Auto-applies on debounce; emits a
- *   {@link DataTableColumnFilterValue} of shape `{ type: 'text', value }`. The parent
- *   decides which backend param the value maps to (typically a multi-purpose `q`).
- * - `'dateRange'` — a pair of date pickers (Desde / Hasta). Emits a
- *   {@link DataTableColumnFilterValue} of shape `{ type: 'dateRange', from, to }`.
- *   Both ends are nullable so the user can filter open-ended in either direction.
+ * - `'text'` — single text input. The value is staged inside the menu; the user
+ *   commits with the "Aceptar" button (no auto-debounce). Empty value = no filter.
+ * - `'dateRange'` — pair of date pickers (Desde / Hasta). Both ends nullable for
+ *   open-ended ranges.
+ * - `'autocomplete'` — text input + suggestion list filtered from the column's
+ *   `autocomplete.options()` source. The user must SELECT an option to commit a
+ *   filter value (typing alone does nothing). Used for columns where the underlying
+ *   backend filter is exact-match by id / nif and the suggestion list helps the
+ *   operator find the right one.
  */
-export type DataTableColumnFilterType = 'text' | 'dateRange';
+export type DataTableColumnFilterType = 'text' | 'dateRange' | 'autocomplete';
 
 /**
  * Discriminated union of column filter values. Matches the `filter` field declared on
  * the column; pages destructure on `type` to route into the right backend param.
  *
- * `null` in the inner fields means "no filter on this end" — the data-table emits
- * `null` (not a value with empty strings) through {@code columnFilterChange} when the
- * user clears the menu so the parent has a clean signal to drop the URL param.
+ * `null` (returned through `columnFilterChange`) means "no filter on this column" — the
+ * parent should drop the matching URL param.
  */
 export type DataTableColumnFilterValue =
   | { readonly type: 'text'; readonly value: string }
@@ -38,7 +40,36 @@ export type DataTableColumnFilterValue =
       readonly type: 'dateRange';
       readonly from: string | null;
       readonly to: string | null;
+    }
+  | {
+      readonly type: 'autocomplete';
+      /** The committed option's `value` (e.g. supplier NIF). */
+      readonly value: string;
+      /** Human-readable label of the committed option (e.g. supplier name). */
+      readonly label: string;
     };
+
+/** Option rendered inside an autocomplete column menu. */
+export interface DataTableAutocompleteOption {
+  /** The opaque value committed as the column's filter (typically an id / nif). */
+  readonly value: string;
+  /** Human-readable label rendered in the suggestion list. */
+  readonly label: string;
+}
+
+/**
+ * Autocomplete config for a column with {@code filter: 'autocomplete'}. The component
+ * calls `options()` to get the full set, then filters it client-side by the search
+ * input once the user has typed at least `minSearchChars` characters (default 3).
+ */
+export interface DataTableAutocompleteConfig {
+  /** Source of suggestions. Called every render — typically a closure over a signal. */
+  readonly options: () => readonly DataTableAutocompleteOption[];
+  /** Minimum chars before suggestions are revealed. Default: 3. */
+  readonly minSearchChars?: number;
+  /** Placeholder for the search input. Default: `'Buscar...'`. */
+  readonly placeholder?: string;
+}
 
 /** A sortable, hideable, optionally filterable column descriptor. */
 export interface DataTableColumn<T> {
@@ -63,11 +94,17 @@ export interface DataTableColumn<T> {
 
   /**
    * Filter type opened from the column-header menu. Omit (or leave `undefined`) to
-   * expose only sort options. The data-table renders the matching input inside the
-   * menu and emits {@link DataTableColumnFilterValue} on debounce; the parent maps the
-   * value to whichever backend param applies on that page.
+   * expose only sort options. The data-table stages the value inside the menu and
+   * commits it via the "Aceptar" button; the parent maps the value to whichever
+   * backend param applies on that page.
    */
   readonly filter?: DataTableColumnFilterType;
+
+  /**
+   * Autocomplete configuration. Required when `filter === 'autocomplete'`; ignored
+   * otherwise.
+   */
+  readonly autocomplete?: DataTableAutocompleteConfig;
 
   /**
    * Whether the user can hide the column through the column chooser. Defaults to
@@ -100,10 +137,9 @@ export interface DataTableSort {
 
 /**
  * Empty-state visuals rendered inside the table body when {@code data.length === 0}.
- * The header + paginator stay visible so the user can still tap a column header to
- * adjust filters or navigate the (theoretical) other pages. The centered illustration
- * sits inside the fixed-height table viewport, not below it — that way the table's
- * footprint never shifts when a filter wipes the result set.
+ * Header columns + paginator stay visible (paginator disabled, header buttons
+ * unclickable) so the table footprint never collapses on a filter wipe — only the
+ * body cells are replaced by the centered illustration.
  */
 export interface DataTableEmptyState {
   /** Material symbol icon name (e.g. `'receipt_long'`). */

@@ -2,7 +2,6 @@ import { Component, ViewChild } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
-import { afterEach, vi } from 'vitest';
 
 import { DataTableComponent } from './data-table.component';
 import type {
@@ -259,18 +258,30 @@ describe('DataTableComponent', () => {
     expect(table.selectedRow()).toBeNull();
   });
 
-  describe('column-menu sort', () => {
-    it('emits sortChange with the picked direction and resets to page 0', () => {
-      api().applySort('name', 'desc');
+  describe('column-menu sort (sort-only columns)', () => {
+    function sortOnlyApi() {
+      return host.table as unknown as {
+        onStagedSortPick: (column: DataTableColumn<Row>, direction: 'asc' | 'desc' | '') => void;
+        onColumnMenuSortOnlyApply: (column: DataTableColumn<Row>) => void;
+      };
+    }
 
-      expect(host.lastSortChange).toEqual({ active: 'name', direction: 'desc' });
-      expect(host.table['sortState']()).toEqual({ active: 'name', direction: 'desc' });
+    it('emits sortChange with the picked direction and resets to page 0', () => {
+      const idColumn = columns.find((c) => c.key === 'id')!;
+      sortOnlyApi().onStagedSortPick(idColumn, 'desc');
+      sortOnlyApi().onColumnMenuSortOnlyApply(idColumn);
+
+      expect(host.lastSortChange).toEqual({ active: 'id', direction: 'desc' });
+      expect(host.table['sortState']()).toEqual({ active: 'id', direction: 'desc' });
       expect(host.table['pageIndex']()).toBe(0);
     });
 
     it('emits null and clears the sort state when direction is the empty string', () => {
-      api().applySort('name', 'asc');
-      api().applySort('name', '');
+      const idColumn = columns.find((c) => c.key === 'id')!;
+      sortOnlyApi().onStagedSortPick(idColumn, 'asc');
+      sortOnlyApi().onColumnMenuSortOnlyApply(idColumn);
+      sortOnlyApi().onStagedSortPick(idColumn, '');
+      sortOnlyApi().onColumnMenuSortOnlyApply(idColumn);
 
       expect(host.lastSortChange).toBeNull();
       expect(host.table['sortState']()).toBeNull();
@@ -285,30 +296,39 @@ describe('DataTableComponent', () => {
       f.componentInstance.initialPageSize = 10;
       f.detectChanges();
 
+      const idColumn = columns.find((c) => c.key === 'id')!;
       const apiOf = f.componentInstance.table as unknown as {
-        applySort: (key: string, direction: 'asc' | 'desc' | '') => void;
+        onStagedSortPick: (col: DataTableColumn<Row>, dir: 'asc' | 'desc' | '') => void;
+        onColumnMenuSortOnlyApply: (col: DataTableColumn<Row>) => void;
       };
-      apiOf.applySort('name', 'asc');
+      apiOf.onStagedSortPick(idColumn, 'asc');
+      apiOf.onColumnMenuSortOnlyApply(idColumn);
 
       expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 10 });
     });
   });
 
-  describe('column-menu filters', () => {
-    // Vitest fake timers (not Angular's `fakeAsync`) because the project runs zoneless
-    // and `zone.js/testing` is not on the classpath. We advance manually past the
-    // 250 ms debounceTime in the component's filter wiring.
-    beforeEach(() => {
-      vi.useFakeTimers();
-    });
-    afterEach(() => {
-      vi.useRealTimers();
-    });
+  describe('column-menu filters (staged + Aceptar)', () => {
+    function menuApi() {
+      return host.table as unknown as {
+        onColumnMenuOpen: (col: DataTableColumn<Row>) => void;
+        onColumnMenuApply: (col: DataTableColumn<Row>) => void;
+        textControl: (key: string) => { setValue: (v: string) => void; value: string };
+        dateControl: (
+          key: string,
+          end: 'from' | 'to',
+        ) => { setValue: (v: Date | null) => void; value: Date | null };
+      };
+    }
 
-    it('emits a debounced text filter through columnFilterChange', () => {
-      const control = host.table['textControl']('name');
-      control.setValue('alf');
-      vi.advanceTimersByTime(250);
+    it('does NOT emit while the user types — only after Aceptar', () => {
+      const nameColumn = columns.find((c) => c.key === 'name')!;
+      menuApi().onColumnMenuOpen(nameColumn);
+      menuApi().textControl('name').setValue('alf');
+
+      expect(host.lastColumnFilterChange).toBeUndefined();
+
+      menuApi().onColumnMenuApply(nameColumn);
 
       expect(host.lastColumnFilterChange).toEqual({
         key: 'name',
@@ -316,26 +336,31 @@ describe('DataTableComponent', () => {
       });
     });
 
-    it('emits null when the text filter is cleared so the parent drops the URL param', () => {
-      const control = host.table['textControl']('name');
-      control.setValue('something');
-      vi.advanceTimersByTime(250);
+    it('emits null on Aceptar when the text input was cleared so the parent drops the URL param', () => {
+      const nameColumn = columns.find((c) => c.key === 'name')!;
+      // Seed parent state with a pre-existing filter; the menu opens against that.
+      host.columnFilters = new Map<string, DataTableColumnFilterValue>([
+        ['name', { type: 'text', value: 'existing' }],
+      ]);
+      fixture.detectChanges();
 
-      control.setValue('');
-      vi.advanceTimersByTime(250);
-
-      expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
-    });
-
-    it('trims whitespace before emitting so leading spaces do not pollute the URL', () => {
-      const control = host.table['textControl']('name');
-      control.setValue('   ');
-      vi.advanceTimersByTime(250);
+      menuApi().onColumnMenuOpen(nameColumn);
+      menuApi().textControl('name').setValue('');
+      menuApi().onColumnMenuApply(nameColumn);
 
       expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
     });
 
-    it('emits a combined dateRange payload when either end of the range changes', () => {
+    it('trims whitespace before emitting on Aceptar so leading spaces do not pollute the URL', () => {
+      const nameColumn = columns.find((c) => c.key === 'name')!;
+      menuApi().onColumnMenuOpen(nameColumn);
+      menuApi().textControl('name').setValue('   ');
+      menuApi().onColumnMenuApply(nameColumn);
+
+      expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
+    });
+
+    it('emits a combined dateRange payload on Aceptar', () => {
       const dateColumns: readonly DataTableColumn<Row>[] = [
         ...columns,
         { key: 'when', label: 'Cuándo', value: () => null, filter: 'dateRange' },
@@ -345,9 +370,15 @@ describe('DataTableComponent', () => {
       f.componentInstance.columns = dateColumns;
       f.detectChanges();
 
-      const from = f.componentInstance.table['dateControl']('when', 'from');
-      from.setValue(new Date(2026, 0, 5));
-      vi.advanceTimersByTime(250);
+      const whenColumn = dateColumns.find((c) => c.key === 'when')!;
+      const fApi = f.componentInstance.table as unknown as {
+        onColumnMenuOpen: (col: DataTableColumn<Row>) => void;
+        onColumnMenuApply: (col: DataTableColumn<Row>) => void;
+        dateControl: (key: string, end: 'from' | 'to') => { setValue: (v: Date | null) => void };
+      };
+      fApi.onColumnMenuOpen(whenColumn);
+      fApi.dateControl('when', 'from').setValue(new Date(2026, 0, 5));
+      fApi.onColumnMenuApply(whenColumn);
 
       expect(f.componentInstance.lastColumnFilterChange).toEqual({
         key: 'when',
@@ -355,13 +386,16 @@ describe('DataTableComponent', () => {
       });
     });
 
-    it('pre-fills the menu control from columnFilters input (URL → form sync)', () => {
+    it('seeds the menu input from columnFilters when the menu opens (URL → menu sync)', () => {
       host.columnFilters = new Map<string, DataTableColumnFilterValue>([
         ['name', { type: 'text', value: 'preloaded' }],
       ]);
       fixture.detectChanges();
 
-      expect(host.table['textControl']('name').value).toBe('preloaded');
+      const nameColumn = columns.find((c) => c.key === 'name')!;
+      menuApi().onColumnMenuOpen(nameColumn);
+
+      expect(menuApi().textControl('name').value).toBe('preloaded');
     });
 
     it('reports an active filter through hasActiveFilter when the column carries a value', () => {
@@ -373,6 +407,108 @@ describe('DataTableComponent', () => {
       const apiOf = host.table as unknown as { hasActiveFilter: (key: string) => boolean };
       expect(apiOf.hasActiveFilter('name')).toBe(true);
       expect(apiOf.hasActiveFilter('id')).toBe(false);
+    });
+
+    it('also commits sort on Aceptar when the column has both a filter and a staged sort', () => {
+      const nameColumn = columns.find((c) => c.key === 'name')!;
+      menuApi().onColumnMenuOpen(nameColumn);
+      menuApi().textControl('name').setValue('xyz');
+
+      // Stage a sort direction at the same time as the filter.
+      const apiOf = host.table as unknown as {
+        onStagedSortPick: (col: DataTableColumn<Row>, dir: 'asc' | 'desc' | '') => void;
+      };
+      apiOf.onStagedSortPick(nameColumn, 'desc');
+
+      menuApi().onColumnMenuApply(nameColumn);
+
+      // Both events fired in the same Aceptar click.
+      expect(host.lastColumnFilterChange).toEqual({
+        key: 'name',
+        value: { type: 'text', value: 'xyz' },
+      });
+      expect(host.lastSortChange).toEqual({ active: 'name', direction: 'desc' });
+    });
+  });
+
+  describe('column-menu autocomplete', () => {
+    interface NamedRow extends Row {
+      readonly tag: string | null;
+    }
+
+    function withAutocomplete() {
+      const supplierColumn: DataTableColumn<NamedRow> = {
+        key: 'tag',
+        label: 'Tag',
+        value: (r) => r.tag,
+        filter: 'autocomplete',
+        sortable: false,
+        autocomplete: {
+          options: () => [
+            { value: 'a', label: 'Alpha' },
+            { value: 'b', label: 'Beta' },
+            { value: 'c', label: 'Carla' },
+          ],
+          minSearchChars: 3,
+        },
+      };
+      return supplierColumn;
+    }
+
+    it('hides options until the search input crosses minSearchChars', () => {
+      const col = withAutocomplete();
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = [];
+      f.componentInstance.columns = [col as unknown as DataTableColumn<Row>];
+      f.detectChanges();
+
+      const t = f.componentInstance.table as unknown as {
+        onColumnMenuOpen: (col: DataTableColumn<Row>) => void;
+        onAutocompleteSearchInput: (col: DataTableColumn<Row>, raw: string) => void;
+        filteredAutocompleteOptions: (col: DataTableColumn<Row>) => readonly unknown[];
+      };
+      t.onColumnMenuOpen(col as unknown as DataTableColumn<Row>);
+
+      t.onAutocompleteSearchInput(col as unknown as DataTableColumn<Row>, 'al');
+      expect(t.filteredAutocompleteOptions(col as unknown as DataTableColumn<Row>)).toHaveLength(0);
+
+      t.onAutocompleteSearchInput(col as unknown as DataTableColumn<Row>, 'alp');
+      expect(t.filteredAutocompleteOptions(col as unknown as DataTableColumn<Row>)).toHaveLength(1);
+    });
+
+    it('emits the picked option`s value on Aceptar (typing alone does nothing)', () => {
+      const col = withAutocomplete();
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = [];
+      f.componentInstance.columns = [col as unknown as DataTableColumn<Row>];
+      f.detectChanges();
+
+      const t = f.componentInstance.table as unknown as {
+        onColumnMenuOpen: (col: DataTableColumn<Row>) => void;
+        onAutocompleteSearchInput: (col: DataTableColumn<Row>, raw: string) => void;
+        onAutocompleteOptionSelect: (
+          col: DataTableColumn<Row>,
+          option: { value: string; label: string },
+        ) => void;
+        onColumnMenuApply: (col: DataTableColumn<Row>) => void;
+      };
+      t.onColumnMenuOpen(col as unknown as DataTableColumn<Row>);
+      t.onAutocompleteSearchInput(col as unknown as DataTableColumn<Row>, 'alp');
+
+      // Without a pick, Aceptar commits null (typing alone is not a selection).
+      t.onColumnMenuApply(col as unknown as DataTableColumn<Row>);
+      expect(f.componentInstance.lastColumnFilterChange).toEqual({ key: 'tag', value: null });
+
+      // After selecting an option, Aceptar commits the option's value + label.
+      t.onAutocompleteOptionSelect(col as unknown as DataTableColumn<Row>, {
+        value: 'a',
+        label: 'Alpha',
+      });
+      t.onColumnMenuApply(col as unknown as DataTableColumn<Row>);
+      expect(f.componentInstance.lastColumnFilterChange).toEqual({
+        key: 'tag',
+        value: { type: 'autocomplete', value: 'a', label: 'Alpha' },
+      });
     });
   });
 

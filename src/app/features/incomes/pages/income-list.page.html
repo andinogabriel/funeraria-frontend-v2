@@ -31,22 +31,42 @@
   }
 
   <!--
-    Action toolbar: icon-only, 48 px tap targets, tooltips for the label. The three
-    icons stay disabled until the operator selects a row in the table; behaviour
-    after selection is unchanged from the previous text+icon variant.
-
-    The "Limpiar filtros" affordance lives here too — it only appears when any
-    column filter is active. The per-column "clear" sits inside each column menu;
-    this one wipes them all in a single tap.
+    Action toolbar. Left: loading hint + "Limpiar filtros". Right: row actions
+    (icon-only 48 px tap targets with Spanish tooltips). Each button is disabled
+    until the operator selects a row in the table; Eliminar still routes through
+    the confirm dialog so the behaviour is unchanged.
   -->
   <div class="flex flex-wrap items-center gap-2">
+    @if (loading()) {
+      <span class="text-xs text-[var(--mat-sys-on-surface-variant)] inline-flex items-center gap-2">
+        <mat-icon class="material-symbols-outlined animate-spin !text-base !w-4 !h-4">
+          progress_activity
+        </mat-icon>
+        Actualizando…
+      </span>
+    }
+
+    @if (hasActiveFilters()) {
+      <button
+        type="button"
+        mat-stroked-button
+        (click)="onClearFilters()"
+        aria-label="Limpiar todos los filtros"
+      >
+        <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
+        Limpiar filtros
+      </button>
+    }
+
+    <span class="flex-1"></span>
+
     <button
       mat-icon-button
       class="!w-12 !h-12"
       [disabled]="!hasSelection()"
       (click)="onShowDetail()"
-      matTooltip="Ver detalle"
-      aria-label="Ver detalle del ingreso seleccionado"
+      matTooltip="Ver más info"
+      aria-label="Ver más info del ingreso seleccionado"
     >
       <mat-icon class="material-symbols-outlined">visibility</mat-icon>
     </button>
@@ -71,38 +91,14 @@
     >
       <mat-icon class="material-symbols-outlined">delete</mat-icon>
     </button>
-
-    <span class="flex-1"></span>
-
-    @if (hasActiveFilters()) {
-      <button
-        type="button"
-        mat-stroked-button
-        (click)="onClearFilters()"
-        aria-label="Limpiar todos los filtros"
-      >
-        <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
-        Limpiar filtros
-      </button>
-    }
-
-    @if (loading()) {
-      <span
-        class="text-xs text-[var(--mat-sys-on-surface-variant)] inline-flex items-center gap-2 ml-2"
-      >
-        <mat-icon class="material-symbols-outlined animate-spin !text-base !w-4 !h-4">
-          progress_activity
-        </mat-icon>
-        Actualizando…
-      </span>
-    }
   </div>
 
   <!--
-    Server-side paginated table. Per-column filtering + sort happens inside the column
-    header menus; the page just maps the events back to the URL. Empty state is
-    rendered by the data-table inside its fixed-height body — no separate card below
-    the table — so the page footprint stays stable across filter changes.
+    Server-side paginated table. Column-header menus stage filter + sort and commit
+    via the Aceptar button; the page wires the events into URL params
+    (`receiptNumber`, `supplierNif`, `from`, `to`). Column chooser is hidden — this
+    page ships a curated column set. Empty state lives inside the table so the page
+    footprint stays stable.
   -->
   <app-data-table
     [data]="rows()"

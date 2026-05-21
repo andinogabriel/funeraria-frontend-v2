@@ -60,10 +60,12 @@ export class IncomeService {
     if (query.isDeleted !== undefined) {
       params = params.set('isDeleted', String(query.isDeleted));
     }
-    // Filter params: skip empty / null values so the URL stays clean when the operator
-    // has not applied that filter. The backend interprets the absence of a param as the
-    // "no filter" sentinel (`""` for strings, `null` for dates).
-    if (query.q && query.q.trim().length > 0) params = params.set('q', query.q.trim());
+    // Per-column filter params: skip empty / null values so the URL stays clean when the
+    // operator has not applied that filter. The backend interprets the absence of a
+    // param as the "no filter" sentinel (`""` for strings, `null` for dates).
+    if (query.receiptNumber && query.receiptNumber.trim().length > 0) {
+      params = params.set('receiptNumber', query.receiptNumber.trim());
+    }
     if (query.supplierNif && query.supplierNif.length > 0) {
       params = params.set('supplierNif', query.supplierNif);
     }
