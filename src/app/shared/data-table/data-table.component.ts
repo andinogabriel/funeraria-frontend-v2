@@ -225,8 +225,26 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * `__placeholder_<index>` id for nulls so MatTable can dedupe them across
    * re-renders without the caller having to know about padding semantics.
    */
-  protected readonly effectiveTrackBy = (index: number, row: T | null): unknown =>
-    row === null ? `__placeholder_${index}` : this.trackBy()(index, row);
+  protected readonly effectiveTrackBy = (index: number, row: T | null): unknown => {
+    if (row === null) return `__placeholder_${index}`;
+    if (this.isSkeletonRow(row)) return `__skeleton_${index}`;
+    return this.trackBy()(index, row);
+  };
+
+  /**
+   * Sentinel marker placed inside `pagedData()` while the first-load skeleton is
+   * showing. The cell template checks via {@link isSkeletonRow} and renders a
+   * shimmer placeholder instead of invoking `column.value(row)` (which would
+   * blow up on the sentinel). The sentinel is a frozen module-private object so
+   * the reference check is cheap and unambiguous.
+   */
+  private static readonly SKELETON_ROW: Readonly<{ readonly __skeleton__: true }> = Object.freeze({
+    __skeleton__: true,
+  });
+
+  protected isSkeletonRow(row: unknown): boolean {
+    return row === DataTableComponent.SKELETON_ROW;
+  }
 
   /** Optional content-projected trailing column for row actions. */
   @ContentChild('actions', { read: TemplateRef })
@@ -316,6 +334,18 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * nothing; the sibling empty-state div absorbs the reserved height.
    */
   protected readonly pagedData = computed<readonly (T | null)[]>(() => {
+    // Skeleton path takes precedence over both empty-state and real data: while
+    // the first fetch is in flight we want the table body filled with shimmer
+    // rows that match the column structure (real <td>s align with the header
+    // cells, so widths look identical to the eventual real rows). We cast the
+    // sentinel through `unknown` because TypeScript correctly objects that a
+    // frozen `{__skeleton__: true}` is not a `T` — the cell template guards
+    // every read through {@link isSkeletonRow} before invoking `column.value`.
+    if (this.showSkeleton()) {
+      const skeletonRow = DataTableComponent.SKELETON_ROW as unknown as T;
+      const n = this.skeletonRowCount() ?? this.pageSize();
+      return Array.from({ length: n }, () => skeletonRow);
+    }
     if (this.showEmptyState()) {
       return [];
     }
@@ -350,13 +380,6 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       return false;
     }
     return this.serverSide() ? this.totalElements() === 0 : this.data().length === 0;
-  });
-
-  /** Range used by the template to render N skeleton rows. */
-  protected readonly skeletonRows = computed<readonly number[]>(() => {
-    const requested = this.skeletonRowCount();
-    const n = requested ?? this.pageSize();
-    return Array.from({ length: n }, (_, i) => i);
   });
 
   /** Paginator length: server-side uses totalElements, client-side uses sorted data length. */
@@ -741,14 +764,18 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   // --------------------------------------------------------------------------
 
   protected onRowClick(row: T | null): void {
-    if (!this.selectable() || row === null) {
+    // Skeleton placeholders are decorative — clicking them must never select
+    // anything (and the CSS already blocks `pointer-events` on them, but we
+    // belt-and-braces the guard here in case a parent injects keyboard wiring
+    // later).
+    if (!this.selectable() || row === null || this.isSkeletonRow(row)) {
       return;
     }
     this.selectedRow.update((current) => (current === row ? null : row));
   }
 
   protected rowClasses(row: T | null): string {
-    if (!this.selectable() || row === null) {
+    if (!this.selectable() || row === null || this.isSkeletonRow(row)) {
       return '';
     }
     return this.selectedRow() === row

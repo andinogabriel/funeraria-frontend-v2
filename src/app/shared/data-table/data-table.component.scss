@@ -214,30 +214,15 @@
 }
 
 // -----------------------------------------------------------------------------
-// Skeleton rows. Rendered as an overlay block inside the viewport when the very
-// first fetch is still in flight; the mat-table above it carries an empty
-// dataSource in that moment so its body is blank and the operator only sees
-// these shimmering placeholders. After the first successful load this overlay
-// disappears for the rest of the session — subsequent refreshes ride the
-// stale-while-revalidate path with the previous rows still visible.
+// Skeleton cells live INSIDE the real <td>s — each cell renders a single
+// shimmer span when `isSkeletonRow(row)` is true. That makes the placeholders
+// inherit the column widths from the mat-table, so the layout does not jump
+// when the actual data arrives and replaces the skeleton rows.
 // -----------------------------------------------------------------------------
-.data-table__skeleton {
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 40%, transparent);
-}
-
-.data-table__skeleton-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: 52px; // matches Material MDC table body row height
-  padding: 0 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 30%, transparent);
-}
-
 .data-table__skeleton-cell {
-  flex: 1 1 0;
+  display: inline-block;
+  width: 70%;
+  max-width: 220px;
   height: 14px;
   border-radius: 6px;
   background: linear-gradient(
@@ -250,15 +235,21 @@
   animation: data-table-skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
-// Stagger the shimmer per column so the row reads as content-shaped instead of
-// a uniform block. The widths approximate "label cells", "value cells", and a
-// trailing actions slot.
-.data-table__skeleton-cell:nth-child(2n) {
-  max-width: 60%;
+// Vary the placeholder width per cell so the row reads as content-shaped
+// instead of a uniform block.
+:host ::ng-deep td.mat-mdc-cell:nth-child(2n) .data-table__skeleton-cell {
+  width: 50%;
 }
 
-.data-table__skeleton-cell:nth-child(3n) {
-  max-width: 75%;
+:host ::ng-deep td.mat-mdc-cell:nth-child(3n) .data-table__skeleton-cell {
+  width: 85%;
+}
+
+// Skeleton rows are non-interactive — disable hover affordance + cursor so the
+// operator does not try to click a placeholder.
+:host ::ng-deep .mat-mdc-row[aria-busy='true'] {
+  cursor: default;
+  pointer-events: none;
 }
 
 @keyframes data-table-skeleton-shimmer {

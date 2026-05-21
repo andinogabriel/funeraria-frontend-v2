@@ -524,10 +524,14 @@ describe('DataTableComponent', () => {
   describe('first-load skeleton', () => {
     interface SkeletonApi {
       readonly showSkeleton: () => boolean;
-      readonly skeletonRows: () => readonly number[];
+      readonly pagedData: () => readonly (Row | null)[];
+      isSkeletonRow(row: unknown): boolean;
     }
 
-    it('shows skeleton rows when loading is true AND the dataset is still empty', () => {
+    it('fills pagedData with skeleton sentinels when loading AND the dataset is empty', () => {
+      // The skeleton rows live INSIDE pagedData so the mat-table renders them
+      // as real <tr> elements that inherit the column widths from the header
+      // — no overlay div, no layout jump when the real data arrives.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = [];
       f.componentInstance.columns = columns;
@@ -539,7 +543,9 @@ describe('DataTableComponent', () => {
 
       const api = f.componentInstance.table as unknown as SkeletonApi;
       expect(api.showSkeleton()).toBe(true);
-      expect(api.skeletonRows()).toHaveLength(10);
+      const pageRows = api.pagedData();
+      expect(pageRows).toHaveLength(10);
+      expect(pageRows.every((r) => api.isSkeletonRow(r))).toBe(true);
     });
 
     it('does NOT show the skeleton on refresh (loading + previous rows present)', () => {
@@ -557,6 +563,9 @@ describe('DataTableComponent', () => {
 
       const api = f.componentInstance.table as unknown as SkeletonApi;
       expect(api.showSkeleton()).toBe(false);
+      // pagedData still carries the real rows + padding placeholders — no
+      // skeleton sentinels mixed in.
+      expect(api.pagedData().some((r) => api.isSkeletonRow(r))).toBe(false);
     });
 
     it('keeps the emptyState hidden while the skeleton is showing', () => {
