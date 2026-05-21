@@ -351,7 +351,15 @@
             [class.text-right]="column.align === 'end'"
             class="{{ column.cellClass ?? '' }}"
           >
-            @if (row) {
+            @if (isSkeletonRow(row)) {
+              <!--
+                Skeleton placeholder. The shimmer span lives INSIDE the real
+                <td> so it inherits the column's width and alignment — when
+                the real data arrives and replaces the sentinel rows, the
+                layout does not jump.
+              -->
+              <span class="data-table__skeleton-cell" aria-hidden="true"></span>
+            } @else if (row) {
               @if (column.cellTemplate) {
                 <ng-container
                   *ngTemplateOutlet="column.cellTemplate; context: { $implicit: row }"
@@ -372,7 +380,9 @@
             {{ actionsLabel() }}
           </th>
           <td mat-cell *matCellDef="let row" class="text-right">
-            @if (row) {
+            @if (isSkeletonRow(row)) {
+              <span class="data-table__skeleton-cell" aria-hidden="true"></span>
+            } @else if (row) {
               <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row }" />
             } @else {
               &nbsp;
@@ -386,6 +396,7 @@
         mat-row
         *matRowDef="let row; columns: displayedColumns()"
         [class]="rowClasses(row)"
+        [attr.aria-busy]="isSkeletonRow(row) ? 'true' : null"
         (click)="onRowClick(row)"
       ></tr>
     </table>
@@ -409,24 +420,13 @@
     }
 
     <!--
-      Skeleton rows — only on the very first fetch, while `data` is empty AND
-      `loading` is true. The mat-table above renders nothing in that case (its
-      dataSource is the empty padding array), so this overlay block is what the
-      operator sees. Subsequent refreshes keep the previous rows visible and
-      surface an "Actualizando…" hint on the page toolbar instead, so the
-      skeleton never flashes mid-session.
+      Skeleton rows live INSIDE the mat-table body (see the cell template
+      `@if (isSkeletonRow(row))` branch) so the shimmer placeholders inherit
+      the real column widths and the layout does not jump when the actual data
+      lands. A single screen-reader announcement here covers the busy region.
     -->
     @if (showSkeleton()) {
-      <div class="data-table__skeleton" role="status" aria-live="polite" aria-busy="true">
-        <span class="sr-only">Cargando…</span>
-        @for (row of skeletonRows(); track row) {
-          <div class="data-table__skeleton-row">
-            @for (column of visibleColumns(); track column) {
-              <span class="data-table__skeleton-cell"></span>
-            }
-          </div>
-        }
-      </div>
+      <span class="sr-only" role="status" aria-live="polite">Cargando datos…</span>
     }
   </div>
 
