@@ -415,14 +415,39 @@
     page toolbar's "Limpiar filtros" affordance covers the recovery path.
   -->
   @if (!showEmptyState()) {
-    <mat-paginator
-      class="sticky bottom-0 z-10 !bg-[var(--mat-sys-surface)]"
-      [length]="paginatorLength()"
-      [pageSize]="pageSize()"
-      [pageSizeOptions]="pageSizeOptions()"
-      [pageIndex]="pageIndex()"
-      [hidePageSize]="hidePageSizeSelector()"
-      showFirstLastButtons
-    />
+    <!--
+      MatPaginator's `pageSizeOptions` is a flat number[] — it has no per-option
+      disabled hook. We hide the built-in selector and render our own
+      `<mat-select>` so we can grey out 50/100 while the dataset is too small to
+      surface anything in those buckets (see `effectivePageSizeOptions`).
+    -->
+    <div class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 !bg-[var(--mat-sys-surface)] pr-2">
+      @if (!hidePageSizeSelector()) {
+        <label class="data-table__page-size-label flex items-center gap-2 text-sm">
+          <span>Filas por página:</span>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="data-table__page-size-select">
+            <mat-select
+              [value]="pageSize()"
+              (selectionChange)="onPageSizeSelect($event.value)"
+              aria-label="Filas por página"
+            >
+              @for (option of effectivePageSizeOptions(); track option.value) {
+                <mat-option [value]="option.value" [disabled]="option.disabled">
+                  {{ option.value }}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </label>
+      }
+      <mat-paginator
+        [length]="paginatorLength()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions()"
+        [pageIndex]="pageIndex()"
+        [hidePageSize]="true"
+        showFirstLastButtons
+      />
+    </div>
   }
 </div>

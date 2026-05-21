@@ -294,7 +294,12 @@ describe('DataTableComponent', () => {
       expect(host.table['sortState']()).toBeNull();
     });
 
-    it('emits a pageChange to page 0 in server-side mode so the parent re-fetches', () => {
+    it('resets pageIndex to 0 in server-side mode but does NOT emit a separate pageChange', () => {
+      // Rationale: emitting both `sortChange` and `pageChange` from the same user
+      // action triggers two `router.navigate({ replaceUrl: true })` calls on the
+      // parent, and the second one reads a stale `route.snapshot.queryParamMap`
+      // and clobbers the sort param. The parent's `onSortChange` handler is
+      // responsible for including `page: 0` in the same patch as the sort.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
@@ -307,11 +312,112 @@ describe('DataTableComponent', () => {
       const apiOf = f.componentInstance.table as unknown as {
         onStagedSortPick: (col: DataTableColumn<Row>, dir: 'asc' | 'desc' | '') => void;
         onColumnMenuSortOnlyApply: (col: DataTableColumn<Row>) => void;
+        readonly pageIndex: () => number;
       };
       apiOf.onStagedSortPick(idColumn, 'asc');
       apiOf.onColumnMenuSortOnlyApply(idColumn);
 
-      expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 10 });
+      expect(f.componentInstance.lastPageChange).toBeUndefined();
+      expect((f.componentInstance.table as unknown as { pageIndex: () => number }).pageIndex()).toBe(
+        0,
+      );
+    });
+  });
+
+  describe('progressive page-size selector', () => {
+    interface PageSizeOption {
+      readonly value: number;
+      readonly disabled: boolean;
+    }
+
+    function pageSizeApi(component: DataTableComponent<Row>) {
+      return component as unknown as {
+        readonly effectivePageSizeOptions: () => readonly PageSizeOption[];
+        onPageSizeSelect: (size: number) => void;
+        readonly pageSize: () => number;
+        readonly pageIndex: () => number;
+      };
+    }
+
+    it('disables larger page-size options when the dataset cannot fill them', () => {
+      // Defaults: pageSizeOptions = [10, 25, 50, 100]. With totalElements = 12 the
+      // operator can usefully pick 10 (default) or 25 (would reveal the extra 2
+      // rows), but 50 and 100 would just paint more empty space.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 12;
+      f.componentInstance.initialPageSize = 10;
+      f.detectChanges();
+
+      const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
+      expect(options).toEqual([
+        { value: 10, disabled: false },
+        { value: 25, disabled: false },
+        { value: 50, disabled: true },
+        { value: 100, disabled: true },
+      ]);
+    });
+
+    it('progressively enables larger options as totalElements grows past each tier', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 33;
+      f.componentInstance.initialPageSize = 10;
+      f.detectChanges();
+
+      const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
+      expect(options.map((o) => o.disabled)).toEqual([false, false, false, true]);
+    });
+
+    it('keeps the currently active page size enabled even if the dataset shrinks below the tier', () => {
+      // Sanity: if the parent persisted pageSize=25 and the dataset later has just
+      // 8 rows, we still need 25 to render as the picked value (and therefore
+      // selectable) — otherwise the control would look broken / stuck.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 8;
+      f.componentInstance.initialPageSize = 25;
+      f.detectChanges();
+
+      const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
+      const twentyFive = options.find((o) => o.value === 25);
+      expect(twentyFive?.disabled).toBe(false);
+    });
+
+    it('emits pageChange with pageIndex 0 when a new page size is selected', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 80;
+      f.componentInstance.initialPageSize = 10;
+      f.detectChanges();
+
+      pageSizeApi(f.componentInstance.table).onPageSizeSelect(25);
+
+      expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 25 });
+      expect(pageSizeApi(f.componentInstance.table).pageSize()).toBe(25);
+      expect(pageSizeApi(f.componentInstance.table).pageIndex()).toBe(0);
+    });
+
+    it('ignores a selection that matches the current page size (no-op guard)', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 80;
+      f.componentInstance.initialPageSize = 25;
+      f.detectChanges();
+
+      pageSizeApi(f.componentInstance.table).onPageSizeSelect(25);
+
+      expect(f.componentInstance.lastPageChange).toBeUndefined();
     });
   });
 

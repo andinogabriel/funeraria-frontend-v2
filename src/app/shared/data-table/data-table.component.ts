@@ -26,6 +26,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
@@ -107,6 +108,7 @@ import { TablePreferencesService } from './table-preferences.service';
     MatMenuModule,
     MatPaginatorModule,
     MatRadioModule,
+    MatSelectModule,
     MatTableModule,
     MatTooltipModule,
     NgTemplateOutlet,
@@ -323,6 +325,35 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     this.serverSide() ? this.totalElements() : this.sortedData().length,
   );
 
+  /**
+   * Page-size options exposed to the template, each paired with a `disabled` flag.
+   *
+   * <p>An option is enabled when (a) it is the smallest option (so the operator can
+   * always shrink the page size), (b) the dataset has more rows than the previous
+   * option (so picking it would actually surface extra rows), or (c) it matches the
+   * currently active page size (so we never disable the user's own selection out
+   * from under them).
+   *
+   * <p>Rationale: with a 12-row dataset and options [10, 25, 50, 100], showing 50 or
+   * 100 as picks looks live but cannot reveal anything new and risks throwing the UI
+   * off if upstream paint logic mishandles oversized empty padding. The greying-out
+   * keeps the affordance visible (so the operator knows the table scales) while
+   * preventing the no-op selection.
+   */
+  protected readonly effectivePageSizeOptions = computed<
+    ReadonlyArray<{ value: number; disabled: boolean }>
+  >(() => {
+    const options = [...this.pageSizeOptions()].sort((a, b) => a - b);
+    const total = this.paginatorLength();
+    const current = this.pageSize();
+    return options.map((value, index) => {
+      if (value === current) return { value, disabled: false };
+      if (index === 0) return { value, disabled: false };
+      const previous = options[index - 1] ?? 0;
+      return { value, disabled: total <= previous };
+    });
+  });
+
   /** Full display order = visible config columns + action column when projected. */
   protected readonly displayedColumns = computed<readonly string[]>(() => {
     const visible = this.visibleColumns();
@@ -366,6 +397,20 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       this.pageSize.set(event.pageSize);
       this.pageChange.emit({ pageIndex: event.pageIndex, pageSize: event.pageSize });
     });
+  }
+
+  /**
+   * Commits a page-size change picked from the custom selector (the built-in
+   * MatPaginator selector is hidden because it cannot disable individual options).
+   * Resets to page 0 — the previous offset is meaningless under a new page size.
+   */
+  protected onPageSizeSelect(size: number): void {
+    if (size === this.pageSize()) {
+      return;
+    }
+    this.pageSize.set(size);
+    this.pageIndex.set(0);
+    this.pageChange.emit({ pageIndex: 0, pageSize: size });
   }
 
   // --------------------------------------------------------------------------
@@ -694,10 +739,13 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       this.sortState.set(sort);
       this.sortChange.emit(sort);
     }
+    // Reset to the first page so the new ordering starts from the top.
+    // We deliberately DO NOT emit `pageChange` here: the parent's `onSortChange`
+    // handler already pushes `page: 0` to the URL in the same patch as the sort
+    // params, and emitting a separate event would trigger a second
+    // `router.navigate` call that races with the first (the second one reads a
+    // stale snapshot and undoes the sort change). See ADR-frontend column-menu.
     this.pageIndex.set(0);
-    if (this.serverSide()) {
-      this.pageChange.emit({ pageIndex: 0, pageSize: this.pageSize() });
-    }
   }
 
   private hydrateFromPreferences(): void {
