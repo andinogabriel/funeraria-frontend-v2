@@ -173,6 +173,22 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   /** Total rows in the dataset when `serverSide` is on. */
   readonly totalElements = input<number>(0);
 
+  /**
+   * Whether the parent is currently fetching data. Drives the first-load skeleton
+   * (shimmer rows shown while `data` is empty AND `loading` is true). After the
+   * first successful load, subsequent fetches keep the previous rows visible
+   * (stale-while-revalidate), so the skeleton intentionally does not flash on
+   * every page or filter change — the parent is expected to surface a separate
+   * "Actualizando…" hint for those.
+   */
+  readonly loading = input<boolean>(false);
+
+  /**
+   * Number of skeleton rows to render during first load. Defaults to `pageSize` so
+   * the table footprint matches what the first real page will look like.
+   */
+  readonly skeletonRowCount = input<number | null>(null);
+
   /** Fires when the user commits a sort change (either via Aceptar or a sort-only menu click). */
   readonly sortChange = output<DataTableSort | null>();
 
@@ -316,8 +332,31 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
 
   /** `true` when there are zero real rows AND an emptyState is configured. */
   protected readonly showEmptyState = computed<boolean>(() => {
+    if (this.showSkeleton()) {
+      return false;
+    }
     const realRowCount = this.serverSide() ? this.totalElements() : this.sortedData().length;
     return realRowCount === 0 && this.emptyState() !== null;
+  });
+
+  /**
+   * `true` while the very first fetch is in flight. Drives the skeleton rows.
+   * Intentionally NOT triggered by refresh-cycle loads — once we have real data,
+   * subsequent loads keep the rows visible (stale-while-revalidate) and the
+   * parent surfaces an "Actualizando…" hint instead.
+   */
+  protected readonly showSkeleton = computed<boolean>(() => {
+    if (!this.loading()) {
+      return false;
+    }
+    return this.serverSide() ? this.totalElements() === 0 : this.data().length === 0;
+  });
+
+  /** Range used by the template to render N skeleton rows. */
+  protected readonly skeletonRows = computed<readonly number[]>(() => {
+    const requested = this.skeletonRowCount();
+    const n = requested ?? this.pageSize();
+    return Array.from({ length: n }, (_, i) => i);
   });
 
   /** Paginator length: server-side uses totalElements, client-side uses sorted data length. */
@@ -328,17 +367,22 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   /**
    * Page-size options exposed to the template, each paired with a `disabled` flag.
    *
-   * <p>An option is enabled when (a) it is the smallest option (so the operator can
-   * always shrink the page size), (b) the dataset has more rows than the previous
-   * option (so picking it would actually surface extra rows), or (c) it matches the
-   * currently active page size (so we never disable the user's own selection out
-   * from under them).
+   * <p>An option is enabled when one of these holds:
+   * <ul>
+   *   <li>it is the smallest option (the operator can always shrink page size);</li>
+   *   <li>it matches the currently active page size (never disable the user's own
+   *       selection out from under them);</li>
+   *   <li>the dataset has strictly more rows than the option value, meaning
+   *       picking it still leaves at least one extra row for a second page —
+   *       enlarging the page would be a real change.</li>
+   * </ul>
    *
-   * <p>Rationale: with a 12-row dataset and options [10, 25, 50, 100], showing 50 or
-   * 100 as picks looks live but cannot reveal anything new and risks throwing the UI
-   * off if upstream paint logic mishandles oversized empty padding. The greying-out
-   * keeps the affordance visible (so the operator knows the table scales) while
-   * preventing the no-op selection.
+   * <p>Rationale: with a 12-row dataset and options [10, 25, 50, 100], picking 25
+   * shows all 12 rows in a single page; picking 50 or 100 does the same. None of
+   * those is meaningfully different from "10 plus a 2-row second page", so we grey
+   * out every option whose value already covers the whole dataset. With 33 rows,
+   * picking 25 would actually leave 8 rows for a second page, so 25 stays enabled
+   * (50 and 100 grey out because 33 < 50 ≤ 100).
    */
   protected readonly effectivePageSizeOptions = computed<
     readonly { value: number; disabled: boolean }[]
@@ -349,8 +393,7 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     return options.map((value, index) => {
       if (value === current) return { value, disabled: false };
       if (index === 0) return { value, disabled: false };
-      const previous = options[index - 1] ?? 0;
-      return { value, disabled: total <= previous };
+      return { value, disabled: total <= value };
     });
   });
 
@@ -381,6 +424,27 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
         pageSize: this.pageSize(),
       };
       this.preferences.save(key, payload);
+    });
+
+    // URL → table sync for server-side mode. The parent owns pagination state
+    // through the URL and re-passes it via `initialPageIndex` / `initialPageSize`
+    // on every render. Without this effect, post-hydration URL changes (back /
+    // forward, programmatic navigation, an external `router.navigate` from a
+    // sibling event) would leave the table's internal signals stuck on the
+    // first-mount values. We mirror the inputs into the internal signals
+    // whenever they actually differ.
+    effect(() => {
+      if (!this.hydrated() || !this.serverSide()) {
+        return;
+      }
+      const nextIndex = this.initialPageIndex();
+      const nextSize = this.initialPageSize();
+      if (nextIndex !== this.pageIndex()) {
+        this.pageIndex.set(nextIndex);
+      }
+      if (nextSize !== this.pageSize()) {
+        this.pageSize.set(nextSize);
+      }
     });
   }
 
@@ -752,6 +816,14 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     const defaults = this.computeDefaultVisible();
     const key = this.storageKey();
     const persisted = key ? this.preferences.load(key) : null;
+    // In server-side mode the parent owns pagination state via the URL — we
+    // honour visible-column and sort preferences but the page size MUST come
+    // from the input or the table will desync from the URL (eg. URL says
+    // ?size=10 but a previously persisted pageSize=25 hijacks the paginator,
+    // leaving the MatPaginator on `pageIndex=1, pageSize=25, length=12` which
+    // renders blank). Client-side tables keep using persisted pageSize since
+    // there is no URL to compete with.
+    const honourPersistedPageSize = persisted !== null && !this.serverSide();
 
     if (persisted) {
       const validVisible = persisted.visibleColumns.filter((k) =>
@@ -759,12 +831,11 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       );
       this.visibleColumns.set(validVisible.length > 0 ? validVisible : defaults);
       this.sortState.set(persisted.sort);
-      this.pageSize.set(persisted.pageSize);
     } else {
       this.visibleColumns.set(defaults);
       this.sortState.set(this.initialSort());
-      this.pageSize.set(this.initialPageSize());
     }
+    this.pageSize.set(honourPersistedPageSize ? persisted.pageSize : this.initialPageSize());
     this.pageIndex.set(this.initialPageIndex());
 
     this.hydrated.set(true);

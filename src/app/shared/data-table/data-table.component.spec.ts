@@ -32,11 +32,13 @@ interface Row {
       [storageKey]="storageKey"
       [initialSort]="initialSort"
       [initialPageSize]="initialPageSize"
+      [initialPageIndex]="initialPageIndex"
       [selectable]="selectable"
       [serverSide]="serverSide"
       [totalElements]="totalElements"
       [columnFilters]="columnFilters"
       [emptyState]="emptyState"
+      [loading]="loading"
       (sortChange)="lastSortChange = $event"
       (pageChange)="lastPageChange = $event"
       (columnMenuApply)="lastColumnMenuApply = $event"
@@ -49,9 +51,11 @@ class HostComponent {
   storageKey: string | undefined = undefined;
   initialSort: DataTableSort | null = null;
   initialPageSize = 50;
+  initialPageIndex = 0;
   selectable = false;
   serverSide = false;
   totalElements = 0;
+  loading = false;
   columnFilters: ReadonlyMap<string, DataTableColumnFilterValue> = new Map();
   emptyState: DataTableEmptyState | null = null;
   lastSortChange: DataTableSort | null | undefined = undefined;
@@ -339,10 +343,11 @@ describe('DataTableComponent', () => {
       };
     }
 
-    it('disables larger page-size options when the dataset cannot fill them', () => {
+    it('disables every option whose value already covers the entire dataset', () => {
       // Defaults: pageSizeOptions = [10, 25, 50, 100]. With totalElements = 12 the
-      // operator can usefully pick 10 (default) or 25 (would reveal the extra 2
-      // rows), but 50 and 100 would just paint more empty space.
+      // dataset fits inside any of 25, 50, or 100 — picking any of them would
+      // show the exact same rows the operator already sees on the first page
+      // under pageSize=10, so we grey them out and keep only 10 selectable.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
@@ -354,13 +359,17 @@ describe('DataTableComponent', () => {
       const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
       expect(options).toEqual([
         { value: 10, disabled: false },
-        { value: 25, disabled: false },
+        { value: 25, disabled: true },
         { value: 50, disabled: true },
         { value: 100, disabled: true },
       ]);
     });
 
-    it('progressively enables larger options as totalElements grows past each tier', () => {
+    it('enables larger options only when picking them still leaves rows for a second page', () => {
+      // With 33 rows: pageSize=25 still leaves 8 rows for a second page (real
+      // change vs. default 10 which leaves 23 across two more pages), so 25 is
+      // enabled. 50 and 100 already cover the whole dataset, so they are
+      // disabled — selecting them would be a no-op compared to picking 25.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
@@ -370,7 +379,7 @@ describe('DataTableComponent', () => {
       f.detectChanges();
 
       const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
-      expect(options.map((o) => o.disabled)).toEqual([false, false, false, true]);
+      expect(options.map((o) => o.disabled)).toEqual([false, false, true, true]);
     });
 
     it('keeps the currently active page size enabled even if the dataset shrinks below the tier', () => {
@@ -418,6 +427,116 @@ describe('DataTableComponent', () => {
       pageSizeApi(f.componentInstance.table).onPageSizeSelect(25);
 
       expect(f.componentInstance.lastPageChange).toBeUndefined();
+    });
+  });
+
+  describe('server-side URL ↔ table sync', () => {
+    interface SyncApi {
+      readonly pageIndex: () => number;
+      readonly pageSize: () => number;
+    }
+
+    it('honours the URL-provided pageSize over persisted preferences when serverSide', () => {
+      // Regression: with a persisted pageSize=25 in localStorage and the URL
+      // providing pageSize=10, the data-table used to read pageSize=25 from
+      // preferences and desync MatPaginator from the parent. Now the URL wins
+      // in server-side mode.
+      const preferences = TestBed.inject(TablePreferencesService);
+      preferences.save('spec.serverside', {
+        version: 1,
+        visibleColumns: ['id', 'name'],
+        sort: null,
+        pageSize: 25,
+      });
+
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.storageKey = 'spec.serverside';
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 12;
+      f.componentInstance.initialPageSize = 10;
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as SyncApi;
+      expect(api.pageSize()).toBe(10);
+    });
+
+    it('mirrors initialPageIndex from the URL into the internal pageIndex signal on hydrate', () => {
+      // The parent owns the URL; landing on `?page=2` must hydrate the table
+      // on page 2, not on the default page 0.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 50;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.initialPageIndex = 2;
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as SyncApi;
+      expect(api.pageIndex()).toBe(2);
+    });
+  });
+
+  describe('first-load skeleton', () => {
+    interface SkeletonApi {
+      readonly showSkeleton: () => boolean;
+      readonly skeletonRows: () => readonly number[];
+    }
+
+    it('shows skeleton rows when loading is true AND the dataset is still empty', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = [];
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 0;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.loading = true;
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as SkeletonApi;
+      expect(api.showSkeleton()).toBe(true);
+      expect(api.skeletonRows()).toHaveLength(10);
+    });
+
+    it('does NOT show the skeleton on refresh (loading + previous rows present)', () => {
+      // Stale-while-revalidate: once we have rows, subsequent fetches keep
+      // them visible. The parent is expected to surface a textual
+      // "Actualizando…" hint for the refresh state, not a flashing skeleton.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 3;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.loading = true;
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as SkeletonApi;
+      expect(api.showSkeleton()).toBe(false);
+    });
+
+    it('keeps the emptyState hidden while the skeleton is showing', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = [];
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 0;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.loading = true;
+      f.componentInstance.emptyState = {
+        icon: 'inbox',
+        title: 'Sin datos',
+      };
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as {
+        showSkeleton: () => boolean;
+        showEmptyState: () => boolean;
+      };
+      expect(api.showSkeleton()).toBe(true);
+      expect(api.showEmptyState()).toBe(false);
     });
   });
 

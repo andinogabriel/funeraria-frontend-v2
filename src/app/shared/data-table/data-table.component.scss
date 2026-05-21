@@ -212,3 +212,78 @@
   font-size: 12px;
   margin: 0;
 }
+
+// -----------------------------------------------------------------------------
+// Skeleton rows. Rendered as an overlay block inside the viewport when the very
+// first fetch is still in flight; the mat-table above it carries an empty
+// dataSource in that moment so its body is blank and the operator only sees
+// these shimmering placeholders. After the first successful load this overlay
+// disappears for the rest of the session — subsequent refreshes ride the
+// stale-while-revalidate path with the previous rows still visible.
+// -----------------------------------------------------------------------------
+.data-table__skeleton {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 40%, transparent);
+}
+
+.data-table__skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 52px; // matches Material MDC table body row height
+  padding: 0 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 30%, transparent);
+}
+
+.data-table__skeleton-cell {
+  flex: 1 1 0;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent) 0%,
+    color-mix(in srgb, var(--mat-sys-on-surface) 16%, transparent) 50%,
+    color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: data-table-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+// Stagger the shimmer per column so the row reads as content-shaped instead of
+// a uniform block. The widths approximate "label cells", "value cells", and a
+// trailing actions slot.
+.data-table__skeleton-cell:nth-child(2n) {
+  max-width: 60%;
+}
+
+.data-table__skeleton-cell:nth-child(3n) {
+  max-width: 75%;
+}
+
+@keyframes data-table-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-table__skeleton-cell {
+    animation: none;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

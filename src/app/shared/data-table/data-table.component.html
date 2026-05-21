@@ -407,6 +407,27 @@
         </div>
       </div>
     }
+
+    <!--
+      Skeleton rows — only on the very first fetch, while `data` is empty AND
+      `loading` is true. The mat-table above renders nothing in that case (its
+      dataSource is the empty padding array), so this overlay block is what the
+      operator sees. Subsequent refreshes keep the previous rows visible and
+      surface an "Actualizando…" hint on the page toolbar instead, so the
+      skeleton never flashes mid-session.
+    -->
+    @if (showSkeleton()) {
+      <div class="data-table__skeleton" role="status" aria-live="polite" aria-busy="true">
+        <span class="sr-only">Cargando…</span>
+        @for (row of skeletonRows(); track row) {
+          <div class="data-table__skeleton-row">
+            @for (column of visibleColumns(); track column) {
+              <span class="data-table__skeleton-cell"></span>
+            }
+          </div>
+        }
+      </div>
+    }
   </div>
 
   <!--
