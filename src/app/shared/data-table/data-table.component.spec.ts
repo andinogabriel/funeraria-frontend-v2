@@ -188,11 +188,10 @@ describe('DataTableComponent', () => {
     });
   });
 
-  it('renders only the real rows (no placeholder padding) — the viewport handles fixed height', () => {
-    // Padding-to-pageSize was removed: the page footprint is held by a fixed-height
-    // SCSS viewport on the wrapper around the MatTable, and the body scrolls
-    // vertically when rows > viewport height. The data path returns the real rows
-    // verbatim — no null placeholders.
+  it('always pads the page with null placeholders up to the page size', () => {
+    // Combined with the SCSS fixed-height viewport this gives a stable visual
+    // footprint: 3 real rows + 2 placeholder rows fill the 5-row pageSize slot;
+    // the viewport caps the total height at ~10 body rows regardless of pageSize.
     const f = TestBed.createComponent(HostComponent);
     f.componentInstance.rows = rows;
     f.componentInstance.columns = columns;
@@ -200,15 +199,16 @@ describe('DataTableComponent', () => {
     f.detectChanges();
 
     const page = f.componentInstance.table['pagedData']();
-    expect(page).toHaveLength(3);
-    expect(page).toEqual(rows);
+    expect(page).toHaveLength(5);
+    expect(page.slice(0, 3).every((r) => r !== null)).toBe(true);
+    expect(page.slice(3).every((r) => r === null)).toBe(true);
   });
 
-  it('returns the user-supplied trackBy result with no placeholder special-casing', () => {
-    // Padding is gone, so the effective trackBy is just the caller's trackBy.
+  it('returns a stable placeholder id from the internal trackBy for null rows', () => {
     const trackBy = host.table['effectiveTrackBy'];
+    expect(trackBy(0, null)).toBe('__placeholder_0');
+    expect(trackBy(7, null)).toBe('__placeholder_7');
     expect(trackBy(0, rows[0])).toBe(rows[0]); // identity default
-    expect(trackBy(7, rows[1])).toBe(rows[1]);
   });
 
   it('resets defaults including sort and page size when the chooser reset is invoked', () => {

@@ -7,17 +7,21 @@
 }
 
 // -----------------------------------------------------------------------------
-// Viewport wrapper: caps the table at ~10 body rows of height (~576 px including
-// the header) so the page footprint stays predictable. PageSize=10 fits exactly;
-// PageSize=20+ makes the body scroll vertically inside this wrapper while the
-// header stays pinned at the top via `position: sticky` (defined below).
+// Viewport wrapper: pins the table footprint at ~10 body rows of height (576 px =
+// 56 px header + 10 × 52 px body rows at Material MDC defaults). The
+// `height` (not `max-height`) is intentional — it forces the wrapper to keep its
+// footprint even when the table inside is shorter (eg. 3 rows + 7 placeholder
+// rows would otherwise leave a smaller visible block on some browsers if the
+// constraint were only an upper bound). With pageSize=25 the table renders 25
+// rows (real + padded) and the body scrolls vertically; the header stays pinned
+// via `position: sticky` (defined below).
 //
 // `overflow-x: auto` preserves the horizontal scroll for tables wider than the
 // viewport — the inner table keeps `min-width: 720px` so column labels never
 // crush together on mobile.
 // -----------------------------------------------------------------------------
 .data-table__viewport {
-  max-height: 576px;
+  height: 576px;
   overflow-y: auto;
   overflow-x: auto;
 }
