@@ -343,17 +343,40 @@ describe('DataTableComponent', () => {
       };
     }
 
-    it('disables every option whose value already covers the entire dataset', () => {
-      // Defaults: pageSizeOptions = [10, 25, 50, 100]. With totalElements = 12 the
-      // dataset fits inside any of 25, 50, or 100 — picking any of them would
-      // show the exact same rows the operator already sees on the first page
-      // under pageSize=10, so we grey them out and keep only 10 selectable.
+    it('on page 0 with unseen rows past the current page, enables the next worthwhile step up', () => {
+      // 12 rows on page 0 size 10 — picking 25 collapses the two-page view
+      // into one, useful, so 25 is enabled. 50 and 100 add no extra info
+      // beyond what 25 already shows (the dataset still has only 12 rows).
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
       f.componentInstance.serverSide = true;
       f.componentInstance.totalElements = 12;
       f.componentInstance.initialPageSize = 10;
+      f.componentInstance.initialPageIndex = 0;
+      f.detectChanges();
+
+      const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
+      expect(options).toEqual([
+        { value: 10, disabled: false },
+        { value: 25, disabled: false },
+        { value: 50, disabled: true },
+        { value: 100, disabled: true },
+      ]);
+    });
+
+    it('on the trailing page, disables every larger option (no unseen rows to surface)', () => {
+      // Same 12-row dataset on page 1: the operator is at the tail of the
+      // dataset, nothing past the current view to reveal — enlarging the page
+      // size would just reset to page 0 without surfacing anything new. Only
+      // 10 (the current size) stays enabled.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 12;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.initialPageIndex = 1;
       f.detectChanges();
 
       const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
@@ -365,21 +388,40 @@ describe('DataTableComponent', () => {
       ]);
     });
 
-    it('enables larger options only when picking them still leaves rows for a second page', () => {
-      // With 33 rows: pageSize=25 still leaves 8 rows for a second page (real
-      // change vs. default 10 which leaves 23 across two more pages), so 25 is
-      // enabled. 50 and 100 already cover the whole dataset, so they are
-      // disabled — selecting them would be a no-op compared to picking 25.
+    it('progressively enables larger options as the dataset grows past each previous tier', () => {
+      // 33 rows on page 0 size 10: 25 enabled (33 > 10), 50 enabled (33 > 25),
+      // 100 disabled (33 ≤ 50). The "previous option" gate keeps the
+      // progression tight — each option must surface rows the next-smaller
+      // option could not.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
       f.componentInstance.serverSide = true;
       f.componentInstance.totalElements = 33;
       f.componentInstance.initialPageSize = 10;
+      f.componentInstance.initialPageIndex = 0;
       f.detectChanges();
 
       const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
-      expect(options.map((o) => o.disabled)).toEqual([false, false, true, true]);
+      expect(options.map((o) => o.disabled)).toEqual([false, false, false, true]);
+    });
+
+    it('enables the largest option once the dataset clears the previous tier — even if it overshoots the total', () => {
+      // 80 rows on page 0 size 10: 100 stays enabled because 80 > 50, meaning
+      // picking 100 collapses the (currently 8-page) view into a single page
+      // showing all 80. The fact that 100 > 80 is fine — the operator sees
+      // every row in one shot, which is exactly the point of the option.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 80;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.initialPageIndex = 0;
+      f.detectChanges();
+
+      const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
+      expect(options.map((o) => o.disabled)).toEqual([false, false, false, false]);
     });
 
     it('keeps the currently active page size enabled even if the dataset shrinks below the tier', () => {

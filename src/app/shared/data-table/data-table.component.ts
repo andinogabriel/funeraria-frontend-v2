@@ -372,17 +372,21 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    *   <li>it is the smallest option (the operator can always shrink page size);</li>
    *   <li>it matches the currently active page size (never disable the user's own
    *       selection out from under them);</li>
-   *   <li>the dataset has strictly more rows than the option value, meaning
-   *       picking it still leaves at least one extra row for a second page —
-   *       enlarging the page would be a real change.</li>
+   *   <li>the current page is NOT already the last page (there is at least one
+   *       unseen row past `(pageIndex + 1) * pageSize`) AND the dataset has
+   *       strictly more rows than the previous option in the list — i.e., picking
+   *       this option would meaningfully change the slice the user is browsing.</li>
    * </ul>
    *
-   * <p>Rationale: with a 12-row dataset and options [10, 25, 50, 100], picking 25
-   * shows all 12 rows in a single page; picking 50 or 100 does the same. None of
-   * those is meaningfully different from "10 plus a 2-row second page", so we grey
-   * out every option whose value already covers the whole dataset. With 33 rows,
-   * picking 25 would actually leave 8 rows for a second page, so 25 stays enabled
-   * (50 and 100 grey out because 33 < 50 ≤ 100).
+   * <p>The rule is page-aware on purpose. From page 0 with size=10 and 12 rows,
+   * picking 25 collapses the two-page view into one — useful, so 25 stays
+   * enabled. From page 1 (the trailing 2 rows) with the same 12 rows, there is
+   * nothing past the current view to surface; enlarging to 25 would just reset
+   * to page 0 without revealing anything new, so the larger options grey out.
+   *
+   * <p>The `total > previousOption` clause keeps the progression tight: with 33
+   * rows on page 0 the operator can pick 25 (33 > 10) or 50 (33 > 25) but not
+   * 100 (33 ≤ 50), matching the "next worthwhile step up" intent.
    */
   protected readonly effectivePageSizeOptions = computed<
     readonly { value: number; disabled: boolean }[]
@@ -390,10 +394,14 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     const options = [...this.pageSizeOptions()].sort((a, b) => a - b);
     const total = this.paginatorLength();
     const current = this.pageSize();
+    const pageIndex = this.pageIndex();
+    const hasUnseenRowsPastCurrentPage = (pageIndex + 1) * current < total;
     return options.map((value, index) => {
       if (value === current) return { value, disabled: false };
       if (index === 0) return { value, disabled: false };
-      return { value, disabled: total <= value };
+      const previous = options[index - 1] ?? 0;
+      const wouldSurfaceMoreData = hasUnseenRowsPastCurrentPage && total > previous;
+      return { value, disabled: !wouldSurfaceMoreData };
     });
   });
 
