@@ -44,13 +44,13 @@
 
           <div class="flex items-center justify-between gap-2">
             <button type="button" mat-button (click)="onResetColumns()">Restablecer</button>
-            <button
-              type="button"
-              mat-flat-button
-              color="primary"
-              (click)="onApplyColumns()"
-              matMenuTriggerClose
-            >
+            <!--
+              No `stopPropagation()` wrappers around the chooser content, so the click
+              on Aplicar bubbles up to the mat-menu panel which auto-closes. (The
+              column-filter menu uses stopPropagation on its sections to keep typing
+              from closing the menu — there we close explicitly via trigger ref.)
+            -->
+            <button type="button" mat-flat-button color="primary" (click)="onApplyColumns()">
               Aplicar
             </button>
           </div>
@@ -59,14 +59,15 @@
     </div>
   }
 
-  <div class="overflow-x-auto">
-    <!--
-      Single MatTable that handles both populated and empty states. Header row stays
-      visible (column names + menu triggers) regardless of dataset size; in empty
-      state the dataSource is `[]` (via pagedData()) so the body renders nothing, and
-      a sibling div below renders the centered illustration so the table footprint
-      never collapses.
-    -->
+  <!--
+    Viewport wrapper: caps the table at ~10 body rows of height (~576 px including
+    the header) so the page footprint stays predictable. When pageSize is 10 the
+    table fits exactly; with pageSize 20+, the body scrolls vertically inside the
+    viewport while the header stays sticky (see SCSS). When the dataset is empty
+    the viewport collapses to the header height and the sibling empty-state region
+    below absorbs the rest of the reserved height.
+  -->
+  <div class="data-table__viewport">
     <table
       mat-table
       [dataSource]="pagedData()"
@@ -93,9 +94,11 @@
               class="data-table__header-trigger"
               [matMenuTriggerFor]="columnMenu"
               [disabled]="showEmptyState()"
+              #columnMenuTrigger="matMenuTrigger"
               (menuOpened)="onColumnMenuOpen(column)"
               [attr.data-active]="
-                hasActiveFilter(column.key) || currentSortDirection(column.key) !== ''
+                !showEmptyState() &&
+                (hasActiveFilter(column.key) || currentSortDirection(column.key) !== '')
                   ? 'true'
                   : null
               "
@@ -103,16 +106,21 @@
               [attr.aria-label]="'Opciones de columna ' + column.label"
             >
               <span>{{ column.label }}</span>
-              @if (currentSortDirection(column.key) === 'asc') {
+              <!--
+                Sort + filter indicators on the header are hidden when the table
+                is in empty state — there is no data to sort or filter, so the
+                visual cue would be misleading.
+              -->
+              @if (!showEmptyState() && currentSortDirection(column.key) === 'asc') {
                 <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
                   >arrow_upward</mat-icon
                 >
-              } @else if (currentSortDirection(column.key) === 'desc') {
+              } @else if (!showEmptyState() && currentSortDirection(column.key) === 'desc') {
                 <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
                   >arrow_downward</mat-icon
                 >
               }
-              @if (hasActiveFilter(column.key)) {
+              @if (!showEmptyState() && hasActiveFilter(column.key)) {
                 <span class="data-table__header-dot" aria-hidden="true"></span>
               }
             </button>
@@ -317,12 +325,18 @@
                   (click)="$event.stopPropagation()"
                   (keydown)="$event.stopPropagation()"
                 >
+                  <!--
+                    `matMenuTriggerClose` is not a real Material directive — to close
+                    the parent menu from a non-`mat-menu-item` button we call
+                    `closeMenu()` on the trigger via its template reference. The
+                    `#columnMenuTrigger` template var on the header button is in the
+                    same component view so it resolves inside this nested menu panel.
+                  -->
                   <button
                     type="button"
                     mat-flat-button
                     color="primary"
-                    (click)="onColumnMenuApply(column)"
-                    matMenuTriggerClose
+                    (click)="onColumnMenuApply(column); columnMenuTrigger.closeMenu()"
                   >
                     Aceptar
                   </button>
@@ -395,14 +409,20 @@
     }
   </div>
 
-  <mat-paginator
-    class="sticky bottom-0 z-10 !bg-[var(--mat-sys-surface)]"
-    [length]="paginatorLength()"
-    [pageSize]="pageSize()"
-    [pageSizeOptions]="pageSizeOptions()"
-    [pageIndex]="pageIndex()"
-    [hidePageSize]="hidePageSizeSelector()"
-    [disabled]="showEmptyState()"
-    showFirstLastButtons
-  />
+  <!--
+    Paginator hidden entirely when the dataset is empty — the disabled controls
+    were visually noisy and the user has no real action to take from there. The
+    page toolbar's "Limpiar filtros" affordance covers the recovery path.
+  -->
+  @if (!showEmptyState()) {
+    <mat-paginator
+      class="sticky bottom-0 z-10 !bg-[var(--mat-sys-surface)]"
+      [length]="paginatorLength()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions()"
+      [pageIndex]="pageIndex()"
+      [hidePageSize]="hidePageSizeSelector()"
+      showFirstLastButtons
+    />
+  }
 </div>
