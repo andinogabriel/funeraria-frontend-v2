@@ -39,7 +39,7 @@ interface Row {
       [emptyState]="emptyState"
       (sortChange)="lastSortChange = $event"
       (pageChange)="lastPageChange = $event"
-      (columnFilterChange)="lastColumnFilterChange = $event"
+      (columnMenuApply)="lastColumnMenuApply = $event"
     />
   `,
 })
@@ -56,8 +56,13 @@ class HostComponent {
   emptyState: DataTableEmptyState | null = null;
   lastSortChange: DataTableSort | null | undefined = undefined;
   lastPageChange: { pageIndex: number; pageSize: number } | undefined = undefined;
-  lastColumnFilterChange: { key: string; value: DataTableColumnFilterValue | null } | undefined =
-    undefined;
+  lastColumnMenuApply:
+    | {
+        key: string;
+        filter: DataTableColumnFilterValue | null;
+        sortDirection: 'asc' | 'desc' | '';
+      }
+    | undefined = undefined;
 
   @ViewChild(DataTableComponent) table!: DataTableComponent<Row>;
 }
@@ -183,8 +188,11 @@ describe('DataTableComponent', () => {
     });
   });
 
-  it('always pads the page with null placeholders up to the page size', () => {
-    // Fresh fixture so initialPageSize applies during hydration.
+  it('renders only the real rows (no placeholder padding) — the viewport handles fixed height', () => {
+    // Padding-to-pageSize was removed: the page footprint is held by a fixed-height
+    // SCSS viewport on the wrapper around the MatTable, and the body scrolls
+    // vertically when rows > viewport height. The data path returns the real rows
+    // verbatim — no null placeholders.
     const f = TestBed.createComponent(HostComponent);
     f.componentInstance.rows = rows;
     f.componentInstance.columns = columns;
@@ -192,16 +200,15 @@ describe('DataTableComponent', () => {
     f.detectChanges();
 
     const page = f.componentInstance.table['pagedData']();
-    expect(page).toHaveLength(5);
-    expect(page.slice(0, 3).every((r) => r !== null)).toBe(true);
-    expect(page.slice(3).every((r) => r === null)).toBe(true);
+    expect(page).toHaveLength(3);
+    expect(page).toEqual(rows);
   });
 
-  it('returns a stable placeholder id from the internal trackBy for null rows', () => {
+  it('returns the user-supplied trackBy result with no placeholder special-casing', () => {
+    // Padding is gone, so the effective trackBy is just the caller's trackBy.
     const trackBy = host.table['effectiveTrackBy'];
-    expect(trackBy(0, null)).toBe('__placeholder_0');
-    expect(trackBy(7, null)).toBe('__placeholder_7');
     expect(trackBy(0, rows[0])).toBe(rows[0]); // identity default
+    expect(trackBy(7, rows[1])).toBe(rows[1]);
   });
 
   it('resets defaults including sort and page size when the chooser reset is invoked', () => {
@@ -326,19 +333,19 @@ describe('DataTableComponent', () => {
       menuApi().onColumnMenuOpen(nameColumn);
       menuApi().textControl('name').setValue('alf');
 
-      expect(host.lastColumnFilterChange).toBeUndefined();
+      expect(host.lastColumnMenuApply).toBeUndefined();
 
       menuApi().onColumnMenuApply(nameColumn);
 
-      expect(host.lastColumnFilterChange).toEqual({
+      expect(host.lastColumnMenuApply).toEqual({
         key: 'name',
-        value: { type: 'text', value: 'alf' },
+        filter: { type: 'text', value: 'alf' },
+        sortDirection: '',
       });
     });
 
-    it('emits null on Aceptar when the text input was cleared so the parent drops the URL param', () => {
+    it('emits null filter on Aceptar when the text input was cleared so the parent drops the URL param', () => {
       const nameColumn = columns.find((c) => c.key === 'name')!;
-      // Seed parent state with a pre-existing filter; the menu opens against that.
       host.columnFilters = new Map<string, DataTableColumnFilterValue>([
         ['name', { type: 'text', value: 'existing' }],
       ]);
@@ -348,7 +355,11 @@ describe('DataTableComponent', () => {
       menuApi().textControl('name').setValue('');
       menuApi().onColumnMenuApply(nameColumn);
 
-      expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
+      expect(host.lastColumnMenuApply).toEqual({
+        key: 'name',
+        filter: null,
+        sortDirection: '',
+      });
     });
 
     it('trims whitespace before emitting on Aceptar so leading spaces do not pollute the URL', () => {
@@ -357,10 +368,14 @@ describe('DataTableComponent', () => {
       menuApi().textControl('name').setValue('   ');
       menuApi().onColumnMenuApply(nameColumn);
 
-      expect(host.lastColumnFilterChange).toEqual({ key: 'name', value: null });
+      expect(host.lastColumnMenuApply).toEqual({
+        key: 'name',
+        filter: null,
+        sortDirection: '',
+      });
     });
 
-    it('emits a combined dateRange payload on Aceptar', () => {
+    it('emits a combined dateRange + sort payload on Aceptar', () => {
       const dateColumns: readonly DataTableColumn<Row>[] = [
         ...columns,
         { key: 'when', label: 'Cuándo', value: () => null, filter: 'dateRange' },
@@ -380,9 +395,10 @@ describe('DataTableComponent', () => {
       fApi.dateControl('when', 'from').setValue(new Date(2026, 0, 5));
       fApi.onColumnMenuApply(whenColumn);
 
-      expect(f.componentInstance.lastColumnFilterChange).toEqual({
+      expect(f.componentInstance.lastColumnMenuApply).toEqual({
         key: 'when',
-        value: { type: 'dateRange', from: '2026-01-05', to: null },
+        filter: { type: 'dateRange', from: '2026-01-05', to: null },
+        sortDirection: '',
       });
     });
 
@@ -409,12 +425,11 @@ describe('DataTableComponent', () => {
       expect(apiOf.hasActiveFilter('id')).toBe(false);
     });
 
-    it('also commits sort on Aceptar when the column has both a filter and a staged sort', () => {
+    it('emits filter + sort together on Aceptar in a single atomic payload', () => {
       const nameColumn = columns.find((c) => c.key === 'name')!;
       menuApi().onColumnMenuOpen(nameColumn);
       menuApi().textControl('name').setValue('xyz');
 
-      // Stage a sort direction at the same time as the filter.
       const apiOf = host.table as unknown as {
         onStagedSortPick: (col: DataTableColumn<Row>, dir: 'asc' | 'desc' | '') => void;
       };
@@ -422,12 +437,40 @@ describe('DataTableComponent', () => {
 
       menuApi().onColumnMenuApply(nameColumn);
 
-      // Both events fired in the same Aceptar click.
-      expect(host.lastColumnFilterChange).toEqual({
+      // Both pieces of staged state ride one event so the parent updates the URL atomically.
+      expect(host.lastColumnMenuApply).toEqual({
         key: 'name',
-        value: { type: 'text', value: 'xyz' },
+        filter: { type: 'text', value: 'xyz' },
+        sortDirection: 'desc',
       });
-      expect(host.lastSortChange).toEqual({ active: 'name', direction: 'desc' });
+    });
+
+    it('emits sortDirection on Aceptar even when the filter value has not changed', () => {
+      // Regression: previously the data-table emitted filter + sort as two events
+      // and back-to-back router.navigate() calls raced — when the filter value
+      // did not change between menu opens but the sort did, the sort change got
+      // dropped because the second navigate read a snapshot before the first
+      // committed. The combined event eliminates the race by definition.
+      host.columnFilters = new Map<string, DataTableColumnFilterValue>([
+        ['name', { type: 'text', value: 'stable' }],
+      ]);
+      host.initialSort = { active: 'name', direction: 'asc' };
+      fixture.detectChanges();
+
+      const nameColumn = columns.find((c) => c.key === 'name')!;
+      menuApi().onColumnMenuOpen(nameColumn);
+      // Filter value untouched; only flip the sort.
+      const apiOf = host.table as unknown as {
+        onStagedSortPick: (col: DataTableColumn<Row>, dir: 'asc' | 'desc' | '') => void;
+      };
+      apiOf.onStagedSortPick(nameColumn, 'desc');
+      menuApi().onColumnMenuApply(nameColumn);
+
+      expect(host.lastColumnMenuApply).toEqual({
+        key: 'name',
+        filter: { type: 'text', value: 'stable' },
+        sortDirection: 'desc',
+      });
     });
   });
 
@@ -497,7 +540,11 @@ describe('DataTableComponent', () => {
 
       // Without a pick, Aceptar commits null (typing alone is not a selection).
       t.onColumnMenuApply(col as unknown as DataTableColumn<Row>);
-      expect(f.componentInstance.lastColumnFilterChange).toEqual({ key: 'tag', value: null });
+      expect(f.componentInstance.lastColumnMenuApply).toEqual({
+        key: 'tag',
+        filter: null,
+        sortDirection: '',
+      });
 
       // After selecting an option, Aceptar commits the option's value + label.
       t.onAutocompleteOptionSelect(col as unknown as DataTableColumn<Row>, {
@@ -505,9 +552,10 @@ describe('DataTableComponent', () => {
         label: 'Alpha',
       });
       t.onColumnMenuApply(col as unknown as DataTableColumn<Row>);
-      expect(f.componentInstance.lastColumnFilterChange).toEqual({
+      expect(f.componentInstance.lastColumnMenuApply).toEqual({
         key: 'tag',
-        value: { type: 'autocomplete', value: 'a', label: 'Alpha' },
+        filter: { type: 'autocomplete', value: 'a', label: 'Alpha' },
+        sortDirection: '',
       });
     });
   });

@@ -178,12 +178,21 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   readonly pageChange = output<{ pageIndex: number; pageSize: number }>();
 
   /**
-   * Fires when the user commits a filter change via the column-menu Aceptar button.
-   * `value === null` signals "filter cleared" — parent should drop the URL param.
+   * Fires when the user commits the column menu via Aceptar. Carries both the staged
+   * filter value AND the staged sort direction in a single payload so the parent can
+   * update the URL atomically — emitting two separate events (filter + sort) caused a
+   * race on rapid `router.navigate` calls where the second call read a snapshot
+   * before the first navigation had committed, dropping the earlier change.
+   *
+   * `filter === null` signals "filter cleared" for this column.
+   * `sortDirection === ''` signals "no sort by this column"; non-empty means "use
+   *  this column with the supplied direction". The parent decides whether to clear or
+   * keep the current sort if it was active on a different column.
    */
-  readonly columnFilterChange = output<{
+  readonly columnMenuApply = output<{
     key: string;
-    value: DataTableColumnFilterValue | null;
+    filter: DataTableColumnFilterValue | null;
+    sortDirection: DataTableSortDirection;
   }>();
 
   /** Label of the trailing action column when an `actions` template is projected. */
@@ -192,8 +201,8 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   /** Row track-by accessor. Defaults to identity (Angular's default) when unset. */
   readonly trackBy = input<(index: number, row: T) => unknown>((_, row) => row);
 
-  protected readonly effectiveTrackBy = (index: number, row: T | null): unknown =>
-    row === null ? `__placeholder_${index}` : this.trackBy()(index, row);
+  protected readonly effectiveTrackBy = (index: number, row: T): unknown =>
+    this.trackBy()(index, row);
 
   /** Optional content-projected trailing column for row actions. */
   @ContentChild('actions', { read: TemplateRef })
@@ -271,23 +280,22 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   });
 
   /**
-   * Rows MatTable actually renders. Always padded to `pageSize` row heights so the
-   * footprint stays stable. When the dataset is empty AND `emptyState` is provided,
-   * the body is replaced entirely by the empty-state overlay (no rows rendered).
+   * Rows MatTable actually renders. No padding — the table is wrapped in a
+   * fixed-height scroll container (~10 row heights) so the page footprint stays
+   * stable while pageSize stays honest. With pageSize=20 the operator sees the
+   * first ~10 rows and scrolls vertically inside the wrapper to reveal the rest.
+   * When the dataset is empty AND `emptyState` is provided, the body renders
+   * nothing and the sibling empty-state div fills the same reserved height.
    */
-  protected readonly pagedData = computed<readonly (T | null)[]>(() => {
+  protected readonly pagedData = computed<readonly T[]>(() => {
     if (this.showEmptyState()) {
       return [];
     }
     const all = this.sortedData();
-    const slice = this.serverSide()
-      ? all
-      : all.slice(this.pageIndex() * this.pageSize(), (this.pageIndex() + 1) * this.pageSize());
-    const missing = this.pageSize() - slice.length;
-    if (missing <= 0) {
-      return slice;
+    if (this.serverSide()) {
+      return all;
     }
-    return [...slice, ...(Array(missing).fill(null) as null[])];
+    return all.slice(this.pageIndex() * this.pageSize(), (this.pageIndex() + 1) * this.pageSize());
   });
 
   /** `true` when there are zero real rows AND an emptyState is configured. */
@@ -395,13 +403,33 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   }
 
   /**
-   * Commits the staged state for a column: emits `columnFilterChange` if the filter
-   * changed (including null-to-clear), and `sortChange` if the sort changed. Closes
-   * the menu — the host `[matMenuTriggerClose]` on the Aceptar button handles that.
+   * Commits the staged state for a column in a single combined event so the parent
+   * can update the URL atomically. Emitting separate filter + sort events caused a
+   * race where back-to-back `router.navigate({ replaceUrl: true })` calls read the
+   * route snapshot at the wrong moment and one of the two changes silently dropped.
+   *
+   * The local `sortState` signal is updated synchronously here too so the header's
+   * sort indicator reflects the new direction the instant the menu closes.
    */
   protected onColumnMenuApply(column: DataTableColumn<T>): void {
-    this.commitFilter(column);
-    this.commitSort(column);
+    const filter = this.readStagedFilter(column);
+    const direction = this.stagedSort.get(column.key) ?? '';
+
+    // Mirror the new sort into the local signal so the header arrow flips
+    // immediately (the parent will also push it through the URL → effect → table
+    // input loop, but doing it locally avoids a frame of stale visual state).
+    if (direction === '') {
+      this.sortState.set(null);
+    } else {
+      this.sortState.set({ active: column.key, direction });
+    }
+    this.pageIndex.set(0);
+
+    this.columnMenuApply.emit({
+      key: column.key,
+      filter,
+      sortDirection: direction,
+    });
   }
 
   /** Emits a sort change immediately — used by sort-only columns (no filter). */
@@ -602,19 +630,17 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   // --------------------------------------------------------------------------
 
   /**
-   * Emits the staged filter for a column (or `null` to clear). Empty text /
+   * Reads the column's staged filter into the discriminated-union shape used in the
+   * `columnMenuApply` payload. Pure read — no emission, no side effects — so the
+   * caller can combine it with the staged sort in a single event. Empty text /
    * empty dateRange / unset autocomplete all map to `null` so the parent drops the
    * corresponding URL param.
    */
-  private commitFilter(column: DataTableColumn<T>): void {
+  private readStagedFilter(column: DataTableColumn<T>): DataTableColumnFilterValue | null {
     if (column.filter === 'text') {
       const raw = this.ensureControl(column.key).value;
       const value = typeof raw === 'string' ? raw.trim() : '';
-      this.columnFilterChange.emit({
-        key: column.key,
-        value: value.length === 0 ? null : { type: 'text', value },
-      });
-      return;
+      return value.length === 0 ? null : { type: 'text', value };
     }
     if (column.filter === 'dateRange') {
       const from = this.ensureControl(`${column.key}:from`).value;
@@ -622,25 +648,17 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
       const fromIso = from instanceof Date ? toIsoDate(from) : null;
       const toIso = to instanceof Date ? toIsoDate(to) : null;
       if (fromIso === null && toIso === null) {
-        this.columnFilterChange.emit({ key: column.key, value: null });
-      } else {
-        this.columnFilterChange.emit({
-          key: column.key,
-          value: { type: 'dateRange', from: fromIso, to: toIso },
-        });
+        return null;
       }
-      return;
+      return { type: 'dateRange', from: fromIso, to: toIso };
     }
     if (column.filter === 'autocomplete') {
       const staged = this.stagedAutocomplete.get(column.key) ?? null;
-      this.columnFilterChange.emit({
-        key: column.key,
-        value:
-          staged === null
-            ? null
-            : { type: 'autocomplete', value: staged.value, label: staged.label },
-      });
+      return staged === null
+        ? null
+        : { type: 'autocomplete', value: staged.value, label: staged.label };
     }
+    return null;
   }
 
   /** Emits the staged sort direction for a column if it differs from the current. */

@@ -264,38 +264,58 @@ export class IncomeListPage {
   }
 
   /**
-   * Handler for the data-table's column-menu filter (committed via Aceptar). Maps
-   * each column key to its backend filter param.
+   * Single-call handler for the data-table's column-menu Aceptar. Carries both
+   * filter and sort changes in one atomic patch so the router writes them in a
+   * single `navigate()` call — the previous two-event flow raced on
+   * `router.navigate({ replaceUrl: true })` and silently dropped the second
+   * change because the second navigate read a snapshot before the first had
+   * committed.
    */
-  protected onColumnFilterChange(event: {
+  protected onColumnMenuApply(event: {
     key: string;
-    value: DataTableColumnFilterValue | null;
+    filter: DataTableColumnFilterValue | null;
+    sortDirection: 'asc' | 'desc' | '';
   }): void {
+    // Bracket access throughout because TypeScript's
+    // `noPropertyAccessFromIndexSignature` setting rejects dot-access on
+    // Record<string, …>. The keys are stable URL param names, not derived
+    // dynamically, so the strings stay readable.
+    const patch: Record<string, string | number | null> = { page: 0 };
+
     if (event.key === 'receiptNumber') {
-      const text = event.value && event.value.type === 'text' ? event.value.value : null;
-      this.pushToUrl({ receiptNumber: text, page: 0 });
-      return;
-    }
-    if (event.key === 'supplier') {
-      const nif = event.value && event.value.type === 'autocomplete' ? event.value.value : null;
-      this.pushToUrl({ supplierNif: nif, page: 0 });
-      return;
-    }
-    if (event.key === 'incomeDate') {
-      if (event.value === null) {
-        this.pushToUrl({ from: null, to: null, page: 0 });
-        return;
-      }
-      if (event.value.type === 'dateRange') {
-        this.pushToUrl({ from: event.value.from, to: event.value.to, page: 0 });
+      patch['receiptNumber'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'supplier') {
+      patch['supplierNif'] = event.filter?.type === 'autocomplete' ? event.filter.value : null;
+    } else if (event.key === 'incomeDate') {
+      if (event.filter?.type === 'dateRange') {
+        patch['from'] = event.filter.from;
+        patch['to'] = event.filter.to;
+      } else {
+        patch['from'] = null;
+        patch['to'] = null;
       }
     }
+
+    if (event.sortDirection === '') {
+      patch['sortBy'] = null;
+      patch['sortDir'] = null;
+    } else {
+      patch['sortBy'] = event.key;
+      patch['sortDir'] = event.sortDirection;
+    }
+
+    this.pushToUrl(patch);
   }
 
   protected onPageChange(event: { pageIndex: number; pageSize: number }): void {
     this.pushToUrl({ page: event.pageIndex, size: event.pageSize });
   }
 
+  /**
+   * Sort change emitted by sort-only columns (no filter declared). Those commit
+   * via click on the menu items, not via the Aceptar button, so they ride this
+   * legacy event channel instead of `(columnMenuApply)`.
+   */
   protected onSortChange(sort: DataTableSort | null): void {
     if (sort === null || sort.direction === '') {
       this.pushToUrl({ sortBy: null, sortDir: null, page: 0 });

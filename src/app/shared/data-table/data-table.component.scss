@@ -7,6 +7,38 @@
 }
 
 // -----------------------------------------------------------------------------
+// Viewport wrapper: caps the table at ~10 body rows of height (~576 px including
+// the header) so the page footprint stays predictable. PageSize=10 fits exactly;
+// PageSize=20+ makes the body scroll vertically inside this wrapper while the
+// header stays pinned at the top via `position: sticky` (defined below).
+//
+// `overflow-x: auto` preserves the horizontal scroll for tables wider than the
+// viewport — the inner table keeps `min-width: 720px` so column labels never
+// crush together on mobile.
+// -----------------------------------------------------------------------------
+.data-table__viewport {
+  max-height: 576px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+// Sticky header inside the scroll viewport. Without an opaque background the
+// rows below would show through the (transparent) sticky cells as they scroll
+// past, which reads as a glitch. The surface token keeps light and dark themes
+// both readable; we also stamp the same background on individual header cells
+// because Material's MDC table uses the cell as the painted surface, not the row.
+:host ::ng-deep .data-table__viewport .mat-mdc-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--mat-sys-surface);
+}
+
+:host ::ng-deep .data-table__viewport .mat-mdc-header-cell {
+  background-color: var(--mat-sys-surface);
+}
+
+// -----------------------------------------------------------------------------
 // Column header as an interactive trigger.
 // -----------------------------------------------------------------------------
 .data-table__header-trigger {
@@ -140,10 +172,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  // ~10 row heights at 44 px so switching between empty and non-empty does not
-  // collapse the container. The header above + this region together replicate
-  // the table footprint operators are used to.
-  min-height: 440px;
+  // Sized so the header (~56 px) + this region together match the viewport's
+  // 576 px ceiling — the table footprint never collapses on filter wipe and
+  // never grows past the height it would have at pageSize 10 of real data.
+  min-height: 520px;
   border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 40%, transparent);
 }
 
