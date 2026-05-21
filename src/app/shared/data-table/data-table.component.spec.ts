@@ -318,9 +318,9 @@ describe('DataTableComponent', () => {
       apiOf.onColumnMenuSortOnlyApply(idColumn);
 
       expect(f.componentInstance.lastPageChange).toBeUndefined();
-      expect((f.componentInstance.table as unknown as { pageIndex: () => number }).pageIndex()).toBe(
-        0,
-      );
+      expect(
+        (f.componentInstance.table as unknown as { pageIndex: () => number }).pageIndex(),
+      ).toBe(0);
     });
   });
 

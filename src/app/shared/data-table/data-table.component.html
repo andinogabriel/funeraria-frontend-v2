@@ -421,11 +421,17 @@
       `<mat-select>` so we can grey out 50/100 while the dataset is too small to
       surface anything in those buckets (see `effectivePageSizeOptions`).
     -->
-    <div class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 !bg-[var(--mat-sys-surface)] pr-2">
+    <div
+      class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 !bg-[var(--mat-sys-surface)] pr-2"
+    >
       @if (!hidePageSizeSelector()) {
         <label class="data-table__page-size-label flex items-center gap-2 text-sm">
           <span>Filas por página:</span>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="data-table__page-size-select">
+          <mat-form-field
+            appearance="outline"
+            subscriptSizing="dynamic"
+            class="data-table__page-size-select"
+          >
             <mat-select
               [value]="pageSize()"
               (selectionChange)="onPageSizeSelect($event.value)"
