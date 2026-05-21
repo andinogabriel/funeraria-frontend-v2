@@ -341,7 +341,7 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * preventing the no-op selection.
    */
   protected readonly effectivePageSizeOptions = computed<
-    ReadonlyArray<{ value: number; disabled: boolean }>
+    readonly { value: number; disabled: boolean }[]
   >(() => {
     const options = [...this.pageSizeOptions()].sort((a, b) => a - b);
     const total = this.paginatorLength();

@@ -425,8 +425,8 @@
       class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 !bg-[var(--mat-sys-surface)] pr-2"
     >
       @if (!hidePageSizeSelector()) {
-        <label class="data-table__page-size-label flex items-center gap-2 text-sm">
-          <span>Filas por página:</span>
+        <div class="data-table__page-size-label flex items-center gap-2 text-sm">
+          <span id="data-table-page-size-label">Filas por página:</span>
           <mat-form-field
             appearance="outline"
             subscriptSizing="dynamic"
@@ -435,7 +435,7 @@
             <mat-select
               [value]="pageSize()"
               (selectionChange)="onPageSizeSelect($event.value)"
-              aria-label="Filas por página"
+              aria-labelledby="data-table-page-size-label"
             >
               @for (option of effectivePageSizeOptions(); track option.value) {
                 <mat-option [value]="option.value" [disabled]="option.disabled">
@@ -444,7 +444,7 @@
               }
             </mat-select>
           </mat-form-field>
-        </label>
+        </div>
       }
       <mat-paginator
         [length]="paginatorLength()"
