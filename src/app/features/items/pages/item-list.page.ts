@@ -137,19 +137,38 @@ export class ItemListPage {
     );
   });
 
-  protected readonly emptyState = computed<DataTableEmptyState>(() =>
-    this.hasActiveFilters()
-      ? {
-          icon: 'filter_alt_off',
-          title: 'Sin resultados',
-          body: 'Ajustá o limpiá los filtros para volver a ver el catálogo completo.',
-        }
-      : {
-          icon: 'inventory_2',
-          title: 'No hay items en el catálogo',
-          body: 'Sumá uno desde «Nuevo item» arriba a la derecha.',
+  /**
+   * Three-state empty message: filtered (no matches), out-of-range (operator
+   * typed a `page` param past the end of the data), or truly empty catalog.
+   * Out-of-range gets a CTA that resets the URL to `page=0`, so a one-click
+   * recovery exists when the operator shared / typed a stale link.
+   */
+  protected readonly emptyState = computed<DataTableEmptyState>(() => {
+    if (this.hasActiveFilters()) {
+      return {
+        icon: 'filter_alt_off',
+        title: 'Sin resultados',
+        body: 'Ajustá o limpiá los filtros para volver a ver el catálogo completo.',
+      };
+    }
+    if (this.totalElements() > 0 && this.pageIndex() > 0) {
+      return {
+        icon: 'pageview',
+        title: 'Esta página está vacía',
+        body: 'El URL apunta a una página que no contiene datos. Volvé al inicio para ver el catálogo.',
+        action: {
+          label: 'Ir a la primera página',
+          icon: 'first_page',
+          handler: () => this.pushToUrl({ page: 0 }),
         },
-  );
+      };
+    }
+    return {
+      icon: 'inventory_2',
+      title: 'No hay items en el catálogo',
+      body: 'Sumá uno desde «Nuevo item» arriba a la derecha.',
+    };
+  });
 
   /** Distinct category names derived from the currently loaded page's rows. */
   private readonly categoryOptions = (): readonly DataTableAutocompleteOption[] => {

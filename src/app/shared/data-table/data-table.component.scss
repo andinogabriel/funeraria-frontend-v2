@@ -264,6 +264,12 @@
   margin: 0;
 }
 
+// Spacing between the body text and the optional call-to-action so the button
+// reads as a distinct affordance rather than a continuation of the paragraph.
+.data-table__empty-action {
+  margin-top: 12px;
+}
+
 // -----------------------------------------------------------------------------
 // Skeleton cells live INSIDE the real <td>s — each cell renders a single
 // shimmer span when `isSkeletonRow(row)` is true. That makes the placeholders

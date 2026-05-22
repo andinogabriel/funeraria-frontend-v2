@@ -148,6 +148,23 @@ export interface DataTableEmptyState {
   readonly title: string;
   /** Optional body paragraph; smaller, lighter. */
   readonly body?: string;
+  /**
+   * Optional call-to-action rendered as a button under the body. Useful for the
+   * "out-of-range page" empty state — the table can offer a one-click way to
+   * jump back to a valid page when the operator lands on a URL whose `page`
+   * param has no data behind it.
+   */
+  readonly action?: DataTableEmptyStateAction;
+}
+
+/** Optional CTA descriptor for {@link DataTableEmptyState#action}. */
+export interface DataTableEmptyStateAction {
+  /** Button label. */
+  readonly label: string;
+  /** Fired when the operator clicks the button. */
+  readonly handler: () => void;
+  /** Optional Material Symbol icon rendered before the label. */
+  readonly icon?: string;
 }
 
 /**

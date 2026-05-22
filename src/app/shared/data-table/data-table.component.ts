@@ -360,13 +360,29 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     return [...slice, ...(Array(missing).fill(null) as null[])];
   });
 
-  /** `true` when there are zero real rows AND an emptyState is configured. */
+  /**
+   * `true` when the current visible slice has zero rows AND an emptyState is
+   * configured. We deliberately use the visible row count (not `totalElements`)
+   * so the empty UI fires in two distinct situations:
+   *
+   * <ul>
+   *   <li>The dataset is genuinely empty (no rows at all).</li>
+   *   <li>The operator landed on a paginated URL whose page index is past the
+   *       end of the data (the backend returns an empty content array even
+   *       though {@code totalElements > 0}). The parent provides a tailored
+   *       emptyState — usually a "página fuera de rango" message with an
+   *       action button that resets to {@code page=0}.</li>
+   * </ul>
+   *
+   * <p>Previously the predicate used {@code totalElements()} in server-side
+   * mode, which left out-of-range pages stuck rendering empty padding rows.
+   */
   protected readonly showEmptyState = computed<boolean>(() => {
     if (this.showSkeleton()) {
       return false;
     }
-    const realRowCount = this.serverSide() ? this.totalElements() : this.sortedData().length;
-    return realRowCount === 0 && this.emptyState() !== null;
+    const visibleRowCount = this.serverSide() ? this.data().length : this.sortedData().length;
+    return visibleRowCount === 0 && this.emptyState() !== null;
   });
 
   /**
