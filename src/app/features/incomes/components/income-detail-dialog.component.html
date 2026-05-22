@@ -95,9 +95,9 @@
           <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Última modificación</dt>
           <dd class="text-sm m-0 tabular-nums">
             {{ label }}
-            @if (data.lastModifiedBy) {
+            @if (data.lastModifiedBy; as user) {
               <span class="text-[var(--mat-sys-on-surface-variant)]">
-                · {{ data.lastModifiedBy }}
+                · {{ user.firstName }} {{ user.lastName }} · {{ user.email }}
               </span>
             }
           </dd>

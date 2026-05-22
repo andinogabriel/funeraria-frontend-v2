@@ -56,7 +56,14 @@ export interface Income {
   readonly receiptType: ReceiptType | null;
   readonly supplier: Supplier | null;
   readonly incomeUser: IncomeUser | null;
-  readonly lastModifiedBy: string | null;
+  /**
+   * Last operator who touched the income — same shape as {@link incomeUser}, NOT a
+   * raw audit string. The backend's `IncomeResponseDto.lastModifiedBy` is a
+   * `UserDto` record (email + firstName + lastName); typing it as `string`
+   * caused the detail dialog to render `[object Object]` once the operator
+   * actually edited a row and the field came back populated.
+   */
+  readonly lastModifiedBy: IncomeUser | null;
   readonly incomeDetails: readonly IncomeDetail[];
 }
 

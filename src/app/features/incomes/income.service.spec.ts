@@ -31,7 +31,11 @@ describe('IncomeService', () => {
           receiptType: { id: 1, name: 'Ingreso' },
           supplier: null,
           incomeUser: null,
-          lastModifiedBy: 'admin@funeraria.local',
+          lastModifiedBy: {
+            email: 'admin@funeraria.local',
+            firstName: 'Admin',
+            lastName: 'Funeraria',
+          },
           incomeDetails: [],
         },
       ],
