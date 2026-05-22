@@ -1,23 +1,23 @@
 import { Component, ViewChild, signal } from '@angular/core';
-import { FormControl } from '@angular/forms';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
-import type { DataTableColumn } from '../data-table';
+import type { DataTableColumn, DataTableColumnFilterValue } from '../data-table';
 import { SelectionListCardComponent } from './selection-list-card.component';
 import type { ListCardAction } from './selection-list-card.types';
 
 interface Row {
   readonly id: number;
   readonly name: string;
+  readonly birthdate: string; // ISO yyyy-mm-dd
 }
 
-/** Host wires up the inputs the way a real call site would, without re-implementing search debouncing. */
+/** Host wires up the inputs the way a real call site would. */
 @Component({
   imports: [SelectionListCardComponent],
   template: `
     <app-selection-list-card
-      [searchControl]="search"
       [data]="rows"
       [columns]="columns"
       [actions]="actions"
@@ -27,11 +27,11 @@ interface Row {
   `,
 })
 class HostComponent {
-  readonly search = new FormControl('', { nonNullable: true });
   rows: readonly Row[] = [];
   columns: readonly DataTableColumn<Row>[] = [
     { key: 'id', label: 'ID', value: (r) => r.id, hideable: false },
-    { key: 'name', label: 'Nombre', value: (r) => r.name },
+    { key: 'name', label: 'Nombre', value: (r) => r.name, filter: 'text' },
+    { key: 'birthdate', label: 'Nacimiento', value: (r) => r.birthdate, filter: 'dateRange' },
   ];
   actions: readonly ListCardAction[] = [];
   loading = false;
@@ -45,66 +45,103 @@ describe('SelectionListCardComponent', () => {
   let host: HostComponent;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [HostComponent, NoopAnimationsModule] });
+    TestBed.configureTestingModule({
+      imports: [HostComponent, NoopAnimationsModule],
+      providers: [provideNativeDateAdapter()],
+    });
     fixture = TestBed.createComponent(HostComponent);
     host = fixture.componentInstance;
     host.rows = [
-      { id: 1, name: 'Alfa' },
-      { id: 2, name: 'Beta' },
+      { id: 1, name: 'Alfa', birthdate: '1990-01-15' },
+      { id: 2, name: 'Beta', birthdate: '1995-06-20' },
+      { id: 3, name: 'Cárlos', birthdate: '2000-12-30' },
     ];
     fixture.detectChanges();
     window.localStorage.clear();
   });
 
-  it('marks hasSearchValue true once the form control holds a non-empty string', () => {
-    expect(host.card['hasSearchValue']()).toBe(false);
+  function api() {
+    return host.card as unknown as {
+      readonly committedFilters: () => ReadonlyMap<string, DataTableColumnFilterValue>;
+      readonly filteredData: () => readonly Row[];
+      readonly effectiveEmptyState: () => { icon: string; title: string; body?: string };
+      onColumnMenuApply(event: { key: string; filter: DataTableColumnFilterValue | null }): void;
+    };
+  }
 
-    host.search.setValue('alfa');
-    fixture.detectChanges();
-    expect(host.card['hasSearchValue']()).toBe(true);
-
-    host.search.setValue('');
-    fixture.detectChanges();
-    expect(host.card['hasSearchValue']()).toBe(false);
+  it('starts unfiltered — every row passes through filteredData', () => {
+    expect(api().filteredData()).toHaveLength(3);
+    expect(api().committedFilters().size).toBe(0);
   });
 
-  it('clears the search FormControl when onClearSearch fires', () => {
-    host.search.setValue('something');
+  it('applies a text filter case-insensitively and ignoring diacritics', () => {
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'cArl' } });
     fixture.detectChanges();
-
-    host.card['onClearSearch']();
-    expect(host.search.value).toBe('');
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.name),
+    ).toEqual(['Cárlos']);
   });
 
-  it('seeds hasSearchValue from the form control on construction', () => {
-    // Spin up a fresh fixture so the initial value gets seeded BEFORE the first
-    // detect cycle — the shared `beforeEach` builds a fixture with an empty
-    // FormControl, which already verified the zero-state case in the test above.
-    const f = TestBed.createComponent(HostComponent);
-    f.componentInstance.search.setValue('already there');
-    f.detectChanges();
+  it('drops a committed filter when columnMenuApply fires with filter: null', () => {
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'alfa' } });
+    fixture.detectChanges();
+    expect(api().filteredData()).toHaveLength(1);
 
-    expect(f.componentInstance.card['hasSearchValue']()).toBe(true);
+    api().onColumnMenuApply({ key: 'name', filter: null });
+    fixture.detectChanges();
+    expect(api().filteredData()).toHaveLength(3);
   });
 
-  it('forwards selection through the model binding to the host signal', () => {
-    const table = host.card as unknown as { selectedRow: { set: (v: Row | null) => void } };
-    table.selectedRow.set(host.rows[1]);
+  it('applies a dateRange filter inclusive on both ends', () => {
+    api().onColumnMenuApply({
+      key: 'birthdate',
+      filter: { type: 'dateRange', from: '1992-01-01', to: '1996-01-01' },
+    });
     fixture.detectChanges();
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.name),
+    ).toEqual(['Beta']);
+  });
 
-    expect(host.selected()).toEqual(host.rows[1]);
+  it('combines multiple committed filters with AND semantics', () => {
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'a' } });
+    api().onColumnMenuApply({
+      key: 'birthdate',
+      filter: { type: 'dateRange', from: '1994-01-01', to: null },
+    });
+    fixture.detectChanges();
+    // "a" matches Alfa, Beta, Cárlos. Birth from 1994-onwards drops Alfa.
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.name),
+    ).toEqual(['Beta', 'Cárlos']);
   });
 
   it('builds the data-table emptyState payload from the icon / title / hint inputs', () => {
-    // The wrapper no longer renders its own empty divs — it forwards a single
-    // `emptyState` object to the inner data-table. This test pins that mapping
-    // so existing call sites keep getting the empty UI they configured.
-    const api = host.card as unknown as {
-      effectiveEmptyState: () => { icon: string; title: string; body?: string };
-    };
-    const payload = api.effectiveEmptyState();
+    const payload = api().effectiveEmptyState();
     expect(payload.icon).toBe('search_off');
     expect(payload.title).toBe('No hay resultados.');
     expect(payload.body).toBe('Probá con otro criterio de búsqueda.');
+  });
+
+  it('forwards selection through the model binding to the host signal', () => {
+    host.card.selectedRow.set(host.rows[1]);
+    fixture.detectChanges();
+    expect(host.selected()).toEqual(host.rows[1]);
+  });
+
+  it('clears the selection when a committed filter excludes the selected row', () => {
+    host.card.selectedRow.set(host.rows[0]); // Alfa
+    fixture.detectChanges();
+    expect(host.selected()).toEqual(host.rows[0]);
+
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'beta' } });
+    fixture.detectChanges();
+    expect(host.selected()).toBeNull();
   });
 });

@@ -1,19 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
@@ -45,23 +35,19 @@ export class BrandListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-  private readonly searchTerm = signal('');
+  protected readonly rows = computed<readonly Brand[]>(() => this.service.list() ?? []);
 
   protected readonly selectedBrand = signal<Brand | null>(null);
   protected readonly hasSelection = computed(() => this.selectedBrand() !== null);
 
-  protected readonly filtered = computed<readonly Brand[]>(() => {
-    const all = this.service.list() ?? [];
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) {
-      return all;
-    }
-    return all.filter((brand) => brand.name.toLowerCase().includes(term));
-  });
-
   protected readonly columns: readonly DataTableColumn<Brand>[] = [
-    { key: 'name', label: 'Nombre', value: (brand) => brand.name, hideable: false },
+    {
+      key: 'name',
+      label: 'Nombre',
+      value: (brand) => brand.name,
+      hideable: false,
+      filter: 'text',
+    },
     { key: 'webPage', label: 'Sitio web', value: (brand) => brand.webPage ?? '' },
   ] as const;
 
@@ -89,21 +75,7 @@ export class BrandListPage {
 
   constructor() {
     this.service.loadAll().subscribe();
-
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => this.searchTerm.set(value));
-
-    effect(() => {
-      const selected = this.selectedBrand();
-      if (selected === null) {
-        return;
-      }
-      const visible = this.filtered();
-      if (!visible.some((brand) => brand.id === selected.id)) {
-        this.selectedBrand.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   private onEdit(): void {

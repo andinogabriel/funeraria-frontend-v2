@@ -2,37 +2,19 @@
   class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
 >
   <!--
-    Single-row toolbar. Search on the left (`flex-1 min-w-0` on mobile, fixed
-    320 px on `sm+`), action buttons on the right pinned with `shrink-0`.
-    Action buttons live in two parallel DOM trees switched via
-    `hidden` / `sm:hidden`: `mat-icon-button` on phones and `mat-stroked-button`
-    with text on tablet+. See the component class for the rationale.
+    Action toolbar. Filtering now lives inside each column header menu (commit
+    via Aceptar), so the toolbar no longer carries a search field — only the
+    row-action buttons split between an icon-only mobile presentation
+    (`mat-icon-button`) and a labelled desktop one (`mat-stroked-button`). The
+    toolbar collapses entirely when no actions are configured so the card's
+    top edge sits flush with the data-table header.
   -->
-  <div
-    class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
-  >
-    <div class="flex-1 min-w-0 sm:flex-none sm:w-80">
-      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
-        <mat-label>{{ searchLabel() }}</mat-label>
-        <input matInput type="search" [formControl]="searchControl()" autocomplete="off" />
-        <button
-          matSuffix
-          type="button"
-          mat-icon-button
-          aria-label="Borrar búsqueda"
-          matTooltip="Borrar búsqueda"
-          [style.visibility]="hasSearchValue() ? 'visible' : 'hidden'"
-          [attr.tabindex]="hasSearchValue() ? 0 : -1"
-          (click)="onClearSearch()"
-        >
-          <mat-icon class="material-symbols-outlined">close</mat-icon>
-        </button>
-      </mat-form-field>
-    </div>
+  @if (actions().length > 0) {
+    <div
+      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+    >
+      <span class="flex-1"></span>
 
-    <span class="hidden sm:block flex-1"></span>
-
-    @if (actions().length > 0) {
       <div class="flex items-center gap-0 shrink-0 sm:hidden">
         @for (action of actions(); track action.id) {
           <button
@@ -63,17 +45,19 @@
           </button>
         }
       </div>
-    }
-  </div>
+    </div>
+  }
 
   <!--
-    The data-table now owns loading (inline skeleton rows), empty state
-    (centered icon + title + body inside the same fixed-height viewport), and
-    the has-data branch. Its viewport already reserves ~10 row heights so the
-    card never visibly resizes between states — no external `min-h` needed.
+    The data-table owns loading (inline skeleton rows), empty state (centered
+    icon + title + body inside the same fixed-height viewport), and the has-data
+    branch. Filtering is per-column: `columnMenuApply` events feed back into the
+    wrapper's `committedFilters` signal, which drives `filteredData` and is
+    forwarded as `[columnFilters]` so the data-table re-populates its staged
+    inputs on every menu open.
   -->
   <app-data-table
-    [data]="data()"
+    [data]="filteredData()"
     [columns]="columns()"
     [trackBy]="trackBy()"
     [storageKey]="storageKey()"
@@ -84,6 +68,8 @@
     [selectable]="true"
     [loading]="loading()"
     [emptyState]="effectiveEmptyState()"
+    [columnFilters]="committedFilters()"
+    (columnMenuApply)="onColumnMenuApply($event)"
     [(selectedRow)]="selectedRow"
   />
 </mat-card>

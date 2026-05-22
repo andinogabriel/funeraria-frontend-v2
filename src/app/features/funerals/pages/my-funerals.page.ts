@@ -1,17 +1,7 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { debounceTime } from 'rxjs/operators';
 
 import type { DataTableColumn } from '../../../shared/data-table';
 import {
@@ -51,26 +41,10 @@ export class MyFuneralsPage {
   protected readonly loading = this.service.byUserLoading;
   protected readonly error = this.service.byUserError;
 
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-  private readonly searchTerm = signal('');
+  protected readonly rows = computed<readonly Funeral[]>(() => this.service.byUserList() ?? []);
 
   protected readonly selectedFuneral = signal<Funeral | null>(null);
   protected readonly hasSelection = computed(() => this.selectedFuneral() !== null);
-
-  protected readonly filtered = computed<readonly Funeral[]>(() => {
-    const all = this.service.byUserList() ?? [];
-    const term = this.searchTerm().trim();
-    if (!term) {
-      return all;
-    }
-    const needle = foldDiacritics(term).toLowerCase();
-    return all.filter((funeral) => {
-      const haystack = foldDiacritics(
-        `${funeral.deceased.firstName} ${funeral.deceased.lastName} ${funeral.deceased.dni} ${funeral.receiptNumber ?? ''}`,
-      ).toLowerCase();
-      return haystack.includes(needle);
-    });
-  });
 
   protected readonly columns: readonly DataTableColumn<Funeral>[] = [
     {
@@ -78,23 +52,27 @@ export class MyFuneralsPage {
       label: 'Fallecido',
       value: (funeral) => `${funeral.deceased.firstName} ${funeral.deceased.lastName}`,
       hideable: false,
+      filter: 'text',
     },
     {
       key: 'dni',
       label: 'DNI',
       value: (funeral) => funeral.deceased.dni,
       cellClass: 'tabular-nums',
+      filter: 'text',
     },
     {
       key: 'funeralDate',
       label: 'Fecha del servicio',
       value: (funeral) => funeral.funeralDate,
       cellClass: 'tabular-nums whitespace-nowrap',
+      filter: 'dateRange',
     },
     {
       key: 'plan',
       label: 'Plan',
       value: (funeral) => funeral.plan.name,
+      filter: 'text',
     },
     {
       key: 'totalAmount',
@@ -121,21 +99,7 @@ export class MyFuneralsPage {
 
   constructor() {
     this.service.loadByUser().subscribe();
-
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => this.searchTerm.set(value));
-
-    effect(() => {
-      const selected = this.selectedFuneral();
-      if (selected === null) {
-        return;
-      }
-      const visible = this.filtered();
-      if (!visible.some((funeral) => funeral.id === selected.id)) {
-        this.selectedFuneral.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   private onShowDetail(): void {
@@ -154,8 +118,4 @@ export class MyFuneralsPage {
     this.selectedFuneral.set(null);
     this.service.loadByUser().subscribe();
   }
-}
-
-function foldDiacritics(value: string): string {
-  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
 }

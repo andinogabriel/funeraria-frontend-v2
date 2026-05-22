@@ -31,9 +31,7 @@
   }
 
   <app-selection-list-card
-    [searchControl]="searchControl"
-    searchLabel="Buscar por nombre, apellido o DNI"
-    [data]="filtered()"
+    [data]="rows()"
     [columns]="columns"
     [trackBy]="trackByDni"
     storageKey="affiliates.list"

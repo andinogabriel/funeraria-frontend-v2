@@ -31,9 +31,7 @@
   }
 
   <app-selection-list-card
-    [searchControl]="searchControl"
-    searchLabel="Buscar por fallecido, DNI o recibo"
-    [data]="filtered()"
+    [data]="rows()"
     [columns]="columns()"
     [trackBy]="trackById"
     storageKey="funerals.list"

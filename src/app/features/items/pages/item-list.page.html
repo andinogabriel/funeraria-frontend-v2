@@ -31,9 +31,7 @@
   }
 
   <app-selection-list-card
-    [searchControl]="searchControl"
-    searchLabel="Buscar por nombre o código"
-    [data]="filtered()"
+    [data]="rows()"
     [columns]="columns"
     [trackBy]="trackByCode"
     storageKey="items.list"

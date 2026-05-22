@@ -1,19 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
@@ -46,22 +36,10 @@ export class ItemListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-  private readonly searchTerm = signal('');
+  protected readonly rows = computed<readonly Item[]>(() => this.service.list() ?? []);
 
   protected readonly selectedItem = signal<Item | null>(null);
   protected readonly hasSelection = computed(() => this.selectedItem() !== null);
-
-  protected readonly filtered = computed<readonly Item[]>(() => {
-    const all = this.service.list() ?? [];
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) {
-      return all;
-    }
-    return all.filter(
-      (item) => item.name.toLowerCase().includes(term) || item.code.toLowerCase().includes(term),
-    );
-  });
 
   protected readonly columns: readonly DataTableColumn<Item>[] = [
     {
@@ -70,17 +48,20 @@ export class ItemListPage {
       value: (item) => item.code,
       cellClass: 'font-mono',
       hideable: false,
+      filter: 'text',
     },
-    { key: 'name', label: 'Nombre', value: (item) => item.name },
+    { key: 'name', label: 'Nombre', value: (item) => item.name, filter: 'text' },
     {
       key: 'category',
       label: 'Categoría',
       value: (item) => item.category?.name ?? '',
+      filter: 'text',
     },
     {
       key: 'brand',
       label: 'Marca',
       value: (item) => item.brand?.name ?? '',
+      filter: 'text',
     },
     {
       key: 'price',
@@ -125,17 +106,7 @@ export class ItemListPage {
 
   constructor() {
     this.service.loadAll().subscribe();
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => this.searchTerm.set(value));
-    effect(() => {
-      const selected = this.selectedItem();
-      if (selected === null) return;
-      const visible = this.filtered();
-      if (!visible.some((item) => item.code === selected.code)) {
-        this.selectedItem.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   private onEdit(): void {

@@ -1,19 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
@@ -46,26 +36,10 @@ export class SupplierListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-  private readonly searchTerm = signal('');
+  protected readonly rows = computed<readonly Supplier[]>(() => this.service.list() ?? []);
 
   protected readonly selectedSupplier = signal<Supplier | null>(null);
   protected readonly hasSelection = computed(() => this.selectedSupplier() !== null);
-
-  protected readonly filtered = computed<readonly Supplier[]>(() => {
-    const all = this.service.list() ?? [];
-    const term = this.searchTerm().trim();
-    if (!term) {
-      return all;
-    }
-    const needle = foldDiacritics(term).toLowerCase();
-    return all.filter((supplier) => {
-      const haystack = foldDiacritics(
-        `${supplier.name} ${supplier.nif} ${supplier.email}`,
-      ).toLowerCase();
-      return haystack.includes(needle);
-    });
-  });
 
   protected readonly columns: readonly DataTableColumn<Supplier>[] = [
     {
@@ -73,17 +47,20 @@ export class SupplierListPage {
       label: 'Razón social',
       value: (supplier) => supplier.name,
       hideable: false,
+      filter: 'text',
     },
     {
       key: 'nif',
       label: 'NIF / CUIT',
       value: (supplier) => supplier.nif,
       cellClass: 'font-mono',
+      filter: 'text',
     },
     {
       key: 'email',
       label: 'Email',
       value: (supplier) => supplier.email,
+      filter: 'text',
     },
     {
       key: 'webPage',
@@ -124,23 +101,7 @@ export class SupplierListPage {
 
   constructor() {
     this.service.loadAll().subscribe();
-
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => this.searchTerm.set(value));
-
-    // Clear the selection when the active row drops out of the visible set after a
-    // filter change, so the action buttons that depend on hasSelection() reflect truth.
-    effect(() => {
-      const selected = this.selectedSupplier();
-      if (selected === null) {
-        return;
-      }
-      const visible = this.filtered();
-      if (!visible.some((supplier) => supplier.nif === selected.nif)) {
-        this.selectedSupplier.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   private onShowDetail(): void {
@@ -197,8 +158,4 @@ export class SupplierListPage {
     this.selectedSupplier.set(null);
     this.service.loadAll().subscribe();
   }
-}
-
-function foldDiacritics(value: string): string {
-  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
 }
