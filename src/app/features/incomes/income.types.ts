@@ -5,11 +5,12 @@ import type { Supplier, SupplierRequest } from '../suppliers/supplier.types';
  * Transport types for the incomes (compras / ingresos) slice. Mirrors
  * `IncomeRequestDto` + `IncomeResponseDto` + `IncomePageResponse` on the backend.
  *
- * <h3>Date format wart</h3>
+ * <h3>Date format</h3>
  *
- * The backend ships `incomeDate` and `lastModifiedDate` as `dd-MM-yyyy HH:mm` legacy strings.
- * The service normalises both to ISO `yyyy-MM-ddTHH:mm` on the way in so the rest of the
- * app deals in one format only — same pattern as funerals.
+ * The backend ships `incomeDate` and `lastModifiedDate` as ISO 8601 strings with a trailing
+ * `Z` (UTC instants — `IncomeResponseDto.incomeDate` is a Java `Instant`). The service
+ * passes them through verbatim; display helpers parse with `new Date(iso)` which honours the
+ * `Z` and converts to the operator's local timezone automatically.
  */
 
 /** User identity attached to the income (the operator who registered the entry). */
@@ -47,9 +48,9 @@ export interface IncomeRequest {
 export interface Income {
   readonly receiptNumber: string;
   readonly receiptSeries: string;
-  /** ISO `yyyy-MM-ddTHH:mm`. */
+  /** ISO 8601 with trailing `Z` (UTC instant). */
   readonly incomeDate: string;
-  /** ISO `yyyy-MM-ddTHH:mm`; may be empty if never modified. */
+  /** ISO 8601 with trailing `Z`; may be empty if never modified. */
   readonly lastModifiedDate: string;
   readonly tax: number;
   readonly totalAmount: number;

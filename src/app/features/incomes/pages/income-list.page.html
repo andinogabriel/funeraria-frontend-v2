@@ -94,7 +94,7 @@
 
     <app-data-table
       [data]="rows()"
-      [columns]="columns"
+      [columns]="columns()"
       [trackBy]="trackByReceiptNumber"
       storageKey="incomes.list"
       [serverSide]="true"
@@ -113,3 +113,11 @@
     />
   </mat-card>
 </div>
+
+<!--
+  Cell renderer projected into the data-table via the `cellTemplate` slot on
+  the Fecha column descriptor. The column's `value` accessor still returns the
+  raw ISO 8601 instant so the grid sort stays chronological; the template
+  formats the value as `dd/MM/yyyy HH:mm` in the operator's local timezone.
+-->
+<ng-template #incomeDateCell let-income>{{ formatDateTime(income.incomeDate) }}</ng-template>

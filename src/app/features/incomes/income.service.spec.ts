@@ -24,8 +24,10 @@ describe('IncomeService', () => {
         {
           receiptNumber: 'A-001',
           receiptSeries: '0001',
-          incomeDate: '17-05-2026 09:14',
-          lastModifiedDate: '17-05-2026 09:30',
+          // ISO 8601 with `Z` — matches what the backend ships now that
+          // IncomeResponseDto.{incomeDate, lastModifiedDate} are `Instant`.
+          incomeDate: '2026-05-17T12:14:00Z',
+          lastModifiedDate: '2026-05-17T12:30:00Z',
           tax: 21,
           totalAmount: 125_000,
           receiptType: { id: 1, name: 'Ingreso' },
@@ -62,9 +64,10 @@ describe('IncomeService', () => {
     expect(service.loading()).toBe(false);
     expect(service.totalElements()).toBe(42);
     expect(service.rows()).toHaveLength(1);
-    // Wire `dd-MM-yyyy HH:mm` → ISO normalisation.
-    expect(service.rows()[0].incomeDate).toBe('2026-05-17T09:14');
-    expect(service.rows()[0].lastModifiedDate).toBe('2026-05-17T09:30');
+    // The service passes the ISO timestamps through verbatim — display helpers
+    // call `new Date(iso)` so the wire string keeps the canonical UTC `Z` form.
+    expect(service.rows()[0].incomeDate).toBe('2026-05-17T12:14:00Z');
+    expect(service.rows()[0].lastModifiedDate).toBe('2026-05-17T12:30:00Z');
   });
 
   it('omits the optional query params when the caller leaves them undefined', () => {
