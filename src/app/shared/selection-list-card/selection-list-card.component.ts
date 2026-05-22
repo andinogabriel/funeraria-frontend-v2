@@ -15,10 +15,14 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-import { DataTableComponent, type DataTableColumn, type DataTableSort } from '../data-table';
+import {
+  DataTableComponent,
+  type DataTableColumn,
+  type DataTableEmptyState,
+  type DataTableSort,
+} from '../data-table';
 import type { ListCardAction } from './selection-list-card.types';
 
 /**
@@ -61,7 +65,6 @@ import type { ListCardAction } from './selection-list-card.types';
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
-    MatProgressSpinnerModule,
     MatTooltipModule,
     ReactiveFormsModule,
   ],
@@ -123,6 +126,22 @@ export class SelectionListCardComponent<T> {
    * shows/hides synchronously with each keystroke.
    */
   protected readonly hasSearchValue = computed(() => this.searchValue().length > 0);
+
+  /**
+   * Empty-state payload forwarded to the inner data-table. Built from the
+   * `emptyIcon` / `emptyTitle` / `emptyHint` inputs so existing call sites do
+   * NOT have to change to get the new in-table empty-region rendering.
+   *
+   * <p>The data-table renders the icon + title + body centered inside its own
+   * fixed-height viewport, so we can drop the external spinner / empty divs
+   * the wrapper used to ship — and skeletons / empty / data all share the same
+   * 632 px footprint without any duplicated layout code.
+   */
+  protected readonly effectiveEmptyState = computed<DataTableEmptyState>(() => ({
+    icon: this.emptyIcon(),
+    title: this.emptyTitle(),
+    body: this.emptyHint(),
+  }));
 
   constructor() {
     effect(() => {

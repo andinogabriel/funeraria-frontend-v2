@@ -94,4 +94,17 @@ describe('SelectionListCardComponent', () => {
 
     expect(host.selected()).toEqual(host.rows[1]);
   });
+
+  it('builds the data-table emptyState payload from the icon / title / hint inputs', () => {
+    // The wrapper no longer renders its own empty divs — it forwards a single
+    // `emptyState` object to the inner data-table. This test pins that mapping
+    // so existing call sites keep getting the empty UI they configured.
+    const api = host.card as unknown as {
+      effectiveEmptyState: () => { icon: string; title: string; body?: string };
+    };
+    const payload = api.effectiveEmptyState();
+    expect(payload.icon).toBe('search_off');
+    expect(payload.title).toBe('No hay resultados.');
+    expect(payload.body).toBe('Probá con otro criterio de búsqueda.');
+  });
 });
