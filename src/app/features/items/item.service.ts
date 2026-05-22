@@ -1,9 +1,9 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { Item, ItemRequest } from './item.types';
+import type { Item, ItemPage, ItemPageQuery, ItemRequest } from './item.types';
 
 /**
  * CRUD client for the items catalog. Mirrors the plan/affiliate service shape:
@@ -24,12 +24,89 @@ export class ItemService {
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/items`;
 
   private readonly _list = signal<readonly Item[] | null>(null);
+  private readonly _page = signal<ItemPage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
 
   readonly list = this._list.asReadonly();
+
+  /** Latest paginated snapshot. `null` before the first {@link loadPage} call. */
+  readonly page = this._page.asReadonly();
+
+  /** Rows on the current page — convenience derived signal for templates. */
+  readonly pageRows = computed<readonly Item[]>(() => this._page()?.content ?? []);
+
+  /** Total elements across all pages — drives the paginator's `length`. */
+  readonly totalElements = computed(() => this._page()?.totalElements ?? 0);
+
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+
+  /**
+   * Fetches a paginated slice of items from the new server-side endpoint. Updates the
+   * {@link page} signal on success and clears the error state. Lives on its own signal
+   * (separate from {@link list}) so the list page can move to server-side without
+   * disturbing the plan form picker that still consumes the full cached list.
+   *
+   * <p>Empty / null filter values are omitted from the URL entirely, so the backend's
+   * empty-string sentinel pattern short-circuits the predicate.
+   */
+  loadPage(query: ItemPageQuery = {}): Observable<ItemPage> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    let params = new HttpParams();
+    if (query.page !== undefined) params = params.set('page', String(query.page));
+    if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+    if (query.sortBy) params = params.set('sortBy', query.sortBy);
+    if (query.sortDir) params = params.set('sortDir', query.sortDir);
+    if (query.code && query.code.trim().length > 0) {
+      params = params.set('code', query.code.trim());
+    }
+    if (query.name && query.name.trim().length > 0) {
+      params = params.set('name', query.name.trim());
+    }
+    if (query.categoryName && query.categoryName.length > 0) {
+      params = params.set('categoryName', query.categoryName);
+    }
+    if (query.brandName && query.brandName.length > 0) {
+      params = params.set('brandName', query.brandName);
+    }
+
+    return this.http.get<ItemPage>(`${this.baseUrl}/paginated`, { params }).pipe(
+      tap({
+        next: (data) => {
+          this._page.set(data);
+          this._loading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._loading.set(false);
+          this._error.set(this.mapError(err));
+        },
+      }),
+    );
+  }
+
+  /**
+   * Optimistically removes a row from the cached paginated snapshot so the UI does not
+   * have to wait for the next {@link loadPage} to drop the item the operator just
+   * deleted. The subsequent reload reconciles totals + sort order with the server.
+   */
+  removeFromCachedPage(code: string): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    const filtered = current.content.filter((row) => row.code !== code);
+    if (filtered.length === current.content.length) {
+      return;
+    }
+    this._page.set({
+      ...current,
+      content: filtered,
+      totalElements: Math.max(0, current.totalElements - 1),
+    });
+  }
 
   /** Lists every item and updates the cached signal. */
   loadAll(): Observable<readonly Item[]> {

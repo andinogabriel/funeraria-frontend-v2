@@ -45,3 +45,30 @@ export interface ItemRequest {
   readonly brand: Brand | null;
   readonly category: Category | null;
 }
+
+/** Server-side paginated response — Spring Data `Page<ItemResponseDto>`. */
+export interface ItemPage {
+  readonly content: readonly Item[];
+  readonly totalElements: number;
+  readonly totalPages: number;
+  readonly size: number;
+  readonly number: number;
+  readonly first: boolean;
+  readonly last: boolean;
+}
+
+/** Query parameters accepted by `GET /api/v1/items/paginated`. */
+export interface ItemPageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  readonly sortBy?: string;
+  readonly sortDir?: 'asc' | 'desc';
+  /** Case-insensitive substring against the item code. */
+  readonly code?: string;
+  /** Case-insensitive substring against the item name. */
+  readonly name?: string;
+  /** Exact match on the linked category's name (frontend autocomplete commit). */
+  readonly categoryName?: string;
+  /** Exact match on the linked brand's name (frontend autocomplete commit). */
+  readonly brandName?: string;
+}
