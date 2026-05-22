@@ -18,10 +18,16 @@ import type { Income, IncomePage, IncomePageQuery, IncomeRequest } from './incom
  * but every call hits the server (with the active query params), and mutations rely on the
  * subsequent page reload rather than an in-memory patch.
  *
- * <h3>Date normalisation</h3>
+ * <h3>Date handling</h3>
  *
- * `incomeDate` and `lastModifiedDate` arrive as `dd-MM-yyyy HH:mm` strings; the service
- * normalises both to ISO so the rest of the app deals in one format.
+ * `incomeDate` and `lastModifiedDate` arrive as ISO 8601 strings with a trailing `Z`
+ * (UTC instants — the backend's `IncomeResponseDto` types both fields as
+ * `Instant`). The service passes them through verbatim; the detail dialog and
+ * list cell renderers parse them with `new Date(iso)` which converts to the
+ * operator's local timezone automatically. No string mangling lives on the
+ * frontend — the previous version normalised a `dd-MM-yyyy HH:mm` payload that
+ * silently dropped the timezone context, leaving Argentina users off by three
+ * hours on every display.
  */
 @Injectable({ providedIn: 'root' })
 export class IncomeService {
@@ -153,9 +159,9 @@ export class IncomeService {
 interface IncomeWire {
   readonly receiptNumber: string;
   readonly receiptSeries: string;
-  /** `dd-MM-yyyy HH:mm`. */
+  /** ISO 8601 with trailing `Z` (UTC instant). */
   readonly incomeDate: string;
-  /** `dd-MM-yyyy HH:mm`; may be empty. */
+  /** ISO 8601 with trailing `Z`; may be empty. */
   readonly lastModifiedDate?: string | null;
   readonly tax: number;
   readonly totalAmount: number;
@@ -192,30 +198,20 @@ function normalizeIncome(wire: IncomeWire): Income {
   return {
     receiptNumber: wire.receiptNumber,
     receiptSeries: wire.receiptSeries,
-    incomeDate: toIsoDateTime(wire.incomeDate),
-    lastModifiedDate: wire.lastModifiedDate ? toIsoDateTime(wire.lastModifiedDate) : '',
+    // The backend ships these as ISO 8601 with a trailing `Z` (Java `Instant`
+    // serialised by Jackson). We pass them through verbatim — `new Date(iso)`
+    // honours the Z suffix and parses to a real moment in time, which display
+    // helpers can then format in the operator's local timezone.
+    incomeDate: wire.incomeDate,
+    lastModifiedDate: wire.lastModifiedDate ?? '',
     tax: wire.tax,
     totalAmount: wire.totalAmount,
     receiptType: wire.receiptType,
     supplier: wire.supplier,
     incomeUser: wire.incomeUser,
-    lastModifiedBy: wire.lastModifiedBy ?? null,
     // Note: lastModifiedBy is a user object (`{ email, firstName, lastName }`),
-    // not a raw audit string — see the type comment in income.types for the
-    // historical bug this resolved.
+    // not a raw audit string — see the type comment in income.types.
+    lastModifiedBy: wire.lastModifiedBy ?? null,
     incomeDetails: wire.incomeDetails,
   };
-}
-
-/** `dd-MM-yyyy HH:mm` → `yyyy-MM-ddTHH:mm`. Idempotent. */
-function toIsoDateTime(value: string): string {
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
-    return value;
-  }
-  const match = /^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})$/.exec(value);
-  if (!match) {
-    return value;
-  }
-  const [, day, month, year, hour, minute] = match;
-  return `${year}-${month}-${day}T${hour}:${minute}`;
 }

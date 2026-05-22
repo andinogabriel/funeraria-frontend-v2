@@ -5,6 +5,8 @@ import {
   effect,
   inject,
   signal,
+  TemplateRef,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -210,7 +212,16 @@ export class IncomeListPage {
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   };
 
-  protected readonly columns: readonly DataTableColumn<Income>[] = [
+  /**
+   * Cell renderer for the date column. The `value` accessor stays as the raw
+   * ISO 8601 string so the grid sort is chronological; the template formats
+   * the value as `dd/MM/yyyy HH:mm` in the operator's local timezone — same
+   * pattern the funerals list uses. Wired through `viewChild` so the column
+   * descriptor (defined eagerly) can pick up the template ref after init.
+   */
+  private readonly incomeDateCell = viewChild<TemplateRef<{ $implicit: Income }>>('incomeDateCell');
+
+  protected readonly columns = computed<readonly DataTableColumn<Income>[]>(() => [
     {
       key: 'receiptNumber',
       label: 'Recibo',
@@ -223,6 +234,7 @@ export class IncomeListPage {
       key: 'incomeDate',
       label: 'Fecha',
       value: (income) => income.incomeDate,
+      cellTemplate: this.incomeDateCell(),
       cellClass: 'tabular-nums whitespace-nowrap',
       filter: 'dateRange',
     },
@@ -256,9 +268,12 @@ export class IncomeListPage {
       headerClass: 'text-right',
       align: 'end',
     },
-  ] as const;
+  ]);
 
   protected readonly trackByReceiptNumber = (_: number, row: Income): string => row.receiptNumber;
+
+  /** Bound to the cellTemplate ref — formats the ISO date in local timezone for the grid cell. */
+  protected readonly formatDateTime = formatDateTime;
 
   constructor() {
     // Pre-load the supplier catalog into memory so the autocomplete inside the
@@ -454,4 +469,25 @@ function formatCurrency(value: number): string {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+/**
+ * Formats an ISO 8601 instant (e.g. `2025-09-26T17:30:00Z`) as
+ * `dd/MM/yyyy HH:mm` in the operator's local timezone. `new Date(iso)` honours
+ * the trailing `Z` so the `getDate` / `getHours` calls return wall-clock values
+ * the operator expects — Argentina, in the current deployment.
+ */
+function formatDateTime(iso: string): string {
+  if (!iso) {
+    return '—';
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return iso;
+  }
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return (
+    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
 }
