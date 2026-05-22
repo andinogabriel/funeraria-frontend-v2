@@ -1,16 +1,13 @@
 import { formatDate, formatDateTime, formatDateTimeWithSeconds } from './date-formatters';
 
 /**
- * The display formatters depend on the browser's local timezone. Vitest runs in
- * Node with whatever `process.env.TZ` is set to; if we let it default to UTC,
- * an ISO 8601 with a trailing `Z` would render with the UTC wall-clock and the
- * test could no longer pin the Argentina-specific behaviour we ship to users.
- * Setting `TZ` before the suite spins up forces a deterministic frame of
- * reference; the `vi.stubGlobal` trick from vitest is overkill here.
+ * The formatters pin the display zone to Argentina via {@link Intl.DateTimeFormat},
+ * not the host's default timezone — so the same input renders identically on a
+ * developer laptop in AR, a CI runner in UTC, and an operator browser anywhere.
+ * That makes the assertions below safe to write as plain literals; we previously
+ * relied on `process.env.TZ` which V8 caches before tests load and was a CI
+ * flake waiting to happen.
  */
-beforeAll(() => {
-  process.env.TZ = 'America/Argentina/Buenos_Aires';
-});
 
 describe('formatDate', () => {
   it('renders an ISO date as dd/MM/yyyy', () => {

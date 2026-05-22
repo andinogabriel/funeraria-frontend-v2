@@ -4,22 +4,32 @@
  * <h3>Why a shared module</h3>
  *
  * Before this lived in one place every feature shipped its own variant —
- * `formatInstant` in audit, `formatDateTime` in funerals + incomes,
- * `formatIsoToLocaleDate` in affiliates, an ad-hoc cell helper in item
- * dialog. The outputs disagreed on tiny but visible details (dash vs slash
- * separator, padded vs un-padded digits, locale-aware comma vs space between
- * date and time), so the same `incomeDate` value rendered three different
- * ways across the UI. Centralising the conversion in one module enforces a
- * single canonical format and makes localisation (e.g. switching to a
- * different country tenant later) a one-line change.
+ * {@code formatInstant} in audit, {@code formatDateTime} in funerals + incomes,
+ * {@code formatIsoToLocaleDate} in affiliates, an ad-hoc cell helper in the
+ * item dialog. The outputs disagreed on tiny but visible details (dash vs
+ * slash separator, padded vs un-padded digits, locale-aware comma vs space
+ * between date and time), so the same {@code incomeDate} value rendered three
+ * different ways across the UI. Centralising the conversion in one module
+ * enforces a single canonical format.
  *
  * <h3>Canonical formats</h3>
  *
  * <ul>
- *   <li><b>Date</b> — {@code dd/MM/yyyy} (Argentine convention).</li>
- *   <li><b>Date + time</b> — {@code dd/MM/yyyy HH:mm} (24-hour clock,
- *       space between date and time, no comma, no seconds).</li>
+ *   <li><b>Date</b> — {@code dd/MM/yyyy}.</li>
+ *   <li><b>Date + time</b> — {@code dd/MM/yyyy HH:mm} (24-hour, space
+ *       separator, no comma, no seconds).</li>
+ *   <li><b>Date + time + seconds</b> — {@code dd/MM/yyyy HH:mm:ss}, audit only.</li>
  * </ul>
+ *
+ * <h3>Always-Argentina display timezone</h3>
+ *
+ * The funeral home runs out of Buenos Aires; every operator expects to see
+ * Argentine local time regardless of where the browser actually is. We pin
+ * the display zone explicitly via {@link Intl.DateTimeFormat} with
+ * {@code timeZone: 'America/Argentina/Buenos_Aires'} when the input carries
+ * timezone information (ISO 8601 with {@code Z} or numeric offset). This
+ * also makes the unit tests deterministic — they pass identically on a
+ * developer's Argentina machine and on a CI runner that defaults to UTC.
  *
  * <h3>Input tolerance</h3>
  *
@@ -28,116 +38,152 @@
  *
  * <ul>
  *   <li>ISO 8601 with trailing {@code Z} ({@code 2025-09-26T17:30:00Z}) —
- *       canonical, what new backend endpoints emit.</li>
- *   <li>ISO 8601 naive ({@code 2025-09-26T17:30}) — older surfaces.</li>
- *   <li>ISO date only ({@code 2025-09-26}) — affiliate birth date.</li>
+ *       canonical, parsed via {@code Date} and converted to AR zone.</li>
+ *   <li>ISO 8601 with numeric offset ({@code 2025-09-26T17:30-03:00}) —
+ *       same handling as the {@code Z} form.</li>
+ *   <li>ISO 8601 naive ({@code 2025-09-26T17:30}) — treated as wall-clock
+ *       already in the operator's timezone; fields are rearranged without
+ *       any conversion.</li>
+ *   <li>ISO date only ({@code 2025-09-26}) — calendar date, no
+ *       conversion.</li>
  *   <li>Legacy {@code dd-MM-yyyy HH:mm} — what some endpoints still ship
- *       until the Instant refactor lands across the board.</li>
- *   <li>Legacy {@code dd-MM-yyyy} — date-only legacy.</li>
+ *       until the Instant refactor lands everywhere. Just rearranged.</li>
+ *   <li>Legacy {@code dd-MM-yyyy} — date-only legacy. Just rearranged.</li>
  * </ul>
  *
- * Anything that cannot be parsed comes back as the raw input string, so the
+ * Anything that cannot be parsed comes back as the raw input string so the
  * operator at least sees the underlying value during diagnosis instead of
  * an empty cell.
- *
- * <h3>Timezone semantics</h3>
- *
- * Parsing uses {@link Date}, which honours a trailing {@code Z} and converts
- * to the browser's local timezone for the subsequent {@code getDate} /
- * {@code getHours} reads. Naive ISO and legacy strings are parsed without
- * timezone information, which is exactly what those producers intended.
  */
 
-/** Returns `dd/MM/yyyy` in the operator's local timezone. */
+const TZ_ARGENTINA = 'America/Argentina/Buenos_Aires';
+
+/** Returns `dd/MM/yyyy` in Argentina local time. */
 export function formatDate(input: string | null | undefined): string {
   if (input === null || input === undefined || input === '') {
     return '—';
   }
-  const date = parseFlexible(input);
-  if (date === null) {
+  const fields = parseToFields(input);
+  if (fields === null) {
     return input;
   }
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return `${fields.day}/${fields.month}/${fields.year}`;
 }
 
-/** Returns `dd/MM/yyyy HH:mm` in the operator's local timezone. */
+/** Returns `dd/MM/yyyy HH:mm` in Argentina local time. */
 export function formatDateTime(input: string | null | undefined): string {
   if (input === null || input === undefined || input === '') {
     return '—';
   }
-  const date = parseFlexible(input);
-  if (date === null) {
+  const fields = parseToFields(input);
+  if (fields === null) {
     return input;
   }
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
+  return `${fields.day}/${fields.month}/${fields.year} ${fields.hour}:${fields.minute}`;
 }
 
 /**
- * Returns `dd/MM/yyyy HH:mm:ss` — adds seconds to the canonical {@link formatDateTime}.
- * Only used by audit-event surfaces where sub-minute precision matters for
- * forensic correlation across logs (two events in the same minute would
- * otherwise look identical to the operator).
+ * Returns `dd/MM/yyyy HH:mm:ss` — adds seconds to the canonical
+ * {@link formatDateTime}. Only used by audit-event surfaces where sub-minute
+ * precision matters for forensic correlation across logs (two events in the
+ * same minute would otherwise look identical to the operator).
  */
 export function formatDateTimeWithSeconds(input: string | null | undefined): string {
   if (input === null || input === undefined || input === '') {
     return '—';
   }
-  const date = parseFlexible(input);
-  if (date === null) {
+  const fields = parseToFields(input);
+  if (fields === null) {
     return input;
   }
   return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+    `${fields.day}/${fields.month}/${fields.year} ` +
+    `${fields.hour}:${fields.minute}:${fields.second}`
   );
 }
 
 /**
- * Tries every shape we accept on the way in. Returns `null` when the input
- * cannot be parsed — callers surface the raw string in that case so a
- * malformed payload remains visible.
+ * Padded calendar + clock fields. Strings (not numbers) because the
+ * downstream concatenation only ever pastes them into a template — keeping
+ * them strings avoids re-padding at every call site.
  */
-function parseFlexible(input: string): Date | null {
-  // ISO date-only (`yyyy-MM-dd`). Parse as a local-zone calendar date instead
-  // of the Date constructor's default of UTC midnight, otherwise an
-  // Argentina user sees the previous calendar day (UTC-3 means 2025-09-26 UTC
-  // midnight reads as 2025-09-25 23:00 local).
+interface DateFields {
+  readonly year: string;
+  readonly month: string;
+  readonly day: string;
+  readonly hour: string;
+  readonly minute: string;
+  readonly second: string;
+}
+
+function parseToFields(input: string): DateFields | null {
+  // ISO date-only (`yyyy-MM-dd`) — calendar date, no zone conversion.
   const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input);
   if (isoDateOnly) {
     const [, year, month, day] = isoDateOnly;
-    const date = new Date(Number(year), Number(month) - 1, Number(day));
-    return Number.isNaN(date.getTime()) ? null : date;
+    return { year, month, day, hour: '00', minute: '00', second: '00' };
   }
-  // ISO 8601 with `Z` or full ISO with offset: the Date constructor handles
-  // these directly and timezone-correctly. We also accept the naive ISO
-  // (no Z), which Date treats as local time — what every legacy producer
-  // assumed anyway.
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/.test(input)) {
-    const direct = new Date(input);
-    return Number.isNaN(direct.getTime()) ? null : direct;
+  // ISO datetime with timezone marker (Z or numeric offset) — parse + convert.
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/.test(input)) {
+    const date = new Date(input);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return extractArgentinaFields(date);
   }
-  // Legacy `dd-MM-yyyy HH:mm` and `dd-MM-yyyy`. Parse manually because
-  // `new Date('24-11-2025')` is either invalid or interpreted as a different
-  // month/day order depending on the browser — the only safe path is to
-  // pull the fields out ourselves and feed `Date(year, month-1, day, ...)`.
-  const legacyDateTime = /^(\d{2})-(\d{2})-(\d{4})(?:[\sT](\d{2}):(\d{2}))?$/.exec(input);
-  if (legacyDateTime) {
-    const [, day, month, year, hour, minute] = legacyDateTime;
-    const date = new Date(
-      Number(year),
-      Number(month) - 1,
-      Number(day),
-      hour ? Number(hour) : 0,
-      minute ? Number(minute) : 0,
-    );
-    return Number.isNaN(date.getTime()) ? null : date;
+  // ISO datetime naive (no zone) — already in display zone, just rearrange.
+  const naive = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(input);
+  if (naive) {
+    const [, year, month, day, hour, minute, second] = naive;
+    return { year, month, day, hour, minute, second: second ?? '00' };
+  }
+  // Legacy `dd-MM-yyyy HH:mm` and `dd-MM-yyyy`.
+  const legacy = /^(\d{2})-(\d{2})-(\d{4})(?:[\sT](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(input);
+  if (legacy) {
+    const [, day, month, year, hour, minute, second] = legacy;
+    return {
+      year,
+      month,
+      day,
+      hour: hour ?? '00',
+      minute: minute ?? '00',
+      second: second ?? '00',
+    };
   }
   return null;
 }
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
+/**
+ * Extracts padded year / month / day / hour / minute / second from a
+ * {@link Date}, formatted in the Argentina display timezone via
+ * {@link Intl.DateTimeFormat#formatToParts}. The {@code en-CA} locale is
+ * chosen because its part shapes are stable across V8 versions (always
+ * 2-digit numerics with no thousand-separators in the year).
+ *
+ * <p>{@code formatToParts} occasionally emits {@code "24"} for the
+ * midnight hour on some V8 builds — we normalise that to {@code "00"} so
+ * the operator never sees an out-of-range clock reading.
+ */
+function extractArgentinaFields(date: Date): DateFields {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: TZ_ARGENTINA,
+  }).formatToParts(date);
+  const partValue = (type: Intl.DateTimeFormatPartTypes, fallback: string): string =>
+    parts.find((p) => p.type === type)?.value ?? fallback;
+  const rawHour = partValue('hour', '00');
+  return {
+    year: partValue('year', '0000'),
+    month: partValue('month', '00'),
+    day: partValue('day', '00'),
+    hour: rawHour === '24' ? '00' : rawHour,
+    minute: partValue('minute', '00'),
+    second: partValue('second', '00'),
+  };
 }
