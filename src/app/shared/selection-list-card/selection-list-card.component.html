@@ -2,59 +2,64 @@
   class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
 >
   <!--
-    Action toolbar. Filtering now lives inside each column header menu (commit
-    via Aceptar), so the toolbar no longer carries a search field — only the
-    row-action buttons split between an icon-only mobile presentation
-    (`mat-icon-button`) and a labelled desktop one (`mat-stroked-button`). The
-    toolbar collapses entirely when no actions are configured so the card's
-    top edge sits flush with the data-table header.
+    Action toolbar.
+    - Filtering lives inside each column header menu (Aceptar commit). When the
+      operator has committed at least one filter, a "Limpiar filtros" affordance
+      surfaces on the LEFT so they can wipe every filter in one click without
+      reopening each column.
+    - Row actions sit on the RIGHT as icon-only buttons (44 px circular tap
+      targets, identical on mobile and desktop). The label is in the tooltip
+      and the aria-label, so screen readers + hover states both work.
+    - The toolbar collapses entirely when there are neither actions nor active
+      filters — the card's top edge sits flush with the data-table header.
   -->
-  @if (actions().length > 0) {
+  @if (actions().length > 0 || hasCommittedFilters()) {
     <div
       class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
     >
+      @if (hasCommittedFilters()) {
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="onClearFilters()"
+          matTooltip="Limpiar todos los filtros aplicados"
+          aria-label="Limpiar filtros"
+        >
+          <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
+          Limpiar filtros
+        </button>
+      }
+
       <span class="flex-1"></span>
 
-      <div class="flex items-center gap-0 shrink-0 sm:hidden">
-        @for (action of actions(); track action.id) {
-          <button
-            mat-icon-button
-            [color]="action.kind === 'warn' ? 'warn' : undefined"
-            [disabled]="action.disabled"
-            (click)="action.handler()"
-            [matTooltip]="action.tooltip ?? action.label"
-            [attr.aria-label]="action.tooltip ?? action.label"
-          >
-            <mat-icon class="material-symbols-outlined">{{ action.icon }}</mat-icon>
-          </button>
-        }
-      </div>
-
-      <div class="hidden sm:flex items-center gap-2 shrink-0">
-        @for (action of actions(); track action.id) {
-          <button
-            mat-stroked-button
-            [color]="action.kind === 'warn' ? 'warn' : undefined"
-            [disabled]="action.disabled"
-            (click)="action.handler()"
-            [matTooltip]="action.tooltip ?? action.label"
-            [attr.aria-label]="action.tooltip ?? action.label"
-          >
-            <mat-icon class="material-symbols-outlined">{{ action.icon }}</mat-icon>
-            {{ action.label }}
-          </button>
-        }
-      </div>
+      @if (actions().length > 0) {
+        <div class="flex items-center gap-1 shrink-0">
+          @for (action of actions(); track action.id) {
+            <button
+              mat-icon-button
+              [color]="action.kind === 'warn' ? 'warn' : undefined"
+              [disabled]="action.disabled"
+              (click)="action.handler()"
+              [matTooltip]="action.tooltip ?? action.label"
+              [attr.aria-label]="action.tooltip ?? action.label"
+            >
+              <mat-icon class="material-symbols-outlined">{{ action.icon }}</mat-icon>
+            </button>
+          }
+        </div>
+      }
     </div>
   }
 
   <!--
     The data-table owns loading (inline skeleton rows), empty state (centered
-    icon + title + body inside the same fixed-height viewport), and the has-data
-    branch. Filtering is per-column: `columnMenuApply` events feed back into the
-    wrapper's `committedFilters` signal, which drives `filteredData` and is
-    forwarded as `[columnFilters]` so the data-table re-populates its staged
-    inputs on every menu open.
+    icon + title + body inside the same fixed-height viewport), and the
+    has-data branch. Filtering is per-column: `columnMenuApply` events feed
+    back into the wrapper's `committedFilters` signal, which drives
+    `filteredData` and is forwarded as `[columnFilters]` so the data-table
+    re-populates its staged inputs on every menu open. The page-size selector
+    is left visible: the data-table renders its own custom selector with
+    progressive enable/disable per option based on the current totalElements.
   -->
   <app-data-table
     [data]="filteredData()"
@@ -64,7 +69,6 @@
     [initialSort]="initialSort()"
     [initialPageSize]="10"
     [hideColumnChooser]="true"
-    [hidePageSizeSelector]="true"
     [selectable]="true"
     [loading]="loading()"
     [emptyState]="effectiveEmptyState()"

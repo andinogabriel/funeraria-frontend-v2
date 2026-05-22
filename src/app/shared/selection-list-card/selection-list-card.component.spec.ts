@@ -65,7 +65,9 @@ describe('SelectionListCardComponent', () => {
       readonly committedFilters: () => ReadonlyMap<string, DataTableColumnFilterValue>;
       readonly filteredData: () => readonly Row[];
       readonly effectiveEmptyState: () => { icon: string; title: string; body?: string };
+      readonly hasCommittedFilters: () => boolean;
       onColumnMenuApply(event: { key: string; filter: DataTableColumnFilterValue | null }): void;
+      onClearFilters(): void;
     };
   }
 
@@ -143,5 +145,32 @@ describe('SelectionListCardComponent', () => {
     api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'beta' } });
     fixture.detectChanges();
     expect(host.selected()).toBeNull();
+  });
+
+  it('flips hasCommittedFilters as filters are added and removed', () => {
+    expect(api().hasCommittedFilters()).toBe(false);
+
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'alfa' } });
+    fixture.detectChanges();
+    expect(api().hasCommittedFilters()).toBe(true);
+
+    api().onColumnMenuApply({ key: 'name', filter: null });
+    fixture.detectChanges();
+    expect(api().hasCommittedFilters()).toBe(false);
+  });
+
+  it('onClearFilters wipes every committed filter in a single action', () => {
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'a' } });
+    api().onColumnMenuApply({
+      key: 'birthdate',
+      filter: { type: 'dateRange', from: '1990-01-01', to: '2000-01-01' },
+    });
+    fixture.detectChanges();
+    expect(api().committedFilters().size).toBe(2);
+
+    api().onClearFilters();
+    fixture.detectChanges();
+    expect(api().committedFilters().size).toBe(0);
+    expect(api().filteredData()).toHaveLength(3);
   });
 });

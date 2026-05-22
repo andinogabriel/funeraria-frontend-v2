@@ -117,6 +117,15 @@ export class SelectionListCardComponent<T> {
   }));
 
   /**
+   * Drives the visibility of the "Limpiar filtros" affordance in the toolbar.
+   * We only surface it when there is something to clear — otherwise an idle
+   * page sits empty and the button reads as misleading clutter.
+   */
+  protected readonly hasCommittedFilters = computed<boolean>(
+    () => this.committedFilters().size > 0,
+  );
+
+  /**
    * Filtered slice of `data`, after applying every committed filter. Implemented
    * as a single in-memory pass — every column carrying a `filter` declaration
    * gets the matching filter applied via {@link rowMatchesFilter}. Columns with
@@ -170,6 +179,15 @@ export class SelectionListCardComponent<T> {
       next.set(event.key, event.filter);
     }
     this.committedFilters.set(next);
+  }
+
+  /**
+   * Wipes every committed filter in a single action. Triggered by the
+   * "Limpiar filtros" toolbar button, which is only rendered when there is at
+   * least one filter to clear (see {@link hasCommittedFilters}).
+   */
+  protected onClearFilters(): void {
+    this.committedFilters.set(new Map());
   }
 }
 
