@@ -9,11 +9,16 @@
   // Reserve room on the right for the close button so the title text never
   // overlaps it on a narrow viewport.
   padding-right: 8px;
+  // Bottom padding sits inside the divider line so the rule has breathing
+  // room above and the dialog content keeps its standard top spacing below.
+  padding-bottom: 12px;
   cursor: move;
   user-select: none;
-  // Subtle bottom border so the header reads as a distinct strip from the
-  // body — matches the dialog convention used elsewhere in the app.
-  margin-bottom: 8px;
+  // Divider line between the header strip and the body content. Matches the
+  // outline-variant token the rest of the app uses for in-card / in-panel
+  // separators (data-table toolbar, paginator border, etc.).
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  margin-bottom: 16px;
 
   &:active {
     cursor: grabbing;
