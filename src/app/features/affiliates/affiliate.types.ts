@@ -46,3 +46,38 @@ export interface Affiliate {
   readonly gender: Gender;
   readonly relationship: Relationship;
 }
+
+/** Server-side paginated response — Spring Data `Page<AffiliateResponseDto>`. */
+export interface AffiliatePage {
+  readonly content: readonly Affiliate[];
+  readonly totalElements: number;
+  readonly totalPages: number;
+  readonly size: number;
+  readonly number: number;
+  readonly first: boolean;
+  readonly last: boolean;
+}
+
+/** Query parameters accepted by `GET /api/v1/affiliates/paginated`. */
+export interface AffiliatePageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  readonly sortBy?: string;
+  readonly sortDir?: 'asc' | 'desc';
+  /** Case-insensitive substring against the affiliate's first name. */
+  readonly firstName?: string;
+  /** Case-insensitive substring against the affiliate's last name. */
+  readonly lastName?: string;
+  /** Case-insensitive substring against the affiliate's DNI cast to string. */
+  readonly dni?: string;
+  /**
+   * Exact match on the affiliate's relationship name. The list page feeds this from an
+   * in-menu autocomplete sourced from the distinct relationship names of the currently
+   * loaded rows.
+   */
+  readonly relationshipName?: string;
+  /** Inclusive lower bound on birthDate as ISO `yyyy-MM-dd`. */
+  readonly from?: string;
+  /** Inclusive upper bound on birthDate as ISO `yyyy-MM-dd`. */
+  readonly to?: string;
+}

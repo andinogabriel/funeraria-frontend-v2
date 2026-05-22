@@ -1,40 +1,85 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router, RouterLink } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
-import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
 import {
-  SelectionListCardComponent,
-  type ListCardAction,
-} from '../../../shared/selection-list-card';
+  DataTableComponent,
+  type DataTableAutocompleteOption,
+  type DataTableColumn,
+  type DataTableColumnFilterValue,
+  type DataTableEmptyState,
+  type DataTableSort,
+} from '../../../shared/data-table';
 import { AffiliateDetailDialogComponent } from '../components/affiliate-detail-dialog.component';
 import { AffiliateService } from '../affiliate.service';
-import type { Affiliate } from '../affiliate.types';
+import type { Affiliate, AffiliatePageQuery } from '../affiliate.types';
 
 /**
- * Lists active affiliates with client-side filtering, sorting and paging.
+ * Affiliates list page. Server-side paginated against
+ * `GET /api/v1/affiliates/paginated` — the table holds only the current slice and the
+ * paginator's total comes from the response payload.
  *
- * Most of the visual machinery (search field with X clear, action buttons row
- * with mobile/desktop variants, selection-driven highlight, sticky paginator,
- * shared 632 px footprint) lives inside
- * {@link SelectionListCardComponent}. This page only owns:
+ * <h3>Touch-first column-menu interaction</h3>
  *
- * - The cached affiliate list signal it pulls from the service.
- * - The local search term mirror + filtered computed that feeds the card's
- *   `data` input.
- * - The selection signal it two-way binds to the card, plus the effect that
- *   clears it when the picked row falls out of the filtered view.
- * - The action handlers (`Detalle` opens the modal, `Editar` routes, `Eliminar`
- *   confirms + deletes) wired through the declarative `actions` array.
+ * Every filter input lives inside the per-column header menus the shared data-table
+ * provides. Column types in this page:
+ *
+ * <ul>
+ *   <li><b>DNI</b> (text) → backend `dni` (case-insensitive substring against the DNI
+ *       cast to string). Sort enabled.</li>
+ *   <li><b>Apellido</b> (text) → backend `lastName`. Sort enabled.</li>
+ *   <li><b>Nombre</b> (text) → backend `firstName`. Sort enabled.</li>
+ *   <li><b>Nacimiento</b> (dateRange) → backend `from` / `to`. Sort enabled.</li>
+ *   <li><b>Parentesco</b> (autocomplete) → backend `relationshipName`. The autocomplete
+ *       options are sourced from the distinct relationship names of the currently
+ *       loaded rows; the operator types ≥3 letters, picks one, and the picked name is
+ *       committed as the filter value. Sort intentionally disabled — sorting by a
+ *       single selected relationship has no operator value.</li>
+ *   <li><b>Género</b> → sort-only menu, no filter input (and hidden by default).</li>
+ * </ul>
+ *
+ * Filter inputs are staged inside each column's menu; the user clicks "Aceptar" to
+ * commit. Empty values are routed as `null` from the data-table → the page drops the
+ * corresponding URL param.
+ *
+ * <h3>URL-sync of state</h3>
+ *
+ * Pagination (`page`, `size`, `sortBy`, `sortDir`) AND filters (`firstName`,
+ * `lastName`, `dni`, `relationshipName`, `from`, `to`) all live in the URL. Browser
+ * back / forward / refresh / shareable link restore the exact view — the page reads
+ * the URL on init + every change, hydrates the data-table inputs from those signals,
+ * and writes back through `router.navigate({ replaceUrl: true })`.
+ *
+ * <h3>Stale-while-revalidate</h3>
+ *
+ * The previous page's rows stay visible while a new page loads so the table never
+ * flashes a skeleton mid-session. First load shows the data-table's inline skeleton.
  */
 @Component({
   selector: 'app-affiliate-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, RouterLink, SelectionListCardComponent],
+  imports: [
+    DataTableComponent,
+    MatButtonModule,
+    MatCardModule,
+    MatIconModule,
+    MatTooltipModule,
+    RouterLink,
+  ],
   templateUrl: './affiliate-list.page.html',
   styleUrl: './affiliate-list.page.scss',
 })
@@ -43,27 +88,113 @@ export class AffiliateListPage {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
+  protected readonly rows = this.service.pageRows;
+  protected readonly totalElements = this.service.totalElements;
 
-  /** Unfiltered rows passed to the shared card; the wrapper handles per-column filtering. */
-  protected readonly rows = computed<readonly Affiliate[]>(() => this.service.list() ?? []);
-
-  /** Currently selected row, two-way bound with the shared card. */
   protected readonly selectedAffiliate = signal<Affiliate | null>(null);
-
-  /** Convenience flag the actions array reads to compute disabled state. */
   protected readonly hasSelection = computed(() => this.selectedAffiliate() !== null);
 
+  /** Reactive snapshot of the URL query params — drives the backend call. */
+  protected readonly query = toSignal(this.route.queryParamMap, {
+    initialValue: this.route.snapshot.queryParamMap,
+  });
+
+  protected readonly pageIndex = computed(() => {
+    const raw = this.query().get('page');
+    const parsed = raw === null ? 0 : Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  });
+
+  protected readonly pageSize = computed(() => {
+    const raw = this.query().get('size');
+    const parsed = raw === null ? 10 : Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+  });
+
+  protected readonly sortState = computed<DataTableSort>(() => {
+    const active = this.query().get('sortBy') ?? 'lastName';
+    const dirParam = (this.query().get('sortDir') ?? 'asc') as 'asc' | 'desc';
+    return { active, direction: dirParam };
+  });
+
+  /** Filter values parsed from the URL — feed into the backend call and the data-table. */
+  protected readonly filterState = computed(() => ({
+    firstName: this.query().get('firstName') ?? '',
+    lastName: this.query().get('lastName') ?? '',
+    dni: this.query().get('dni') ?? '',
+    relationshipName: this.query().get('relationshipName') ?? '',
+    from: this.query().get('from') ?? null,
+    to: this.query().get('to') ?? null,
+  }));
+
   /**
-   * Distinct relationship labels derived from the currently-loaded rows. We
-   * source the autocomplete options from the dataset (instead of a separate
-   * lookup endpoint) so the suggestion list stays in lockstep with what the
-   * table actually contains — picking a relationship the operator can see is
-   * the only useful intent here.
+   * Per-column filter map passed into the data-table. Maps the URL filter state back
+   * into the discriminated-union shape the table expects.
    */
-  private readonly relationshipOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
+  protected readonly columnFilters = computed<ReadonlyMap<string, DataTableColumnFilterValue>>(
+    () => {
+      const f = this.filterState();
+      const map = new Map<string, DataTableColumnFilterValue>();
+      if (f.firstName.length > 0) {
+        map.set('firstName', { type: 'text', value: f.firstName });
+      }
+      if (f.lastName.length > 0) {
+        map.set('lastName', { type: 'text', value: f.lastName });
+      }
+      if (f.dni.length > 0) {
+        map.set('dni', { type: 'text', value: f.dni });
+      }
+      if (f.relationshipName.length > 0) {
+        map.set('relationship', {
+          type: 'autocomplete',
+          value: f.relationshipName,
+          label: f.relationshipName,
+        });
+      }
+      if (f.from !== null || f.to !== null) {
+        map.set('birthDate', { type: 'dateRange', from: f.from, to: f.to });
+      }
+      return map;
+    },
+  );
+
+  protected readonly hasActiveFilters = computed(() => {
+    const f = this.filterState();
+    return (
+      f.firstName.length > 0 ||
+      f.lastName.length > 0 ||
+      f.dni.length > 0 ||
+      f.relationshipName.length > 0 ||
+      f.from !== null ||
+      f.to !== null
+    );
+  });
+
+  protected readonly emptyState = computed<DataTableEmptyState>(() =>
+    this.hasActiveFilters()
+      ? {
+          icon: 'filter_alt_off',
+          title: 'Sin resultados',
+          body: 'Ajustá o limpiá los filtros para volver a ver el listado completo.',
+        }
+      : {
+          icon: 'group',
+          title: 'No hay afiliados activos',
+          body: 'Sumá uno desde «Nuevo afiliado» arriba a la derecha.',
+        },
+  );
+
+  /**
+   * Distinct relationship names derived from the currently loaded page's rows. The
+   * autocomplete suggestion list mirrors what the table actually contains. This is a
+   * pragmatic trade-off: the operator only sees relationships present in the current
+   * slice, but those are the only filter values that would actually match.
+   */
+  private readonly relationshipOptions = (): readonly DataTableAutocompleteOption[] => {
     const distinct = new Set<string>();
     for (const affiliate of this.rows()) {
       if (affiliate.relationship?.name) {
@@ -73,10 +204,9 @@ export class AffiliateListPage {
     return Array.from(distinct)
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .map((name) => ({ value: name, label: name }));
-  });
+  };
 
-  /** Column descriptors for the data table inside the shared card. */
-  protected readonly columns = computed<readonly DataTableColumn<Affiliate>[]>(() => [
+  protected readonly columns: readonly DataTableColumn<Affiliate>[] = [
     {
       key: 'dni',
       label: 'DNI',
@@ -109,8 +239,11 @@ export class AffiliateListPage {
       label: 'Parentesco',
       value: (a) => a.relationship.name,
       filter: 'autocomplete',
+      // Sorting by a single selected relationship carries no operator meaning, so the
+      // column-menu shows only the autocomplete + Aceptar — no sort radios.
+      sortable: false,
       autocomplete: {
-        options: () => this.relationshipOptions(),
+        options: this.relationshipOptions,
         placeholder: 'Buscar parentesco',
       },
     },
@@ -120,50 +253,146 @@ export class AffiliateListPage {
       value: (a) => a.gender.name,
       defaultVisible: false,
     },
-  ]);
+  ] as const;
 
   protected readonly trackByDni = (_: number, row: Affiliate): number => row.dni;
 
-  /**
-   * Toolbar actions consumed by the shared card. Reactive on `hasSelection()`
-   * so the buttons disable/enable as the user picks a row. Order in the array
-   * is the rendering order in the toolbar.
-   */
-  protected readonly actions = computed<readonly ListCardAction[]>(() => [
-    {
-      id: 'detail',
-      icon: 'visibility',
-      label: 'Detalle',
-      tooltip: 'Ver detalle',
-      disabled: !this.hasSelection(),
-      handler: () => this.onShowDetail(),
-    },
-    {
-      id: 'edit',
-      icon: 'edit',
-      label: 'Editar',
-      tooltip: 'Editar afiliado',
-      disabled: !this.hasSelection(),
-      handler: () => this.onEdit(),
-    },
-    {
-      id: 'delete',
-      icon: 'delete',
-      label: 'Eliminar',
-      tooltip: 'Eliminar afiliado',
-      kind: 'warn',
-      disabled: !this.hasSelection(),
-      handler: () => this.onDelete(),
-    },
-  ]);
-
   constructor() {
-    this.service.loadActive().subscribe();
-    // Selection drop-out on filter change is handled by the wrapper.
+    // URL → backend. Re-fetches the page whenever any URL param changes.
+    effect(() => {
+      const f = this.filterState();
+      const params: AffiliatePageQuery = {
+        page: this.pageIndex(),
+        limit: this.pageSize(),
+        sortBy: this.sortState().active,
+        sortDir: this.sortState().direction === 'asc' ? 'asc' : 'desc',
+        firstName: f.firstName || undefined,
+        lastName: f.lastName || undefined,
+        dni: f.dni || undefined,
+        relationshipName: f.relationshipName || undefined,
+        from: f.from ?? undefined,
+        to: f.to ?? undefined,
+      };
+      this.service.loadPage(params).subscribe({ error: () => undefined });
+    });
+
+    // Clear the selection on every URL change so action buttons that depend on it
+    // reflect reality.
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.selectedAffiliate.set(null));
   }
 
-  /** Opens the read-only detail modal for the currently-selected affiliate. */
-  private onShowDetail(): void {
+  /**
+   * Single-call handler for the data-table's column-menu Aceptar. Carries both filter
+   * and sort changes in one atomic patch so the router writes them in a single
+   * `navigate()` call — mirrors the incomes-list approach.
+   */
+  protected onColumnMenuApply(event: {
+    key: string;
+    filter: DataTableColumnFilterValue | null;
+    sortDirection: 'asc' | 'desc' | '';
+  }): void {
+    const patch: Record<string, string | number | null> = { page: 0 };
+
+    if (event.key === 'firstName') {
+      patch['firstName'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'lastName') {
+      patch['lastName'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'dni') {
+      patch['dni'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'relationship') {
+      patch['relationshipName'] = event.filter?.type === 'autocomplete' ? event.filter.value : null;
+    } else if (event.key === 'birthDate') {
+      if (event.filter?.type === 'dateRange') {
+        patch['from'] = event.filter.from;
+        patch['to'] = event.filter.to;
+      } else {
+        patch['from'] = null;
+        patch['to'] = null;
+      }
+    }
+
+    if (event.sortDirection === '') {
+      patch['sortBy'] = null;
+      patch['sortDir'] = null;
+    } else {
+      patch['sortBy'] = event.key;
+      patch['sortDir'] = event.sortDirection;
+    }
+
+    this.pushToUrl(patch);
+  }
+
+  protected onPageChange(event: { pageIndex: number; pageSize: number }): void {
+    this.pushToUrl({ page: event.pageIndex, size: event.pageSize });
+  }
+
+  /**
+   * Sort change emitted by sort-only columns (no filter declared). They commit via click
+   * on the menu items, not via the Aceptar button, so they ride this event channel
+   * instead of `(columnMenuApply)`.
+   */
+  protected onSortChange(sort: DataTableSort | null): void {
+    if (sort === null || sort.direction === '') {
+      this.pushToUrl({ sortBy: null, sortDir: null, page: 0 });
+      return;
+    }
+    this.pushToUrl({
+      sortBy: sort.active,
+      sortDir: sort.direction === 'asc' ? 'asc' : 'desc',
+      page: 0,
+    });
+  }
+
+  protected onClearFilters(): void {
+    this.pushToUrl({
+      firstName: null,
+      lastName: null,
+      dni: null,
+      relationshipName: null,
+      from: null,
+      to: null,
+      page: 0,
+    });
+  }
+
+  private pushToUrl(patch: Record<string, string | number | null>): void {
+    const next: Record<string, string | undefined> = {};
+    const current = this.route.snapshot.queryParamMap;
+    for (const key of current.keys) {
+      next[key] = current.get(key) ?? undefined;
+    }
+    for (const [key, value] of Object.entries(patch)) {
+      next[key] = value === null || value === undefined ? undefined : String(value);
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: next,
+      replaceUrl: true,
+    });
+  }
+
+  protected onRefresh(): void {
+    this.selectedAffiliate.set(null);
+    const f = this.filterState();
+    this.service
+      .loadPage({
+        page: this.pageIndex(),
+        limit: this.pageSize(),
+        sortBy: this.sortState().active,
+        sortDir: this.sortState().direction === 'asc' ? 'asc' : 'desc',
+        firstName: f.firstName || undefined,
+        lastName: f.lastName || undefined,
+        dni: f.dni || undefined,
+        relationshipName: f.relationshipName || undefined,
+        from: f.from ?? undefined,
+        to: f.to ?? undefined,
+      })
+      .subscribe({ error: () => undefined });
+  }
+
+  protected onShowDetail(): void {
     const affiliate = this.selectedAffiliate();
     if (!affiliate) {
       return;
@@ -175,8 +404,7 @@ export class AffiliateListPage {
     });
   }
 
-  /** Navigates to the edit form for the currently-selected affiliate. */
-  private onEdit(): void {
+  protected onEdit(): void {
     const affiliate = this.selectedAffiliate();
     if (!affiliate) {
       return;
@@ -184,8 +412,7 @@ export class AffiliateListPage {
     void this.router.navigate(['/afiliados', affiliate.dni, 'editar']);
   }
 
-  /** Confirms + deletes the currently-selected affiliate. Clears the selection on success. */
-  private onDelete(): void {
+  protected onDelete(): void {
     const affiliate = this.selectedAffiliate();
     if (!affiliate) {
       return;
@@ -205,19 +432,19 @@ export class AffiliateListPage {
       if (confirmed !== true) {
         return;
       }
+      this.service.removeFromCachedPage(affiliate.dni);
+
       this.service.delete(affiliate.dni).subscribe({
         next: () => {
           this.selectedAffiliate.set(null);
           this.snackBar.open('Afiliado eliminado', 'Cerrar');
+          this.onRefresh();
         },
-        error: () => this.snackBar.open('No se pudo eliminar el afiliado', 'Cerrar'),
+        error: () => {
+          this.onRefresh();
+          this.snackBar.open('No se pudo eliminar el afiliado', 'Cerrar');
+        },
       });
     });
-  }
-
-  /** Manual refresh action exposed on the header; clears any prior selection. */
-  protected onRefresh(): void {
-    this.selectedAffiliate.set(null);
-    this.service.loadActive().subscribe();
   }
 }

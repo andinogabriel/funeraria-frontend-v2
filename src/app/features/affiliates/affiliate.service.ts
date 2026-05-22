@@ -1,10 +1,15 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { toQueryParams } from '../../core/api/http-helpers';
-import type { Affiliate, AffiliateRequest } from './affiliate.types';
+import type {
+  Affiliate,
+  AffiliatePage,
+  AffiliatePageQuery,
+  AffiliateRequest,
+} from './affiliate.types';
 
 /**
  * Read + write client for the affiliate slice. Follows the pattern from ADR-0002:
@@ -38,10 +43,21 @@ export class AffiliateService {
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/affiliates`;
 
   private readonly _list = signal<readonly Affiliate[] | null>(null);
+  private readonly _page = signal<AffiliatePage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
 
   readonly list = this._list.asReadonly();
+
+  /** Latest paginated snapshot. `null` before the first {@link loadPage} call. */
+  readonly page = this._page.asReadonly();
+
+  /** Rows on the current page — convenience derived signal for templates. */
+  readonly pageRows = computed<readonly Affiliate[]>(() => this._page()?.content ?? []);
+
+  /** Total elements across all pages — drives the paginator's `length`. */
+  readonly totalElements = computed(() => this._page()?.totalElements ?? 0);
+
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
@@ -50,6 +66,85 @@ export class AffiliateService {
     const value = this._list();
     return value !== null && value.length === 0;
   });
+
+  /**
+   * Fetches a paginated slice of affiliates from the new server-side endpoint. Updates
+   * the {@link page} signal on success and clears the error state.
+   *
+   * <h3>Why a separate signal from {@link list}</h3>
+   *
+   * `loadActive` keeps existing detail / edit / dropdown surfaces working — they look up
+   * affiliates by DNI from the cached list and would break if the list signal suddenly
+   * held only the current page's rows. The paginated read lives on its own signal so the
+   * list page can move to server-side without disturbing the rest of the feature.
+   *
+   * <h3>Query param mapping</h3>
+   *
+   * Mirrors the backend's empty-string sentinel pattern from the outside — empty / null
+   * filter values are omitted from the URL entirely, so the backend interprets the
+   * absence as "no filter" (it falls back to {@code ""} / {@code null} internally). Date
+   * bounds are forwarded as ISO `yyyy-MM-dd`; the backend expands them to start/end of
+   * day inside its query.
+   */
+  loadPage(query: AffiliatePageQuery = {}): Observable<AffiliatePage> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    let params = new HttpParams();
+    if (query.page !== undefined) params = params.set('page', String(query.page));
+    if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+    if (query.sortBy) params = params.set('sortBy', query.sortBy);
+    if (query.sortDir) params = params.set('sortDir', query.sortDir);
+    if (query.firstName && query.firstName.trim().length > 0) {
+      params = params.set('firstName', query.firstName.trim());
+    }
+    if (query.lastName && query.lastName.trim().length > 0) {
+      params = params.set('lastName', query.lastName.trim());
+    }
+    if (query.dni && query.dni.trim().length > 0) {
+      params = params.set('dni', query.dni.trim());
+    }
+    if (query.relationshipName && query.relationshipName.length > 0) {
+      params = params.set('relationshipName', query.relationshipName);
+    }
+    if (query.from) params = params.set('from', query.from);
+    if (query.to) params = params.set('to', query.to);
+
+    return this.http.get<AffiliatePageWire>(`${this.baseUrl}/paginated`, { params }).pipe(
+      map((wire) => this.normalizePage(wire)),
+      tap({
+        next: (data) => {
+          this._page.set(data);
+          this._loading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._loading.set(false);
+          this._error.set(this.mapError(err));
+        },
+      }),
+    );
+  }
+
+  /**
+   * Optimistically removes a row from the cached paginated snapshot so the UI does not
+   * have to wait for the next {@link loadPage} to drop the affiliate the operator just
+   * deleted. The subsequent reload reconciles the totals + sort order with the server.
+   */
+  removeFromCachedPage(dni: number): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    const filtered = current.content.filter((row) => row.dni !== dni);
+    if (filtered.length === current.content.length) {
+      return;
+    }
+    this._page.set({
+      ...current,
+      content: filtered,
+      totalElements: Math.max(0, current.totalElements - 1),
+    });
+  }
 
   /** Lists active affiliates (`deceased = false`) and updates the cached signal. */
   loadActive(): Observable<readonly Affiliate[]> {
@@ -139,6 +234,19 @@ export class AffiliateService {
     );
   }
 
+  /** Maps the Spring Data `Page<AffiliateWire>` envelope through {@link normalizeAffiliate}. */
+  private normalizePage(wire: AffiliatePageWire): AffiliatePage {
+    return {
+      content: wire.content.map((row) => this.normalizeAffiliate(row)),
+      totalElements: wire.totalElements,
+      totalPages: wire.totalPages,
+      size: wire.size,
+      number: wire.number,
+      first: wire.first,
+      last: wire.last,
+    };
+  }
+
   /**
    * Translates the legacy `dd-MM-yyyy` strings the backend ships back to ISO
    * `yyyy-MM-dd`, leaving the rest of the payload untouched. Kept as a static-shaped
@@ -185,6 +293,17 @@ interface AffiliateWire {
   readonly deceased: boolean;
   readonly gender: Affiliate['gender'];
   readonly relationship: Affiliate['relationship'];
+}
+
+/** Spring Data `Page<AffiliateWire>` envelope as the backend serialises it. */
+interface AffiliatePageWire {
+  readonly content: readonly AffiliateWire[];
+  readonly totalElements: number;
+  readonly totalPages: number;
+  readonly size: number;
+  readonly number: number;
+  readonly first: boolean;
+  readonly last: boolean;
 }
 
 /**
