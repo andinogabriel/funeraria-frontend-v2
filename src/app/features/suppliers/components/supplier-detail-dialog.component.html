@@ -1,81 +1,78 @@
-<h2 mat-dialog-title class="flex items-center gap-3 !pb-2">
-  <mat-icon class="material-symbols-outlined text-[var(--mat-sys-primary)]"
-    >local_shipping</mat-icon
-  >
-  {{ data.name }}
-</h2>
+<div appDraggableDialog>
+  <app-dialog-header icon="local_shipping">{{ data.name }}</app-dialog-header>
 
-<mat-dialog-content class="!min-w-[320px] sm:!min-w-[480px]">
-  <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
-    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">NIF / CUIT</dt>
-    <dd class="text-sm m-0 font-mono break-all">{{ data.nif }}</dd>
+  <mat-dialog-content class="!min-w-[320px] sm:!min-w-[480px]">
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">NIF / CUIT</dt>
+      <dd class="text-sm m-0 font-mono break-all">{{ data.nif }}</dd>
 
-    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Email</dt>
-    <dd class="text-sm m-0 break-all">
-      @if (mailto(); as href) {
-        <a [href]="href" class="underline">{{ data.email }}</a>
-      } @else {
-        —
-      }
-    </dd>
-
-    <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Sitio web</dt>
-    <dd class="text-sm m-0 break-all">
-      @if (webHref(); as href) {
-        <a [href]="href" target="_blank" rel="noopener noreferrer" class="underline">
-          {{ data.webPage }}
-        </a>
-      } @else {
-        —
-      }
-    </dd>
-  </dl>
-
-  @if (data.mobileNumbers.length > 0) {
-    <mat-divider class="!my-4" />
-    <section>
-      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-        Teléfonos
-      </h3>
-      <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
-        @for (mobile of data.mobileNumbers; track mobile.id ?? mobile.mobileNumber) {
-          <li class="flex items-center gap-2 py-2">
-            <mat-icon
-              class="material-symbols-outlined !text-base !w-5 !h-5 text-[var(--mat-sys-on-surface-variant)]"
-            >
-              call
-            </mat-icon>
-            <a [href]="'tel:' + mobile.mobileNumber" class="text-sm underline">
-              {{ mobile.mobileNumber }}
-            </a>
-          </li>
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Email</dt>
+      <dd class="text-sm m-0 break-all">
+        @if (mailto(); as href) {
+          <a [href]="href" class="underline">{{ data.email }}</a>
+        } @else {
+          —
         }
-      </ul>
-    </section>
-  }
+      </dd>
 
-  @if (data.addresses.length > 0) {
-    <mat-divider class="!my-4" />
-    <section>
-      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-        Direcciones
-      </h3>
-      <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
-        @for (address of data.addresses; track address.id ?? address.streetName) {
-          <li class="flex items-start gap-2 py-2">
-            <mat-icon
-              class="material-symbols-outlined !text-base !w-5 !h-5 text-[var(--mat-sys-on-surface-variant)] mt-0.5"
-            >
-              location_on
-            </mat-icon>
-            <span class="text-sm">{{ formatAddress(address) }}</span>
-          </li>
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Sitio web</dt>
+      <dd class="text-sm m-0 break-all">
+        @if (webHref(); as href) {
+          <a [href]="href" target="_blank" rel="noopener noreferrer" class="underline">
+            {{ data.webPage }}
+          </a>
+        } @else {
+          —
         }
-      </ul>
-    </section>
-  }
-</mat-dialog-content>
+      </dd>
+    </dl>
 
-<mat-dialog-actions align="end">
-  <button mat-button mat-dialog-close>Cerrar</button>
-</mat-dialog-actions>
+    @if (data.mobileNumbers.length > 0) {
+      <mat-divider class="!my-4" />
+      <section>
+        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+          Teléfonos
+        </h3>
+        <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
+          @for (mobile of data.mobileNumbers; track mobile.id ?? mobile.mobileNumber) {
+            <li class="flex items-center gap-2 py-2">
+              <mat-icon
+                class="material-symbols-outlined !text-base !w-5 !h-5 text-[var(--mat-sys-on-surface-variant)]"
+              >
+                call
+              </mat-icon>
+              <a [href]="'tel:' + mobile.mobileNumber" class="text-sm underline">
+                {{ mobile.mobileNumber }}
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (data.addresses.length > 0) {
+      <mat-divider class="!my-4" />
+      <section>
+        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+          Direcciones
+        </h3>
+        <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
+          @for (address of data.addresses; track address.id ?? address.streetName) {
+            <li class="flex items-start gap-2 py-2">
+              <mat-icon
+                class="material-symbols-outlined !text-base !w-5 !h-5 text-[var(--mat-sys-on-surface-variant)] mt-0.5"
+              >
+                location_on
+              </mat-icon>
+              <span class="text-sm">{{ formatAddress(address) }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cerrar</button>
+  </mat-dialog-actions>
+</div>

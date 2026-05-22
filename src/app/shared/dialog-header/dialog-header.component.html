@@ -1,0 +1,18 @@
+<h2 mat-dialog-title cdkDragHandle class="app-dialog-header">
+  @if (icon(); as iconName) {
+    <mat-icon class="material-symbols-outlined !text-[var(--mat-sys-primary)]">
+      {{ iconName }}
+    </mat-icon>
+  }
+  <span class="app-dialog-header__title"><ng-content /></span>
+  <button
+    type="button"
+    mat-icon-button
+    mat-dialog-close
+    class="app-dialog-header__close"
+    aria-label="Cerrar"
+    matTooltip="Cerrar"
+  >
+    <mat-icon class="material-symbols-outlined">close</mat-icon>
+  </button>
+</h2>

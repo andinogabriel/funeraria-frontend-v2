@@ -1,0 +1,36 @@
+// Header strip layout: icon + title fill the row, the close X pins right.
+// `cursor: move` advertises the drag affordance — the parent dialog sets up
+// CdkDrag via `appDraggableDialog`, which is what makes the click on this
+// row repositionable.
+.app-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  // Reserve room on the right for the close button so the title text never
+  // overlaps it on a narrow viewport.
+  padding-right: 8px;
+  cursor: move;
+  user-select: none;
+  // Subtle bottom border so the header reads as a distinct strip from the
+  // body — matches the dialog convention used elsewhere in the app.
+  margin-bottom: 8px;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.app-dialog-header__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-dialog-header__close {
+  flex: 0 0 auto;
+  // Cancel the drag-handle cursor so the X button still reads as a real
+  // click target instead of "another grab zone".
+  cursor: pointer;
+}
