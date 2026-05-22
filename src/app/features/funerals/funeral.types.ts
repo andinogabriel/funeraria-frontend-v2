@@ -141,3 +141,34 @@ export interface FuneralPlanResponse {
 
 /** Re-export so consumers building plan payloads inside funerals stay in one import. */
 export type { ItemPlanRequest, PlanRequest };
+
+/** Server-side paginated response — Spring Data `Page<FuneralResponseDto>`. */
+export interface FuneralPage {
+  readonly content: readonly Funeral[];
+  readonly totalElements: number;
+  readonly totalPages: number;
+  readonly size: number;
+  readonly number: number;
+  readonly first: boolean;
+  readonly last: boolean;
+}
+
+/** Query parameters accepted by `GET /api/v1/funerals/paginated`. */
+export interface FuneralPageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  readonly sortBy?: string;
+  readonly sortDir?: 'asc' | 'desc';
+  /** Case-insensitive substring against `firstName + ' ' + lastName` of the deceased. */
+  readonly deceasedName?: string;
+  /** Case-insensitive substring against the deceased's DNI cast to string. */
+  readonly dni?: string;
+  /** Case-insensitive substring against the funeral's receipt number. */
+  readonly receiptNumber?: string;
+  /** Exact match on the plan name (autocomplete commit). */
+  readonly planName?: string;
+  /** Inclusive lower bound on funeralDate as ISO `yyyy-MM-dd`. */
+  readonly from?: string;
+  /** Inclusive upper bound on funeralDate as ISO `yyyy-MM-dd`. */
+  readonly to?: string;
+}

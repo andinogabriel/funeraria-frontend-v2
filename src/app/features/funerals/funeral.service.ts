@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 
@@ -8,6 +8,8 @@ import type {
   DeceasedResponse,
   DeceasedUser,
   Funeral,
+  FuneralPage,
+  FuneralPageQuery,
   FuneralPlanResponse,
   FuneralRequest,
 } from './funeral.types';
@@ -33,6 +35,7 @@ export class FuneralService {
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/funerals`;
 
   private readonly _list = signal<readonly Funeral[] | null>(null);
+  private readonly _page = signal<FuneralPage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
 
@@ -47,6 +50,16 @@ export class FuneralService {
   private readonly _byUserError = signal<string | null>(null);
 
   readonly list = this._list.asReadonly();
+
+  /** Latest paginated snapshot. `null` before the first {@link loadPage} call. */
+  readonly page = this._page.asReadonly();
+
+  /** Rows on the current page — convenience derived signal for templates. */
+  readonly pageRows = computed<readonly Funeral[]>(() => this._page()?.content ?? []);
+
+  /** Total elements across all pages — drives the paginator's `length`. */
+  readonly totalElements = computed(() => this._page()?.totalElements ?? 0);
+
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
@@ -59,6 +72,84 @@ export class FuneralService {
     const value = this._list();
     return value !== null && value.length === 0;
   });
+
+  /**
+   * Fetches a paginated slice of funerals from the new server-side endpoint. Updates
+   * the {@link page} signal on success and clears the error state. Lives on its own
+   * signal (separate from {@link list}) so detail / edit / dropdown surfaces keep
+   * working through the cached list while the list page moves to server-side.
+   *
+   * <p>Empty / null filter values are omitted from the URL — backend's empty-string
+   * sentinel pattern (ADR-0010) short-circuits the predicate.
+   */
+  loadPage(query: FuneralPageQuery = {}): Observable<FuneralPage> {
+    this._loading.set(true);
+    this._error.set(null);
+
+    let params = new HttpParams();
+    if (query.page !== undefined) params = params.set('page', String(query.page));
+    if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+    if (query.sortBy) params = params.set('sortBy', query.sortBy);
+    if (query.sortDir) params = params.set('sortDir', query.sortDir);
+    if (query.deceasedName && query.deceasedName.trim().length > 0) {
+      params = params.set('deceasedName', query.deceasedName.trim());
+    }
+    if (query.dni && query.dni.trim().length > 0) {
+      params = params.set('dni', query.dni.trim());
+    }
+    if (query.receiptNumber && query.receiptNumber.trim().length > 0) {
+      params = params.set('receiptNumber', query.receiptNumber.trim());
+    }
+    if (query.planName && query.planName.length > 0) {
+      params = params.set('planName', query.planName);
+    }
+    if (query.from) params = params.set('from', query.from);
+    if (query.to) params = params.set('to', query.to);
+
+    return this.http.get<FuneralPageWire>(`${this.baseUrl}/paginated`, { params }).pipe(
+      map((wire) => ({
+        content: wire.content.map((entry) => normalizeFuneral(entry)),
+        totalElements: wire.totalElements,
+        totalPages: wire.totalPages,
+        size: wire.size,
+        number: wire.number,
+        first: wire.first,
+        last: wire.last,
+      })),
+      tap({
+        next: (data) => {
+          this._page.set(data);
+          this._loading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._loading.set(false);
+          this._error.set(this.mapError(err));
+        },
+      }),
+    );
+  }
+
+  /**
+   * Optimistically removes a row from the cached paginated snapshot so the UI does
+   * not have to wait for the next {@link loadPage} to drop the funeral the operator
+   * just deleted. The subsequent reload reconciles totals + sort order with the
+   * server.
+   */
+  removeFromCachedPage(id: number): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    const filtered = current.content.filter((row) => row.id !== id);
+    if (filtered.length === current.content.length) {
+      return;
+    }
+    this._page.set({
+      ...current,
+      content: filtered,
+      totalElements: Math.max(0, current.totalElements - 1),
+    });
+  }
 
   /** Lists every funeral (ADMIN-only on the backend). */
   loadAll(): Observable<readonly Funeral[]> {
@@ -182,6 +273,17 @@ interface FuneralWire {
   readonly receiptType: ReceiptType | null;
   readonly deceased: DeceasedWire;
   readonly plan: FuneralPlanResponse;
+}
+
+/** Spring Data `Page<FuneralWire>` envelope as the backend serialises it. */
+interface FuneralPageWire {
+  readonly content: readonly FuneralWire[];
+  readonly totalElements: number;
+  readonly totalPages: number;
+  readonly size: number;
+  readonly number: number;
+  readonly first: boolean;
+  readonly last: boolean;
 }
 
 interface DeceasedWire {

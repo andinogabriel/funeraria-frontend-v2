@@ -30,26 +30,85 @@
     </div>
   }
 
-  <app-selection-list-card
-    [data]="rows()"
-    [columns]="columns()"
-    [trackBy]="trackById"
-    storageKey="funerals.list"
-    [initialSort]="{ active: 'funeralDate', direction: 'desc' }"
-    [loading]="loading()"
-    emptyIcon="church"
-    emptyTitle="No hay servicios que coincidan con la búsqueda."
-    emptyHint="Probá con otro criterio o registrá un nuevo servicio."
-    [actions]="actions()"
-    [(selectedRow)]="selectedFuneral"
-  />
+  <mat-card
+    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
+  >
+    <div
+      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+    >
+      @if (hasActiveFilters()) {
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="onClearFilters()"
+          matTooltip="Limpiar todos los filtros aplicados"
+          aria-label="Limpiar filtros"
+        >
+          <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
+          Limpiar filtros
+        </button>
+      }
+
+      <span class="flex-1"></span>
+
+      <div class="flex items-center gap-1 shrink-0">
+        <button
+          mat-icon-button
+          [disabled]="!hasSelection()"
+          (click)="onShowDetail()"
+          matTooltip="Ver detalle"
+          aria-label="Ver detalle del servicio seleccionado"
+        >
+          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          [disabled]="!hasSelection()"
+          (click)="onEdit()"
+          matTooltip="Editar"
+          aria-label="Editar servicio seleccionado"
+        >
+          <mat-icon class="material-symbols-outlined">edit</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          color="warn"
+          [disabled]="!hasSelection()"
+          (click)="onDelete()"
+          matTooltip="Eliminar"
+          aria-label="Eliminar servicio seleccionado"
+        >
+          <mat-icon class="material-symbols-outlined">delete</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <app-data-table
+      [data]="rows()"
+      [columns]="columns()"
+      [trackBy]="trackById"
+      storageKey="funerals.list"
+      [serverSide]="true"
+      [loading]="loading()"
+      [totalElements]="totalElements()"
+      [initialSort]="sortState()"
+      [initialPageIndex]="pageIndex()"
+      [initialPageSize]="pageSize()"
+      [columnFilters]="columnFilters()"
+      [emptyState]="emptyState()"
+      [selectable]="true"
+      [(selectedRow)]="selectedFuneral"
+      (pageChange)="onPageChange($event)"
+      (sortChange)="onSortChange($event)"
+      (columnMenuApply)="onColumnMenuApply($event)"
+    />
+  </mat-card>
 </div>
 
 <!--
-  Cell renderers projected into the data-table via the `cellTemplate` slot
-  on each column descriptor. The column's `value` accessor still returns
-  the raw sortable value (ISO string / number) so the grid sort stays
-  chronological / numeric.
+  Cell renderers projected into the data-table via the `cellTemplate` slot on each
+  column descriptor. The column's `value` accessor still returns the raw sortable
+  value (ISO string / number) so the grid sort stays chronological / numeric.
 -->
 <ng-template #funeralDateCell let-funeral>{{ formatDateTime(funeral.funeralDate) }}</ng-template>
 <ng-template #totalCell let-funeral>{{ formatCurrency(funeral.totalAmount) }}</ng-template>
