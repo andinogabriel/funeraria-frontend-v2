@@ -145,19 +145,36 @@ export class FuneralListPage {
     );
   });
 
-  protected readonly emptyState = computed<DataTableEmptyState>(() =>
-    this.hasActiveFilters()
-      ? {
-          icon: 'filter_alt_off',
-          title: 'Sin resultados',
-          body: 'Ajustá o limpiá los filtros para volver a ver el listado completo.',
-        }
-      : {
-          icon: 'church',
-          title: 'No hay servicios registrados',
-          body: 'Sumá uno desde «Nuevo servicio» arriba a la derecha.',
+  /**
+   * Three-state empty message: filtered (no matches), out-of-range page, or
+   * truly empty list. Out-of-range gets a CTA that resets the URL to `page=0`.
+   */
+  protected readonly emptyState = computed<DataTableEmptyState>(() => {
+    if (this.hasActiveFilters()) {
+      return {
+        icon: 'filter_alt_off',
+        title: 'Sin resultados',
+        body: 'Ajustá o limpiá los filtros para volver a ver el listado completo.',
+      };
+    }
+    if (this.totalElements() > 0 && this.pageIndex() > 0) {
+      return {
+        icon: 'pageview',
+        title: 'Esta página está vacía',
+        body: 'El URL apunta a una página que no contiene datos. Volvé al inicio para ver el listado.',
+        action: {
+          label: 'Ir a la primera página',
+          icon: 'first_page',
+          handler: () => this.pushToUrl({ page: 0 }),
         },
-  );
+      };
+    }
+    return {
+      icon: 'church',
+      title: 'No hay servicios registrados',
+      body: 'Sumá uno desde «Nuevo servicio» arriba a la derecha.',
+    };
+  });
 
   /** Distinct plan names derived from the currently loaded page's rows. */
   private readonly planOptions = (): readonly DataTableAutocompleteOption[] => {

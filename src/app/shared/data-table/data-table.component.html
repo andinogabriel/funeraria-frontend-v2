@@ -428,6 +428,20 @@
           @if (emptyState()!.body) {
             <p class="data-table__empty-body">{{ emptyState()!.body }}</p>
           }
+          @if (emptyState()!.action; as cta) {
+            <button
+              type="button"
+              mat-flat-button
+              color="primary"
+              class="data-table__empty-action"
+              (click)="cta.handler()"
+            >
+              @if (cta.icon) {
+                <mat-icon class="material-symbols-outlined">{{ cta.icon }}</mat-icon>
+              }
+              {{ cta.label }}
+            </button>
+          }
         </div>
       </div>
     }

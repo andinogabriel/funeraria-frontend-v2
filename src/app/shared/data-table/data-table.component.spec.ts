@@ -591,6 +591,44 @@ describe('DataTableComponent', () => {
     });
   });
 
+  describe('out-of-range page empty state (server-side)', () => {
+    it('fires the empty state when the current page returned no rows even if totalElements > 0', () => {
+      // Regression: previously `showEmptyState` checked `totalElements` in
+      // server-side mode, so a paginated URL whose `page` index sat past the
+      // end of the data left the table stuck rendering empty padding rows
+      // instead of the friendly empty UI.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = []; // backend returned an empty content array
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 25; // dataset has rows, just not on this page
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.initialPageIndex = 5;
+      f.componentInstance.emptyState = {
+        icon: 'pageview',
+        title: 'Esta página está vacía',
+      };
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as { showEmptyState: () => boolean };
+      expect(api.showEmptyState()).toBe(true);
+    });
+
+    it('keeps the empty UI suppressed when the current page actually carries rows', () => {
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 3;
+      f.componentInstance.initialPageSize = 10;
+      f.componentInstance.emptyState = { icon: 'inbox', title: 'Sin datos' };
+      f.detectChanges();
+
+      const api = f.componentInstance.table as unknown as { showEmptyState: () => boolean };
+      expect(api.showEmptyState()).toBe(false);
+    });
+  });
+
   describe('Aceptar gating for autocomplete columns', () => {
     interface AutoRow {
       readonly id: number;

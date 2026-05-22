@@ -174,19 +174,37 @@ export class AffiliateListPage {
     );
   });
 
-  protected readonly emptyState = computed<DataTableEmptyState>(() =>
-    this.hasActiveFilters()
-      ? {
-          icon: 'filter_alt_off',
-          title: 'Sin resultados',
-          body: 'Ajustá o limpiá los filtros para volver a ver el listado completo.',
-        }
-      : {
-          icon: 'group',
-          title: 'No hay afiliados activos',
-          body: 'Sumá uno desde «Nuevo afiliado» arriba a la derecha.',
+  /**
+   * Three-state empty message: filtered (no matches), out-of-range page, or
+   * truly empty padrón. Out-of-range gets a CTA that resets the URL to
+   * `page=0`.
+   */
+  protected readonly emptyState = computed<DataTableEmptyState>(() => {
+    if (this.hasActiveFilters()) {
+      return {
+        icon: 'filter_alt_off',
+        title: 'Sin resultados',
+        body: 'Ajustá o limpiá los filtros para volver a ver el listado completo.',
+      };
+    }
+    if (this.totalElements() > 0 && this.pageIndex() > 0) {
+      return {
+        icon: 'pageview',
+        title: 'Esta página está vacía',
+        body: 'El URL apunta a una página que no contiene datos. Volvé al inicio para ver el listado.',
+        action: {
+          label: 'Ir a la primera página',
+          icon: 'first_page',
+          handler: () => this.pushToUrl({ page: 0 }),
         },
-  );
+      };
+    }
+    return {
+      icon: 'group',
+      title: 'No hay afiliados activos',
+      body: 'Sumá uno desde «Nuevo afiliado» arriba a la derecha.',
+    };
+  });
 
   /**
    * Distinct relationship names derived from the currently loaded page's rows. The
