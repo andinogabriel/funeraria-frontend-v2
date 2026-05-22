@@ -67,39 +67,23 @@
   </div>
 
   <!--
-    Loading / empty / has-data branches share a 632 px min-height so the page
-    layout does not jump when the search filter flips the row count between
-    "X resultados" and "0 resultados". 632px ≈ header (56) + 10 × row (52) +
-    paginator (56) — same arithmetic the data-table uses internally.
+    The data-table now owns loading (inline skeleton rows), empty state
+    (centered icon + title + body inside the same fixed-height viewport), and
+    the has-data branch. Its viewport already reserves ~10 row heights so the
+    card never visibly resizes between states — no external `min-h` needed.
   -->
-  <div class="min-h-[632px] flex flex-col">
-    @if (loading() && data().length === 0) {
-      <div class="flex-1 flex items-center justify-center">
-        <mat-spinner diameter="32" />
-      </div>
-    } @else if (data().length === 0) {
-      <div
-        class="flex-1 flex flex-col items-center justify-center gap-2 p-12 text-center text-[var(--mat-sys-on-surface-variant)]"
-      >
-        <mat-icon class="material-symbols-outlined !text-5xl !w-12 !h-12">
-          {{ emptyIcon() }}
-        </mat-icon>
-        <p class="m-0 text-base">{{ emptyTitle() }}</p>
-        <p class="m-0 text-sm">{{ emptyHint() }}</p>
-      </div>
-    } @else {
-      <app-data-table
-        [data]="data()"
-        [columns]="columns()"
-        [trackBy]="trackBy()"
-        [storageKey]="storageKey()"
-        [initialSort]="initialSort()"
-        [initialPageSize]="10"
-        [hideColumnChooser]="true"
-        [hidePageSizeSelector]="true"
-        [selectable]="true"
-        [(selectedRow)]="selectedRow"
-      />
-    }
-  </div>
+  <app-data-table
+    [data]="data()"
+    [columns]="columns()"
+    [trackBy]="trackBy()"
+    [storageKey]="storageKey()"
+    [initialSort]="initialSort()"
+    [initialPageSize]="10"
+    [hideColumnChooser]="true"
+    [hidePageSizeSelector]="true"
+    [selectable]="true"
+    [loading]="loading()"
+    [emptyState]="effectiveEmptyState()"
+    [(selectedRow)]="selectedRow"
+  />
 </mat-card>
