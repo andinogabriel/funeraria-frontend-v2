@@ -87,6 +87,18 @@
   }
 }
 
+// Non-interactive header label (column with no filter AND `sortable: false`).
+// Matches the trigger button's typography so the row reads as one consistent
+// header strip, but it carries no hover affordance or pointer cursor.
+.data-table__header-static {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  font: inherit;
+  color: var(--mat-sys-on-surface);
+}
+
 .data-table__header-dot {
   width: 6px;
   height: 6px;

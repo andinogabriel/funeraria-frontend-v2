@@ -6,7 +6,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
-import type { DataTableColumn } from '../../../shared/data-table';
+import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
 import {
   SelectionListCardComponent,
   type ListCardAction,
@@ -56,8 +56,27 @@ export class AffiliateListPage {
   /** Convenience flag the actions array reads to compute disabled state. */
   protected readonly hasSelection = computed(() => this.selectedAffiliate() !== null);
 
+  /**
+   * Distinct relationship labels derived from the currently-loaded rows. We
+   * source the autocomplete options from the dataset (instead of a separate
+   * lookup endpoint) so the suggestion list stays in lockstep with what the
+   * table actually contains — picking a relationship the operator can see is
+   * the only useful intent here.
+   */
+  private readonly relationshipOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
+    const distinct = new Set<string>();
+    for (const affiliate of this.rows()) {
+      if (affiliate.relationship?.name) {
+        distinct.add(affiliate.relationship.name);
+      }
+    }
+    return Array.from(distinct)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map((name) => ({ value: name, label: name }));
+  });
+
   /** Column descriptors for the data table inside the shared card. */
-  protected readonly columns: readonly DataTableColumn<Affiliate>[] = [
+  protected readonly columns = computed<readonly DataTableColumn<Affiliate>[]>(() => [
     {
       key: 'dni',
       label: 'DNI',
@@ -83,11 +102,18 @@ export class AffiliateListPage {
       label: 'Nacimiento',
       value: (a) => a.birthDate,
       cellClass: 'tabular-nums',
+      filter: 'dateRange',
     },
     {
       key: 'relationship',
       label: 'Parentesco',
       value: (a) => a.relationship.name,
+      filter: 'autocomplete',
+      autocomplete: {
+        options: () => this.relationshipOptions(),
+        minSearchChars: 0,
+        placeholder: 'Buscar parentesco',
+      },
     },
     {
       key: 'gender',
@@ -95,7 +121,7 @@ export class AffiliateListPage {
       value: (a) => a.gender.name,
       defaultVisible: false,
     },
-  ] as const;
+  ]);
 
   protected readonly trackByDni = (_: number, row: Affiliate): number => row.dni;
 

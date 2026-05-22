@@ -3,7 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
-import type { DataTableColumn } from '../../../shared/data-table';
+import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
 import {
   SelectionListCardComponent,
   type ListCardAction,
@@ -46,7 +46,20 @@ export class MyFuneralsPage {
   protected readonly selectedFuneral = signal<Funeral | null>(null);
   protected readonly hasSelection = computed(() => this.selectedFuneral() !== null);
 
-  protected readonly columns: readonly DataTableColumn<Funeral>[] = [
+  /** Distinct plan names derived from the user's own loaded funerals. */
+  private readonly planOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
+    const distinct = new Set<string>();
+    for (const funeral of this.rows()) {
+      if (funeral.plan?.name) {
+        distinct.add(funeral.plan.name);
+      }
+    }
+    return Array.from(distinct)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map((name) => ({ value: name, label: name }));
+  });
+
+  protected readonly columns = computed<readonly DataTableColumn<Funeral>[]>(() => [
     {
       key: 'deceasedName',
       label: 'Fallecido',
@@ -72,7 +85,12 @@ export class MyFuneralsPage {
       key: 'plan',
       label: 'Plan',
       value: (funeral) => funeral.plan.name,
-      filter: 'text',
+      filter: 'autocomplete',
+      autocomplete: {
+        options: () => this.planOptions(),
+        minSearchChars: 0,
+        placeholder: 'Buscar plan',
+      },
     },
     {
       key: 'totalAmount',
@@ -82,7 +100,7 @@ export class MyFuneralsPage {
       headerClass: 'text-right',
       align: 'end',
     },
-  ] as const;
+  ]);
 
   protected readonly trackById = (_: number, row: Funeral): number => row.id;
 

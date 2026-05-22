@@ -591,6 +591,115 @@ describe('DataTableComponent', () => {
     });
   });
 
+  describe('Aceptar gating for autocomplete columns', () => {
+    interface AutoRow {
+      readonly id: number;
+      readonly relationship: string;
+    }
+    const autoCols: readonly DataTableColumn<AutoRow>[] = [
+      { key: 'id', label: 'ID', value: (r) => r.id, hideable: false },
+      {
+        key: 'relationship',
+        label: 'Parentesco',
+        value: (r) => r.relationship,
+        filter: 'autocomplete',
+        autocomplete: {
+          options: () => [
+            { value: 'Padre', label: 'Padre' },
+            { value: 'Madre', label: 'Madre' },
+            { value: 'Hijo', label: 'Hijo' },
+          ],
+          minSearchChars: 0,
+        },
+      },
+    ];
+
+    @Component({
+      imports: [DataTableComponent],
+      template: `
+        <app-data-table
+          [data]="rows"
+          [columns]="columns"
+          [serverSide]="true"
+          [totalElements]="rows.length"
+          [columnFilters]="columnFilters"
+        />
+      `,
+    })
+    class AutoHost {
+      rows: readonly AutoRow[] = [{ id: 1, relationship: 'Padre' }];
+      columns = autoCols;
+      columnFilters: ReadonlyMap<string, DataTableColumnFilterValue> = new Map();
+      @ViewChild(DataTableComponent) table!: DataTableComponent<AutoRow>;
+    }
+
+    function autoApi(table: DataTableComponent<AutoRow>) {
+      return table as unknown as {
+        canApplyColumnMenu: (col: DataTableColumn<AutoRow>) => boolean;
+        onColumnMenuOpen: (col: DataTableColumn<AutoRow>) => void;
+        onAutocompleteOptionSelect: (
+          col: DataTableColumn<AutoRow>,
+          option: { value: string; label: string },
+        ) => void;
+        onAutocompleteSearchInput: (col: DataTableColumn<AutoRow>, raw: string) => void;
+        onStagedSortPick: (col: DataTableColumn<AutoRow>, dir: 'asc' | 'desc' | '') => void;
+      };
+    }
+
+    it('starts disabled when the menu opens with no existing filter and no pick', () => {
+      const f = TestBed.createComponent(AutoHost);
+      f.detectChanges();
+      const col = autoCols[1];
+      autoApi(f.componentInstance.table).onColumnMenuOpen(col);
+      expect(autoApi(f.componentInstance.table).canApplyColumnMenu(col)).toBe(false);
+    });
+
+    it('enables Aceptar once the user picks a valid option from the suggestion list', () => {
+      const f = TestBed.createComponent(AutoHost);
+      f.detectChanges();
+      const col = autoCols[1];
+      autoApi(f.componentInstance.table).onColumnMenuOpen(col);
+      autoApi(f.componentInstance.table).onAutocompleteOptionSelect(col, {
+        value: 'Padre',
+        label: 'Padre',
+      });
+      expect(autoApi(f.componentInstance.table).canApplyColumnMenu(col)).toBe(true);
+    });
+
+    it('stays disabled when the user types freeform text without picking', () => {
+      // Regression: a stray "padre" typed in the search box must not commit as
+      // a valid filter — the backend lookup is exact-match by value.
+      const f = TestBed.createComponent(AutoHost);
+      f.detectChanges();
+      const col = autoCols[1];
+      autoApi(f.componentInstance.table).onColumnMenuOpen(col);
+      autoApi(f.componentInstance.table).onAutocompleteSearchInput(col, 'padre');
+      expect(autoApi(f.componentInstance.table).canApplyColumnMenu(col)).toBe(false);
+    });
+
+    it('enables Aceptar when the user clears an existing filter (search box emptied)', () => {
+      const f = TestBed.createComponent(AutoHost);
+      f.componentInstance.columnFilters = new Map([
+        ['relationship', { type: 'autocomplete', value: 'Padre', label: 'Padre' }],
+      ]);
+      f.detectChanges();
+      const col = autoCols[1];
+      autoApi(f.componentInstance.table).onColumnMenuOpen(col);
+      // Simulate the operator hitting the clear button: search empty, no pick.
+      autoApi(f.componentInstance.table).onAutocompleteSearchInput(col, '');
+      expect(autoApi(f.componentInstance.table).canApplyColumnMenu(col)).toBe(true);
+    });
+
+    it('enables Aceptar when only a sort direction was staged', () => {
+      const f = TestBed.createComponent(AutoHost);
+      f.detectChanges();
+      const col = autoCols[1];
+      autoApi(f.componentInstance.table).onColumnMenuOpen(col);
+      autoApi(f.componentInstance.table).onStagedSortPick(col, 'asc');
+      expect(autoApi(f.componentInstance.table).canApplyColumnMenu(col)).toBe(true);
+    });
+  });
+
   describe('column-menu filters (staged + Aceptar)', () => {
     function menuApi() {
       return host.table as unknown as {

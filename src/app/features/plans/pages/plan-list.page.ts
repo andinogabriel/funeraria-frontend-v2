@@ -54,9 +54,14 @@ export class PlanListPage {
       filter: 'text',
     },
     {
+      // Description is free-form long text — sorting it alphabetically has no
+      // operator value, and the autocomplete / dateRange / text filters all
+      // distort the result set in confusing ways. We surface it as a read-only
+      // column with no menu trigger: clicking the header opens nothing.
       key: 'description',
       label: 'Descripción',
       value: (plan) => plan.description ?? '',
+      sortable: false,
     },
     {
       key: 'itemCount',

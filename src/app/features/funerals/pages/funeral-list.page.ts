@@ -14,7 +14,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
-import type { DataTableColumn } from '../../../shared/data-table';
+import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
 import {
   SelectionListCardComponent,
   type ListCardAction,
@@ -68,6 +68,23 @@ export class FuneralListPage {
     viewChild<TemplateRef<{ $implicit: Funeral }>>('funeralDateCell');
   private readonly totalCell = viewChild<TemplateRef<{ $implicit: Funeral }>>('totalCell');
 
+  /**
+   * Distinct plan names derived from the currently-loaded funerals. The
+   * autocomplete suggestion list mirrors what the table actually contains so
+   * picking a plan the operator can see is the only useful intent.
+   */
+  private readonly planOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
+    const distinct = new Set<string>();
+    for (const funeral of this.rows()) {
+      if (funeral.plan?.name) {
+        distinct.add(funeral.plan.name);
+      }
+    }
+    return Array.from(distinct)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map((name) => ({ value: name, label: name }));
+  });
+
   protected readonly columns = computed<readonly DataTableColumn<Funeral>[]>(() => [
     {
       key: 'deceasedName',
@@ -98,7 +115,12 @@ export class FuneralListPage {
       key: 'plan',
       label: 'Plan',
       value: (funeral) => funeral.plan.name,
-      filter: 'text',
+      filter: 'autocomplete',
+      autocomplete: {
+        options: () => this.planOptions(),
+        minSearchChars: 0,
+        placeholder: 'Buscar plan',
+      },
     },
     {
       key: 'receiptNumber',
