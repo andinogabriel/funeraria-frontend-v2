@@ -5,10 +5,10 @@ import {
   MatDialogActions,
   MatDialogClose,
   MatDialogContent,
-  MatDialogTitle,
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
+import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
 import type { AuditEvent } from '../audit.types';
 
 /**
@@ -27,11 +27,12 @@ import type { AuditEvent } from '../audit.types';
   selector: 'app-audit-event-detail-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DialogHeaderComponent,
+    DraggableDialogDirective,
     MatButtonModule,
     MatDialogActions,
     MatDialogClose,
     MatDialogContent,
-    MatDialogTitle,
     MatIconModule,
   ],
   templateUrl: './audit-event-detail-dialog.component.html',

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { DragDropModule } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import {
   MAT_DIALOG_DATA,
@@ -7,16 +6,25 @@ import {
   MatDialogClose,
   MatDialogContent,
   MatDialogRef,
-  MatDialogTitle,
 } from '@angular/material/dialog';
+
+import { DialogHeaderComponent, DraggableDialogDirective } from '../dialog-header';
 
 /**
  * Generic yes/no confirmation dialog. Opened by features via `MatDialog.open(...)`; the
- * dialog resolves to `true` on confirm and `false` on cancel or backdrop click.
+ * dialog resolves to `true` on confirm and `false` on cancel, backdrop click, or
+ * close via the header X (callers always check for `=== true`).
  *
  * Lives in `shared/` because every destructive action across the app needs the same
  * dialog (delete affiliate, delete funeral, revoke role, …). Specialising it per
  * feature would duplicate the same six lines of template.
+ *
+ * <h3>Draggable header + close X</h3>
+ *
+ * Uses the shared {@link DialogHeaderComponent} and {@link DraggableDialogDirective}
+ * so the operator can grab the header strip to reposition the modal — same
+ * affordance every other dialog in the app got. The X in the header dismisses
+ * the dialog with `undefined`, which callers treat as "not confirmed".
  */
 export interface ConfirmDialogData {
   readonly title: string;
@@ -36,44 +44,32 @@ export interface ConfirmDialogData {
   selector: 'app-confirm-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DragDropModule,
+    DialogHeaderComponent,
+    DraggableDialogDirective,
     MatButtonModule,
     MatDialogActions,
     MatDialogClose,
     MatDialogContent,
-    MatDialogTitle,
   ],
-  // The title bar acts as a drag handle for the whole dialog (Windows-style
-  // window grab). `cdkDragRootElement` targets the CDK overlay pane so the
-  // entire dialog — title, content and actions — moves as one unit instead of
-  // just the heading. `cdkDragBoundary="body"` clamps movement to the viewport
-  // so the dialog can't be dragged completely off-screen.
   template: `
-    <h2
-      mat-dialog-title
-      cdkDrag
-      cdkDragRootElement=".cdk-overlay-pane"
-      cdkDragHandle
-      cdkDragBoundary="body"
-      class="cursor-move select-none"
-    >
-      {{ data.title }}
-    </h2>
-    <mat-dialog-content>
-      <p class="m-0">{{ data.message }}</p>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button [mat-dialog-close]="false">
-        {{ data.cancelLabel ?? 'Cancelar' }}
-      </button>
-      <button
-        mat-flat-button
-        [color]="data.destructive ? 'warn' : 'primary'"
-        [mat-dialog-close]="true"
-      >
-        {{ data.confirmLabel ?? 'Confirmar' }}
-      </button>
-    </mat-dialog-actions>
+    <div appDraggableDialog>
+      <app-dialog-header>{{ data.title }}</app-dialog-header>
+      <mat-dialog-content>
+        <p class="m-0">{{ data.message }}</p>
+      </mat-dialog-content>
+      <mat-dialog-actions align="end">
+        <button mat-button [mat-dialog-close]="false">
+          {{ data.cancelLabel ?? 'Cancelar' }}
+        </button>
+        <button
+          mat-flat-button
+          [color]="data.destructive ? 'warn' : 'primary'"
+          [mat-dialog-close]="true"
+        >
+          {{ data.confirmLabel ?? 'Confirmar' }}
+        </button>
+      </mat-dialog-actions>
+    </div>
   `,
 })
 export class ConfirmDialogComponent {

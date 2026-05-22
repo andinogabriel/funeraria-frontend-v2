@@ -5,10 +5,10 @@ import {
   MatDialogActions,
   MatDialogClose,
   MatDialogContent,
-  MatDialogTitle,
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
+import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
 import type { Affiliate } from '../affiliate.types';
 
 /**
@@ -28,11 +28,12 @@ import type { Affiliate } from '../affiliate.types';
   selector: 'app-affiliate-detail-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DialogHeaderComponent,
+    DraggableDialogDirective,
     MatButtonModule,
     MatDialogActions,
     MatDialogClose,
     MatDialogContent,
-    MatDialogTitle,
     MatIconModule,
   ],
   templateUrl: './affiliate-detail-dialog.component.html',

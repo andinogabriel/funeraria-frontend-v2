@@ -1,110 +1,115 @@
-<h2 mat-dialog-title class="flex items-center gap-3 !pb-2">
-  <mat-icon class="material-symbols-outlined text-[var(--mat-sys-primary)]">receipt_long</mat-icon>
-  Recibo {{ data.receiptSeries }}-{{ data.receiptNumber }}
-</h2>
+<div appDraggableDialog>
+  <app-dialog-header icon="receipt_long">
+    Recibo {{ data.receiptSeries }}-{{ data.receiptNumber }}
+  </app-dialog-header>
 
-<mat-dialog-content class="!min-w-[320px] sm:!min-w-[520px]">
-  <section>
-    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">Recibo</h3>
-    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
-      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha</dt>
-      <dd class="text-sm m-0 tabular-nums">{{ incomeDateLabel }}</dd>
-
-      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Tipo</dt>
-      <dd class="text-sm m-0">{{ data.receiptType?.name ?? '—' }}</dd>
-
-      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Serie / Número</dt>
-      <dd class="text-sm m-0 tabular-nums">{{ data.receiptSeries }} / {{ data.receiptNumber }}</dd>
-
-      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Impuesto</dt>
-      <dd class="text-sm m-0 tabular-nums">{{ taxLabel }}</dd>
-
-      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Total</dt>
-      <dd class="text-sm m-0 tabular-nums font-medium">{{ totalLabel }}</dd>
-    </dl>
-  </section>
-
-  @if (data.supplier; as supplier) {
-    <mat-divider class="!my-4" />
+  <mat-dialog-content class="!min-w-[320px] sm:!min-w-[520px]">
     <section>
       <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-        Proveedor
+        Recibo
       </h3>
       <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
-        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Razón social</dt>
-        <dd class="text-sm m-0">{{ supplier.name }}</dd>
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Fecha</dt>
+        <dd class="text-sm m-0 tabular-nums">{{ incomeDateLabel }}</dd>
 
-        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">NIF / CUIT</dt>
-        <dd class="text-sm m-0 font-mono">{{ supplier.nif }}</dd>
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Tipo</dt>
+        <dd class="text-sm m-0">{{ data.receiptType?.name ?? '—' }}</dd>
 
-        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Email</dt>
-        <dd class="text-sm m-0">{{ supplier.email }}</dd>
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Serie / Número</dt>
+        <dd class="text-sm m-0 tabular-nums">
+          {{ data.receiptSeries }} / {{ data.receiptNumber }}
+        </dd>
+
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Impuesto</dt>
+        <dd class="text-sm m-0 tabular-nums">{{ taxLabel }}</dd>
+
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Total</dt>
+        <dd class="text-sm m-0 tabular-nums font-medium">{{ totalLabel }}</dd>
       </dl>
     </section>
-  }
 
-  @if (data.incomeDetails.length > 0) {
+    @if (data.supplier; as supplier) {
+      <mat-divider class="!my-4" />
+      <section>
+        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+          Proveedor
+        </h3>
+        <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Razón social</dt>
+          <dd class="text-sm m-0">{{ supplier.name }}</dd>
+
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">NIF / CUIT</dt>
+          <dd class="text-sm m-0 font-mono">{{ supplier.nif }}</dd>
+
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Email</dt>
+          <dd class="text-sm m-0">{{ supplier.email }}</dd>
+        </dl>
+      </section>
+    }
+
+    @if (data.incomeDetails.length > 0) {
+      <mat-divider class="!my-4" />
+      <section>
+        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+          Detalle de items
+        </h3>
+        <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
+          @for (line of data.incomeDetails; track line.item.code) {
+            <li class="grid grid-cols-[1fr_auto] gap-2 py-2">
+              <div class="flex flex-col min-w-0">
+                <span class="text-sm font-medium truncate">{{ line.item.name }}</span>
+                <span class="text-xs text-[var(--mat-sys-on-surface-variant)] font-mono">
+                  {{ line.item.code }}
+                </span>
+              </div>
+              <div class="text-right">
+                <span
+                  class="text-xs tabular-nums px-2 py-0.5 rounded-full bg-[var(--mat-sys-surface-variant)] text-[var(--mat-sys-on-surface-variant)]"
+                >
+                  x{{ line.quantity }}
+                </span>
+                <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0 mt-1 tabular-nums">
+                  Compra {{ formatCurrency(line.purchasePrice) }} · Venta
+                  {{ formatCurrency(line.salePrice) }}
+                </p>
+              </div>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
     <mat-divider class="!my-4" />
+
     <section>
       <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-        Detalle de items
+        Auditoría
       </h3>
-      <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
-        @for (line of data.incomeDetails; track line.item.code) {
-          <li class="grid grid-cols-[1fr_auto] gap-2 py-2">
-            <div class="flex flex-col min-w-0">
-              <span class="text-sm font-medium truncate">{{ line.item.name }}</span>
-              <span class="text-xs text-[var(--mat-sys-on-surface-variant)] font-mono">
-                {{ line.item.code }}
-              </span>
-            </div>
-            <div class="text-right">
-              <span
-                class="text-xs tabular-nums px-2 py-0.5 rounded-full bg-[var(--mat-sys-surface-variant)] text-[var(--mat-sys-on-surface-variant)]"
-              >
-                x{{ line.quantity }}
-              </span>
-              <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0 mt-1 tabular-nums">
-                Compra {{ formatCurrency(line.purchasePrice) }} · Venta
-                {{ formatCurrency(line.salePrice) }}
-              </p>
-            </div>
-          </li>
+      <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+        @if (data.incomeUser; as user) {
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Registrado por</dt>
+          <dd class="text-sm m-0">{{ user.firstName }} {{ user.lastName }} · {{ user.email }}</dd>
         }
-      </ul>
+
+        @if (lastModifiedLabel(); as label) {
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Última modificación</dt>
+          <dd class="text-sm m-0 tabular-nums">
+            {{ label }}
+            @if (data.lastModifiedBy) {
+              <span class="text-[var(--mat-sys-on-surface-variant)]">
+                · {{ data.lastModifiedBy }}
+              </span>
+            }
+          </dd>
+        } @else {
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Modificaciones</dt>
+          <dd class="text-sm m-0 text-[var(--mat-sys-on-surface-variant)]">Sin modificaciones</dd>
+        }
+      </dl>
     </section>
-  }
+  </mat-dialog-content>
 
-  <mat-divider class="!my-4" />
-
-  <section>
-    <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-      Auditoría
-    </h3>
-    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
-      @if (data.incomeUser; as user) {
-        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Registrado por</dt>
-        <dd class="text-sm m-0">{{ user.firstName }} {{ user.lastName }} · {{ user.email }}</dd>
-      }
-
-      @if (lastModifiedLabel(); as label) {
-        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Última modificación</dt>
-        <dd class="text-sm m-0 tabular-nums">
-          {{ label }}
-          @if (data.lastModifiedBy) {
-            <span class="text-[var(--mat-sys-on-surface-variant)]">
-              · {{ data.lastModifiedBy }}
-            </span>
-          }
-        </dd>
-      } @else {
-        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Modificaciones</dt>
-        <dd class="text-sm m-0 text-[var(--mat-sys-on-surface-variant)]">Sin modificaciones</dd>
-      }
-    </dl>
-  </section>
-</mat-dialog-content>
-
-<mat-dialog-actions align="end">
-  <button mat-button mat-dialog-close>Cerrar</button>
-</mat-dialog-actions>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cerrar</button>
+  </mat-dialog-actions>
+</div>

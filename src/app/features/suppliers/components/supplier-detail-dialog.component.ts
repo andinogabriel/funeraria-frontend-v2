@@ -5,11 +5,11 @@ import {
   MatDialogActions,
   MatDialogClose,
   MatDialogContent,
-  MatDialogTitle,
 } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
+import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
 import type { Supplier, SupplierAddressResponse } from '../supplier.types';
 
 /**
@@ -21,11 +21,12 @@ import type { Supplier, SupplierAddressResponse } from '../supplier.types';
   selector: 'app-supplier-detail-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    DialogHeaderComponent,
+    DraggableDialogDirective,
     MatButtonModule,
     MatDialogActions,
     MatDialogClose,
     MatDialogContent,
-    MatDialogTitle,
     MatDividerModule,
     MatIconModule,
   ],
