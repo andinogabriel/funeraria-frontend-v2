@@ -1,19 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
@@ -57,32 +47,14 @@ export class AffiliateListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  /** Search FormControl passed straight to the shared card. */
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-
-  /** Mirror of the search input as a signal — drives the filter computed below. */
-  private readonly searchTerm = signal('');
+  /** Unfiltered rows passed to the shared card; the wrapper handles per-column filtering. */
+  protected readonly rows = computed<readonly Affiliate[]>(() => this.service.list() ?? []);
 
   /** Currently selected row, two-way bound with the shared card. */
   protected readonly selectedAffiliate = signal<Affiliate | null>(null);
 
   /** Convenience flag the actions array reads to compute disabled state. */
   protected readonly hasSelection = computed(() => this.selectedAffiliate() !== null);
-
-  /** Filtered view over the cached list, consumed by the shared card. */
-  protected readonly filtered = computed<readonly Affiliate[]>(() => {
-    const all = this.service.list() ?? [];
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) {
-      return all;
-    }
-    return all.filter(
-      (affiliate) =>
-        affiliate.firstName.toLowerCase().includes(term) ||
-        affiliate.lastName.toLowerCase().includes(term) ||
-        String(affiliate.dni).includes(term),
-    );
-  });
 
   /** Column descriptors for the data table inside the shared card. */
   protected readonly columns: readonly DataTableColumn<Affiliate>[] = [
@@ -92,16 +64,19 @@ export class AffiliateListPage {
       value: (a) => a.dni,
       cellClass: 'font-mono tabular-nums',
       hideable: false,
+      filter: 'text',
     },
     {
       key: 'lastName',
       label: 'Apellido',
       value: (a) => a.lastName,
+      filter: 'text',
     },
     {
       key: 'firstName',
       label: 'Nombre',
       value: (a) => a.firstName,
+      filter: 'text',
     },
     {
       key: 'birthDate',
@@ -159,25 +134,7 @@ export class AffiliateListPage {
 
   constructor() {
     this.service.loadActive().subscribe();
-
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => {
-        this.searchTerm.set(value);
-      });
-
-    // Drop the selection when the picked row is no longer in the filtered view
-    // (search excludes it, delete removes it, refresh returns a different set).
-    effect(() => {
-      const selected = this.selectedAffiliate();
-      if (selected === null) {
-        return;
-      }
-      const visible = this.filtered();
-      if (!visible.some((affiliate) => affiliate.dni === selected.dni)) {
-        this.selectedAffiliate.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   /** Opens the read-only detail modal for the currently-selected affiliate. */

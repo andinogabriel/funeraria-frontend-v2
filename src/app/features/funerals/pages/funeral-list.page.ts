@@ -2,20 +2,16 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   inject,
   signal,
   TemplateRef,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
@@ -56,26 +52,10 @@ export class FuneralListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-  private readonly searchTerm = signal('');
+  protected readonly rows = computed<readonly Funeral[]>(() => this.service.list() ?? []);
 
   protected readonly selectedFuneral = signal<Funeral | null>(null);
   protected readonly hasSelection = computed(() => this.selectedFuneral() !== null);
-
-  protected readonly filtered = computed<readonly Funeral[]>(() => {
-    const all = this.service.list() ?? [];
-    const term = this.searchTerm().trim();
-    if (!term) {
-      return all;
-    }
-    const needle = foldDiacritics(term).toLowerCase();
-    return all.filter((funeral) => {
-      const haystack = foldDiacritics(
-        `${funeral.deceased.firstName} ${funeral.deceased.lastName} ${funeral.deceased.dni} ${funeral.receiptNumber ?? ''}`,
-      ).toLowerCase();
-      return haystack.includes(needle);
-    });
-  });
 
   /**
    * Cell renderers for the date and currency columns. The columns' `value`
@@ -94,12 +74,14 @@ export class FuneralListPage {
       label: 'Fallecido',
       value: (funeral) => `${funeral.deceased.firstName} ${funeral.deceased.lastName}`,
       hideable: false,
+      filter: 'text',
     },
     {
       key: 'dni',
       label: 'DNI',
       value: (funeral) => funeral.deceased.dni,
       cellClass: 'tabular-nums',
+      filter: 'text',
     },
     {
       key: 'funeralDate',
@@ -110,17 +92,20 @@ export class FuneralListPage {
       value: (funeral) => funeral.funeralDate,
       cellTemplate: this.funeralDateCell(),
       cellClass: 'tabular-nums whitespace-nowrap',
+      filter: 'dateRange',
     },
     {
       key: 'plan',
       label: 'Plan',
       value: (funeral) => funeral.plan.name,
+      filter: 'text',
     },
     {
       key: 'receiptNumber',
       label: 'Recibo',
       value: (funeral) => funeral.receiptNumber ?? '—',
       cellClass: 'tabular-nums',
+      filter: 'text',
     },
     {
       key: 'totalAmount',
@@ -170,24 +155,7 @@ export class FuneralListPage {
 
   constructor() {
     this.service.loadAll().subscribe();
-
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => this.searchTerm.set(value));
-
-    // If the currently-selected row falls off the visible set after the user
-    // changed the filter, clear the selection so action buttons that depend on
-    // `hasSelection()` reflect reality.
-    effect(() => {
-      const selected = this.selectedFuneral();
-      if (selected === null) {
-        return;
-      }
-      const visible = this.filtered();
-      if (!visible.some((funeral) => funeral.id === selected.id)) {
-        this.selectedFuneral.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   private onShowDetail(): void {
@@ -266,9 +234,4 @@ function formatCurrency(value: number): string {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-/** Strips diacritics so accent-insensitive search treats "Pérez" === "Perez". */
-function foldDiacritics(value: string): string {
-  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '');
 }

@@ -1,19 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
@@ -40,23 +30,19 @@ export class CategoryListPage {
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  protected readonly searchControl = new FormControl('', { nonNullable: true });
-  private readonly searchTerm = signal('');
+  protected readonly rows = computed<readonly Category[]>(() => this.service.list() ?? []);
 
   protected readonly selectedCategory = signal<Category | null>(null);
   protected readonly hasSelection = computed(() => this.selectedCategory() !== null);
 
-  protected readonly filtered = computed<readonly Category[]>(() => {
-    const all = this.service.list() ?? [];
-    const term = this.searchTerm().trim().toLowerCase();
-    if (!term) {
-      return all;
-    }
-    return all.filter((category) => category.name.toLowerCase().includes(term));
-  });
-
   protected readonly columns: readonly DataTableColumn<Category>[] = [
-    { key: 'name', label: 'Nombre', value: (category) => category.name, hideable: false },
+    {
+      key: 'name',
+      label: 'Nombre',
+      value: (category) => category.name,
+      hideable: false,
+      filter: 'text',
+    },
     { key: 'description', label: 'Descripción', value: (category) => category.description ?? '' },
   ] as const;
 
@@ -84,17 +70,7 @@ export class CategoryListPage {
 
   constructor() {
     this.service.loadAll().subscribe();
-    this.searchControl.valueChanges
-      .pipe(debounceTime(150), takeUntilDestroyed())
-      .subscribe((value) => this.searchTerm.set(value));
-    effect(() => {
-      const selected = this.selectedCategory();
-      if (selected === null) return;
-      const visible = this.filtered();
-      if (!visible.some((category) => category.id === selected.id)) {
-        this.selectedCategory.set(null);
-      }
-    });
+    // Selection drop-out on filter change is handled by the wrapper.
   }
 
   private onEdit(): void {
