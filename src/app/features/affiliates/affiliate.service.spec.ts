@@ -162,4 +162,73 @@ describe('AffiliateService', () => {
 
     expect(service.list()?.map((a) => a.dni)).toEqual([30111222]);
   });
+
+  function pageEnvelope(content: readonly Record<string, unknown>[]) {
+    return {
+      content,
+      totalElements: content.length,
+      totalPages: 1,
+      size: 10,
+      number: 0,
+      first: true,
+      last: true,
+    };
+  }
+
+  it('loadPage hits /api/v1/affiliates/paginated and exposes the normalised page through pageRows', () => {
+    service.loadPage({ page: 0, limit: 10 }).subscribe();
+    const req = http.expectOne((r) => r.url === '/api/v1/affiliates/paginated');
+    expect(req.request.params.get('page')).toBe('0');
+    expect(req.request.params.get('limit')).toBe('10');
+    req.flush(pageEnvelope([wireAffiliate()]));
+
+    expect(service.pageRows()).toHaveLength(1);
+    expect(service.pageRows()[0].birthDate).toBe('1984-08-10');
+    expect(service.totalElements()).toBe(1);
+  });
+
+  it('loadPage omits empty filter params from the URL — backend treats absence as the empty-string sentinel', () => {
+    // Regression guard: emitting empty strings would defeat the backend's
+    // "no filter" short-circuit and force a full table scan.
+    service.loadPage({ firstName: '', lastName: '   ', dni: undefined }).subscribe();
+    const req = http.expectOne((r) => r.url === '/api/v1/affiliates/paginated');
+    expect(req.request.params.has('firstName')).toBe(false);
+    expect(req.request.params.has('lastName')).toBe(false);
+    expect(req.request.params.has('dni')).toBe(false);
+    req.flush(pageEnvelope([]));
+  });
+
+  it('loadPage forwards trimmed text filters and date bounds verbatim to the URL', () => {
+    service
+      .loadPage({
+        firstName: '  Juan  ',
+        lastName: 'Gomez',
+        dni: '351',
+        relationshipName: 'Padre',
+        from: '1990-01-01',
+        to: '2000-12-31',
+      })
+      .subscribe();
+
+    const req = http.expectOne((r) => r.url === '/api/v1/affiliates/paginated');
+    expect(req.request.params.get('firstName')).toBe('Juan');
+    expect(req.request.params.get('lastName')).toBe('Gomez');
+    expect(req.request.params.get('dni')).toBe('351');
+    expect(req.request.params.get('relationshipName')).toBe('Padre');
+    expect(req.request.params.get('from')).toBe('1990-01-01');
+    expect(req.request.params.get('to')).toBe('2000-12-31');
+    req.flush(pageEnvelope([]));
+  });
+
+  it('removeFromCachedPage drops the row from the cached page snapshot and decrements totalElements', () => {
+    service.loadPage({ page: 0, limit: 10 }).subscribe();
+    http
+      .expectOne((r) => r.url === '/api/v1/affiliates/paginated')
+      .flush(pageEnvelope([wireAffiliate(), wireAffiliate({ dni: 30111222, firstName: 'Maria' })]));
+    expect(service.totalElements()).toBe(2);
+
+    service.removeFromCachedPage(35123456);
+    expect(service.pageRows().map((a) => a.dni)).toEqual([30111222]);
+    expect(service.totalElements()).toBe(1);
+  });
 });
