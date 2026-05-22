@@ -26,6 +26,45 @@
   overflow-x: auto;
 }
 
+// Material's MDC table ships an opaque background colour by default. When the
+// table lives inside a card (every list view does), that opaque colour clashes
+// with the card's surface — body rows render in a slightly different shade
+// than the surrounding card. We force the body to be transparent so the card's
+// background shows through; the header row + paginator keep their own surface
+// colour (defined below) so the layout reads as a clean two-tone strip:
+// data rows = card surface, header + paginator = a darker accent.
+:host ::ng-deep .data-table__viewport table.mat-mdc-table,
+:host ::ng-deep .data-table__viewport .mat-mdc-row,
+:host ::ng-deep .data-table__viewport .mat-mdc-cell {
+  background-color: transparent;
+}
+
+// Compact the page-size <mat-select> footprint. The default Material outlined
+// form field reserves room for a floating label + 16/8 px vertical padding,
+// which made the control noticeably taller than the paginator buttons next to
+// it — the bottom edge of the dropdown rim was kissing the paginator's chrome
+// and read as a layout glitch. We trim the infix padding, lock a smaller
+// min-height, and shrink the input/value sizing so the control aligns
+// visually with the 40-px tall paginator arrows.
+.data-table__page-size-select {
+  width: 96px;
+}
+
+:host ::ng-deep .data-table__page-size-select .mat-mdc-form-field-infix {
+  min-height: 40px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+:host ::ng-deep .data-table__page-size-select .mat-mdc-form-field-flex {
+  align-items: center;
+}
+
+:host ::ng-deep .data-table__page-size-select .mat-mdc-select-value,
+:host ::ng-deep .data-table__page-size-select .mat-mdc-select-arrow-wrapper {
+  font-size: 14px;
+}
+
 // Sticky header inside the scroll viewport. Without an opaque background the
 // rows below would show through the (transparent) sticky cells as they scroll
 // past, which reads as a glitch. The surface token keeps light and dark themes
