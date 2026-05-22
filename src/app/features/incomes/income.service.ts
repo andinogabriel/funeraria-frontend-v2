@@ -162,7 +162,7 @@ interface IncomeWire {
   readonly receiptType: Income['receiptType'];
   readonly supplier: Income['supplier'];
   readonly incomeUser: Income['incomeUser'];
-  readonly lastModifiedBy?: string | null;
+  readonly lastModifiedBy?: Income['lastModifiedBy'];
   readonly incomeDetails: Income['incomeDetails'];
 }
 
@@ -200,6 +200,9 @@ function normalizeIncome(wire: IncomeWire): Income {
     supplier: wire.supplier,
     incomeUser: wire.incomeUser,
     lastModifiedBy: wire.lastModifiedBy ?? null,
+    // Note: lastModifiedBy is a user object (`{ email, firstName, lastName }`),
+    // not a raw audit string — see the type comment in income.types for the
+    // historical bug this resolved.
     incomeDetails: wire.incomeDetails,
   };
 }
