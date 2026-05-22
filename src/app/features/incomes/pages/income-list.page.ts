@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -71,7 +72,14 @@ import type { Income, IncomePageQuery } from '../income.types';
 @Component({
   selector: 'app-income-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DataTableComponent, MatButtonModule, MatIconModule, MatTooltipModule, RouterLink],
+  imports: [
+    DataTableComponent,
+    MatButtonModule,
+    MatCardModule,
+    MatIconModule,
+    MatTooltipModule,
+    RouterLink,
+  ],
   templateUrl: './income-list.page.html',
   styleUrl: './income-list.page.scss',
 })
