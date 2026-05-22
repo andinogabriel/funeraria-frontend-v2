@@ -111,7 +111,6 @@ export class AffiliateListPage {
       filter: 'autocomplete',
       autocomplete: {
         options: () => this.relationshipOptions(),
-        minSearchChars: 0,
         placeholder: 'Buscar parentesco',
       },
     },
