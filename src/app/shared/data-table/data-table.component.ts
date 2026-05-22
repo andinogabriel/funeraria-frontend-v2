@@ -591,6 +591,67 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     this.commitSort(column);
   }
 
+  /**
+   * Whether the column-menu's Aceptar button is currently a valid commit.
+   *
+   * <p>For autocomplete columns the operator MUST land on a real option from
+   * the suggestion list — typing freeform text and clicking Aceptar would
+   * commit a value the backend has no row for, which we want to prevent. This
+   * method gates the button to one of three commit modes:
+   *
+   * <ul>
+   *   <li>The user picked a valid option from the suggestion list (the staged
+   *       option mirrors a real `{ value, label }` pair).</li>
+   *   <li>The column already had a committed filter AND the operator emptied
+   *       the search box (intent: clear the autocomplete filter). The
+   *       commit is then a deliberate clear.</li>
+   *   <li>The operator only wants to apply a sort change — the staged sort
+   *       direction differs from the column's current sort, regardless of
+   *       the filter staging.</li>
+   * </ul>
+   *
+   * <p>Text and dateRange columns are not gated: their commits are
+   * unambiguous (any input is acceptable, including an explicit empty value
+   * to clear the filter).
+   */
+  /**
+   * Whether the column header should open a menu when clicked. A column is
+   * interactive when it has either a filter declaration OR sorting enabled
+   * (sorting is enabled by default; `sortable: false` opts out). Columns with
+   * neither would surface an empty popover, so we render the label as static
+   * text instead and skip the trigger affordance.
+   */
+  protected isColumnInteractive(column: DataTableColumn<T>): boolean {
+    return column.filter !== undefined || column.sortable !== false;
+  }
+
+  protected canApplyColumnMenu(column: DataTableColumn<T>): boolean {
+    // Sort-change override: any direction flip is always a valid commit.
+    const stagedSortDir = this.stagedSort.get(column.key) ?? '';
+    const currentSort = this.sortState();
+    const currentSortDir =
+      currentSort && currentSort.active === column.key ? currentSort.direction : '';
+    if (stagedSortDir !== currentSortDir) {
+      return true;
+    }
+
+    if (column.filter === 'autocomplete') {
+      const stagedOption = this.stagedAutocomplete.get(column.key) ?? null;
+      if (stagedOption !== null) {
+        return true; // valid pick from the suggestion list
+      }
+      const currentFilter = this.columnFilters().get(column.key);
+      if (!currentFilter || currentFilter.type !== 'autocomplete') {
+        return false; // nothing to clear, nothing to commit
+      }
+      // Operator emptied the search box → deliberate clear of the existing filter.
+      const searchText = (this.autocompleteSearchValues().get(column.key) ?? '').trim();
+      return searchText === '';
+    }
+
+    return true;
+  }
+
   /** Picks an autocomplete option in the staged state without committing. */
   protected onAutocompleteOptionSelect(
     column: DataTableColumn<T>,

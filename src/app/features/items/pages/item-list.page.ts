@@ -6,7 +6,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
-import type { DataTableColumn } from '../../../shared/data-table';
+import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
 import {
   SelectionListCardComponent,
   type ListCardAction,
@@ -41,7 +41,33 @@ export class ItemListPage {
   protected readonly selectedItem = signal<Item | null>(null);
   protected readonly hasSelection = computed(() => this.selectedItem() !== null);
 
-  protected readonly columns: readonly DataTableColumn<Item>[] = [
+  /** Distinct category names derived from the currently-loaded items. */
+  private readonly categoryOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
+    const distinct = new Set<string>();
+    for (const item of this.rows()) {
+      if (item.category?.name) {
+        distinct.add(item.category.name);
+      }
+    }
+    return Array.from(distinct)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map((name) => ({ value: name, label: name }));
+  });
+
+  /** Distinct brand names derived from the currently-loaded items. */
+  private readonly brandOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
+    const distinct = new Set<string>();
+    for (const item of this.rows()) {
+      if (item.brand?.name) {
+        distinct.add(item.brand.name);
+      }
+    }
+    return Array.from(distinct)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map((name) => ({ value: name, label: name }));
+  });
+
+  protected readonly columns = computed<readonly DataTableColumn<Item>[]>(() => [
     {
       key: 'code',
       label: 'Código',
@@ -55,13 +81,23 @@ export class ItemListPage {
       key: 'category',
       label: 'Categoría',
       value: (item) => item.category?.name ?? '',
-      filter: 'text',
+      filter: 'autocomplete',
+      autocomplete: {
+        options: () => this.categoryOptions(),
+        minSearchChars: 0,
+        placeholder: 'Buscar categoría',
+      },
     },
     {
       key: 'brand',
       label: 'Marca',
       value: (item) => item.brand?.name ?? '',
-      filter: 'text',
+      filter: 'autocomplete',
+      autocomplete: {
+        options: () => this.brandOptions(),
+        minSearchChars: 0,
+        placeholder: 'Buscar marca',
+      },
     },
     {
       key: 'price',
@@ -80,7 +116,7 @@ export class ItemListPage {
       align: 'end',
       defaultVisible: false,
     },
-  ] as const;
+  ]);
 
   protected readonly trackByCode = (_: number, row: Item): string => row.code;
 

@@ -84,265 +84,275 @@
           >
             <!--
               Header trigger. Disabled when the table is in empty state so the
-              operator cannot open a menu against an empty dataset. The visual
-              affordance (cursor, hover) is gated by the `[disabled]` attribute
-              which the SCSS picks up via `:disabled` so the button keeps its label
-              visible but stops looking interactive.
+              operator cannot open a menu against an empty dataset.
+
+              Non-interactive columns (no filter declared AND `sortable: false`)
+              render as a plain label — no button, no menu trigger. Opening a
+              menu with neither a filter input nor sort options would just show
+              an empty popover, so we skip the affordance entirely.
             -->
-            <button
-              type="button"
-              class="data-table__header-trigger"
-              [matMenuTriggerFor]="columnMenu"
-              [disabled]="showEmptyState()"
-              #columnMenuTrigger="matMenuTrigger"
-              (menuOpened)="onColumnMenuOpen(column)"
-              [attr.data-active]="
-                !showEmptyState() &&
-                (hasActiveFilter(column.key) || currentSortDirection(column.key) !== '')
-                  ? 'true'
-                  : null
-              "
-              [attr.data-align]="column.align === 'end' ? 'end' : 'start'"
-              [attr.aria-label]="'Opciones de columna ' + column.label"
-            >
-              <span>{{ column.label }}</span>
+            @if (isColumnInteractive(column)) {
+              <button
+                type="button"
+                class="data-table__header-trigger"
+                [matMenuTriggerFor]="columnMenu"
+                [disabled]="showEmptyState()"
+                #columnMenuTrigger="matMenuTrigger"
+                (menuOpened)="onColumnMenuOpen(column)"
+                [attr.data-active]="
+                  !showEmptyState() &&
+                  (hasActiveFilter(column.key) || currentSortDirection(column.key) !== '')
+                    ? 'true'
+                    : null
+                "
+                [attr.data-align]="column.align === 'end' ? 'end' : 'start'"
+                [attr.aria-label]="'Opciones de columna ' + column.label"
+              >
+                <span>{{ column.label }}</span>
+                <!--
+                  Sort + filter indicators on the header are hidden when the table
+                  is in empty state — there is no data to sort or filter, so the
+                  visual cue would be misleading.
+                -->
+                @if (!showEmptyState() && currentSortDirection(column.key) === 'asc') {
+                  <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
+                    >arrow_upward</mat-icon
+                  >
+                } @else if (!showEmptyState() && currentSortDirection(column.key) === 'desc') {
+                  <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
+                    >arrow_downward</mat-icon
+                  >
+                }
+                @if (!showEmptyState() && hasActiveFilter(column.key)) {
+                  <span class="data-table__header-dot" aria-hidden="true"></span>
+                }
+              </button>
+
               <!--
-                Sort + filter indicators on the header are hidden when the table
-                is in empty state — there is no data to sort or filter, so the
-                visual cue would be misleading.
+                Column menu lives inside the same @if branch as the trigger button so
+                the `#columnMenuTrigger` template ref it references stays in scope.
+                Three optional sections: filter (per type) → sort → Aceptar. Sort-only
+                columns (no filter declared) skip Aceptar and commit on click. The
+                `(click).stopPropagation()` wrappers keep the menu open while the
+                user types into a form field; mat-menu otherwise auto-closes on any
+                click that bubbles to the panel host. `tabindex="-1"` satisfies the
+                `interactive-supports-focus` eslint rule on the wrapping divs.
               -->
-              @if (!showEmptyState() && currentSortDirection(column.key) === 'asc') {
-                <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
-                  >arrow_upward</mat-icon
-                >
-              } @else if (!showEmptyState() && currentSortDirection(column.key) === 'desc') {
-                <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
-                  >arrow_downward</mat-icon
-                >
-              }
-              @if (!showEmptyState() && hasActiveFilter(column.key)) {
-                <span class="data-table__header-dot" aria-hidden="true"></span>
-              }
-            </button>
-
-            <!--
-              Column menu. Three optional sections: filter (per type) → sort → Aceptar.
-              Sort-only columns (no filter declared) skip Aceptar and commit on click.
-
-              The `(click).stopPropagation()` wrappers keep the menu open while the
-              user types into a form field; mat-menu otherwise auto-closes on any
-              click that bubbles to the panel host. `tabindex="-1"` satisfies the
-              `interactive-supports-focus` eslint rule on the wrapping divs.
-            -->
-            <mat-menu #columnMenu="matMenu" class="data-table-menu">
-              @if (column.filter === 'text') {
-                <div
-                  class="data-table__column-menu-section"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown.escape)="$event.stopPropagation()"
-                >
-                  <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
-                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
-                    <mat-label>Contiene</mat-label>
-                    <input
-                      matInput
-                      type="text"
-                      [formControl]="textControl(column.key)"
-                      autocomplete="off"
-                    />
-                    @if ((textControl(column.key).value ?? '') !== '') {
-                      <button
-                        type="button"
-                        mat-icon-button
-                        matIconSuffix
-                        (click)="textControl(column.key).setValue('')"
-                        aria-label="Limpiar filtro"
-                      >
-                        <mat-icon class="material-symbols-outlined">close</mat-icon>
-                      </button>
-                    }
-                  </mat-form-field>
-                </div>
-              } @else if (column.filter === 'dateRange') {
-                <div
-                  class="data-table__column-menu-section"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown.escape)="$event.stopPropagation()"
-                >
-                  <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
-                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
-                    <mat-label>Desde</mat-label>
-                    <input
-                      matInput
-                      [matDatepicker]="fromPicker"
-                      [formControl]="dateControl(column.key, 'from')"
-                    />
-                    <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
-                    <mat-datepicker #fromPicker />
-                  </mat-form-field>
-                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full mt-2">
-                    <mat-label>Hasta</mat-label>
-                    <input
-                      matInput
-                      [matDatepicker]="toPicker"
-                      [formControl]="dateControl(column.key, 'to')"
-                    />
-                    <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
-                    <mat-datepicker #toPicker />
-                  </mat-form-field>
-                </div>
-              } @else if (column.filter === 'autocomplete' && column.autocomplete) {
-                <div
-                  class="data-table__column-menu-section"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown.escape)="$event.stopPropagation()"
-                >
-                  <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
-                  <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
-                    <mat-label>{{ column.autocomplete.placeholder ?? 'Buscar...' }}</mat-label>
-                    <input
-                      matInput
-                      type="text"
-                      [formControl]="autocompleteSearchControl(column.key)"
-                      autocomplete="off"
-                      (input)="
-                        onAutocompleteSearchInput(
-                          column,
-                          autocompleteSearchControl(column.key).value ?? ''
-                        )
-                      "
-                    />
-                    @if (stagedAutocompleteFor(column.key) !== null) {
-                      <button
-                        type="button"
-                        mat-icon-button
-                        matIconSuffix
-                        (click)="onAutocompleteClear(column)"
-                        aria-label="Limpiar filtro"
-                      >
-                        <mat-icon class="material-symbols-outlined">close</mat-icon>
-                      </button>
-                    }
-                  </mat-form-field>
-                  @if (filteredAutocompleteOptions(column).length > 0) {
-                    <ul class="data-table__autocomplete-options">
-                      @for (option of filteredAutocompleteOptions(column); track option.value) {
-                        <li>
-                          <button
-                            type="button"
-                            class="data-table__autocomplete-option"
-                            [class.data-table__autocomplete-option--active]="
-                              stagedAutocompleteFor(column.key)?.value === option.value
-                            "
-                            (click)="onAutocompleteOptionSelect(column, option)"
-                          >
-                            {{ option.label }}
-                          </button>
-                        </li>
+              <mat-menu #columnMenu="matMenu" class="data-table-menu">
+                @if (column.filter === 'text') {
+                  <div
+                    class="data-table__column-menu-section"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown.escape)="$event.stopPropagation()"
+                  >
+                    <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+                      <mat-label>Contiene</mat-label>
+                      <input
+                        matInput
+                        type="text"
+                        [formControl]="textControl(column.key)"
+                        autocomplete="off"
+                      />
+                      @if ((textControl(column.key).value ?? '') !== '') {
+                        <button
+                          type="button"
+                          mat-icon-button
+                          matIconSuffix
+                          (click)="textControl(column.key).setValue('')"
+                          aria-label="Limpiar filtro"
+                        >
+                          <mat-icon class="material-symbols-outlined">close</mat-icon>
+                        </button>
                       }
-                    </ul>
-                  } @else if (
-                    (autocompleteSearchControl(column.key).value ?? '').trim().length > 0 &&
-                    (autocompleteSearchControl(column.key).value ?? '').trim().length <
+                    </mat-form-field>
+                  </div>
+                } @else if (column.filter === 'dateRange') {
+                  <div
+                    class="data-table__column-menu-section"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown.escape)="$event.stopPropagation()"
+                  >
+                    <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+                      <mat-label>Desde</mat-label>
+                      <input
+                        matInput
+                        [matDatepicker]="fromPicker"
+                        [formControl]="dateControl(column.key, 'from')"
+                      />
+                      <mat-datepicker-toggle matIconSuffix [for]="fromPicker" />
+                      <mat-datepicker #fromPicker />
+                    </mat-form-field>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full mt-2">
+                      <mat-label>Hasta</mat-label>
+                      <input
+                        matInput
+                        [matDatepicker]="toPicker"
+                        [formControl]="dateControl(column.key, 'to')"
+                      />
+                      <mat-datepicker-toggle matIconSuffix [for]="toPicker" />
+                      <mat-datepicker #toPicker />
+                    </mat-form-field>
+                  </div>
+                } @else if (column.filter === 'autocomplete' && column.autocomplete) {
+                  <div
+                    class="data-table__column-menu-section"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown.escape)="$event.stopPropagation()"
+                  >
+                    <p class="data-table__column-menu-label">Filtrar por {{ column.label }}</p>
+                    <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full">
+                      <mat-label>{{ column.autocomplete.placeholder ?? 'Buscar...' }}</mat-label>
+                      <input
+                        matInput
+                        type="text"
+                        [formControl]="autocompleteSearchControl(column.key)"
+                        autocomplete="off"
+                        (input)="
+                          onAutocompleteSearchInput(
+                            column,
+                            autocompleteSearchControl(column.key).value ?? ''
+                          )
+                        "
+                      />
+                      @if (stagedAutocompleteFor(column.key) !== null) {
+                        <button
+                          type="button"
+                          mat-icon-button
+                          matIconSuffix
+                          (click)="onAutocompleteClear(column)"
+                          aria-label="Limpiar filtro"
+                        >
+                          <mat-icon class="material-symbols-outlined">close</mat-icon>
+                        </button>
+                      }
+                    </mat-form-field>
+                    @if (filteredAutocompleteOptions(column).length > 0) {
+                      <ul class="data-table__autocomplete-options">
+                        @for (option of filteredAutocompleteOptions(column); track option.value) {
+                          <li>
+                            <button
+                              type="button"
+                              class="data-table__autocomplete-option"
+                              [class.data-table__autocomplete-option--active]="
+                                stagedAutocompleteFor(column.key)?.value === option.value
+                              "
+                              (click)="onAutocompleteOptionSelect(column, option)"
+                            >
+                              {{ option.label }}
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    } @else if (
+                      (autocompleteSearchControl(column.key).value ?? '').trim().length > 0 &&
+                      (autocompleteSearchControl(column.key).value ?? '').trim().length <
+                        (column.autocomplete.minSearchChars ?? 3)
+                    ) {
+                      <p class="data-table__autocomplete-hint">
+                        Escribí al menos {{ column.autocomplete.minSearchChars ?? 3 }} letras
+                      </p>
+                    } @else if (
+                      (autocompleteSearchControl(column.key).value ?? '').trim().length >=
                       (column.autocomplete.minSearchChars ?? 3)
-                  ) {
-                    <p class="data-table__autocomplete-hint">
-                      Escribí al menos {{ column.autocomplete.minSearchChars ?? 3 }} letras
-                    </p>
-                  } @else if (
-                    (autocompleteSearchControl(column.key).value ?? '').trim().length >=
-                    (column.autocomplete.minSearchChars ?? 3)
-                  ) {
-                    <p class="data-table__autocomplete-hint">Sin resultados</p>
-                  }
-                </div>
-              }
+                    ) {
+                      <p class="data-table__autocomplete-hint">Sin resultados</p>
+                    }
+                  </div>
+                }
 
-              @if (column.sortable !== false) {
-                <div
-                  class="data-table__column-menu-section"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown)="$event.stopPropagation()"
-                >
-                  <p class="data-table__column-menu-label">Ordenar</p>
-                  @if (column.filter) {
-                    <!-- Staged: clicking the radio just stages, Aceptar commits. -->
-                    <mat-radio-group
-                      [value]="stagedSortDirection(column.key)"
-                      (change)="onStagedSortPick(column, $event.value)"
-                      class="flex flex-col gap-1"
-                    >
-                      <mat-radio-button value="asc">Ascendente</mat-radio-button>
-                      <mat-radio-button value="desc">Descendente</mat-radio-button>
-                      <mat-radio-button value="">Sin orden</mat-radio-button>
-                    </mat-radio-group>
-                  } @else {
-                    <!-- Sort-only column: click-to-commit, no Aceptar. -->
-                    <button
-                      type="button"
-                      mat-menu-item
-                      (click)="onStagedSortPick(column, 'asc'); onColumnMenuSortOnlyApply(column)"
-                      [class.!font-semibold]="currentSortDirection(column.key) === 'asc'"
-                    >
-                      <mat-icon class="material-symbols-outlined">arrow_upward</mat-icon>
-                      <span>Ascendente</span>
-                    </button>
-                    <button
-                      type="button"
-                      mat-menu-item
-                      (click)="onStagedSortPick(column, 'desc'); onColumnMenuSortOnlyApply(column)"
-                      [class.!font-semibold]="currentSortDirection(column.key) === 'desc'"
-                    >
-                      <mat-icon class="material-symbols-outlined">arrow_downward</mat-icon>
-                      <span>Descendente</span>
-                    </button>
-                    @if (currentSortDirection(column.key) !== '') {
+                @if (column.sortable !== false) {
+                  <div
+                    class="data-table__column-menu-section"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown)="$event.stopPropagation()"
+                  >
+                    <p class="data-table__column-menu-label">Ordenar</p>
+                    @if (column.filter) {
+                      <!-- Staged: clicking the radio just stages, Aceptar commits. -->
+                      <mat-radio-group
+                        [value]="stagedSortDirection(column.key)"
+                        (change)="onStagedSortPick(column, $event.value)"
+                        class="flex flex-col gap-1"
+                      >
+                        <mat-radio-button value="asc">Ascendente</mat-radio-button>
+                        <mat-radio-button value="desc">Descendente</mat-radio-button>
+                        <mat-radio-button value="">Sin orden</mat-radio-button>
+                      </mat-radio-group>
+                    } @else {
+                      <!-- Sort-only column: click-to-commit, no Aceptar. -->
                       <button
                         type="button"
                         mat-menu-item
-                        (click)="onStagedSortPick(column, ''); onColumnMenuSortOnlyApply(column)"
+                        (click)="onStagedSortPick(column, 'asc'); onColumnMenuSortOnlyApply(column)"
+                        [class.!font-semibold]="currentSortDirection(column.key) === 'asc'"
                       >
-                        <mat-icon class="material-symbols-outlined">close</mat-icon>
-                        <span>Quitar orden</span>
+                        <mat-icon class="material-symbols-outlined">arrow_upward</mat-icon>
+                        <span>Ascendente</span>
                       </button>
+                      <button
+                        type="button"
+                        mat-menu-item
+                        (click)="
+                          onStagedSortPick(column, 'desc'); onColumnMenuSortOnlyApply(column)
+                        "
+                        [class.!font-semibold]="currentSortDirection(column.key) === 'desc'"
+                      >
+                        <mat-icon class="material-symbols-outlined">arrow_downward</mat-icon>
+                        <span>Descendente</span>
+                      </button>
+                      @if (currentSortDirection(column.key) !== '') {
+                        <button
+                          type="button"
+                          mat-menu-item
+                          (click)="onStagedSortPick(column, ''); onColumnMenuSortOnlyApply(column)"
+                        >
+                          <mat-icon class="material-symbols-outlined">close</mat-icon>
+                          <span>Quitar orden</span>
+                        </button>
+                      }
                     }
-                  }
-                </div>
-              }
+                  </div>
+                }
 
-              <!--
+                <!--
                 Aceptar button. Rendered only when the column carries a filter; sort-
                 only columns commit on item click and do not need a confirm step.
               -->
-              @if (column.filter) {
-                <div
-                  class="data-table__column-menu-section data-table__column-menu-actions"
-                  tabindex="-1"
-                  (click)="$event.stopPropagation()"
-                  (keydown)="$event.stopPropagation()"
-                >
-                  <!--
+                @if (column.filter) {
+                  <div
+                    class="data-table__column-menu-section data-table__column-menu-actions"
+                    tabindex="-1"
+                    (click)="$event.stopPropagation()"
+                    (keydown)="$event.stopPropagation()"
+                  >
+                    <!--
                     `matMenuTriggerClose` is not a real Material directive — to close
                     the parent menu from a non-`mat-menu-item` button we call
                     `closeMenu()` on the trigger via its template reference. The
                     `#columnMenuTrigger` template var on the header button is in the
                     same component view so it resolves inside this nested menu panel.
                   -->
-                  <button
-                    type="button"
-                    mat-flat-button
-                    color="primary"
-                    (click)="onColumnMenuApply(column); columnMenuTrigger.closeMenu()"
-                  >
-                    Aceptar
-                  </button>
-                </div>
-              }
-            </mat-menu>
+                    <button
+                      type="button"
+                      mat-flat-button
+                      color="primary"
+                      [disabled]="!canApplyColumnMenu(column)"
+                      (click)="onColumnMenuApply(column); columnMenuTrigger.closeMenu()"
+                    >
+                      Aceptar
+                    </button>
+                  </div>
+                }
+              </mat-menu>
+            } @else {
+              <span class="data-table__header-static">{{ column.label }}</span>
+            }
           </th>
 
           <td
