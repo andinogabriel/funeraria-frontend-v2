@@ -118,7 +118,6 @@ export class FuneralListPage {
       filter: 'autocomplete',
       autocomplete: {
         options: () => this.planOptions(),
-        minSearchChars: 0,
         placeholder: 'Buscar plan',
       },
     },

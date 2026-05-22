@@ -88,7 +88,6 @@ export class MyFuneralsPage {
       filter: 'autocomplete',
       autocomplete: {
         options: () => this.planOptions(),
-        minSearchChars: 0,
         placeholder: 'Buscar plan',
       },
     },

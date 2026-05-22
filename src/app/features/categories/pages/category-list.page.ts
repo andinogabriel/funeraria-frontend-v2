@@ -43,7 +43,15 @@ export class CategoryListPage {
       hideable: false,
       filter: 'text',
     },
-    { key: 'description', label: 'Descripción', value: (category) => category.description ?? '' },
+    {
+      // Free-form long text — sorting it alphabetically has no operator value,
+      // and a substring filter would distort the result set in confusing ways.
+      // Surfaced as a read-only column with no menu trigger.
+      key: 'description',
+      label: 'Descripción',
+      value: (category) => category.description ?? '',
+      sortable: false,
+    },
   ] as const;
 
   protected readonly trackById = (_: number, row: Category): number => row.id;

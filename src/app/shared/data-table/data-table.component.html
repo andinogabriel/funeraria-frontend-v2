@@ -249,17 +249,20 @@
                         }
                       </ul>
                     } @else if (
-                      (autocompleteSearchControl(column.key).value ?? '').trim().length > 0 &&
                       (autocompleteSearchControl(column.key).value ?? '').trim().length <
-                        (column.autocomplete.minSearchChars ?? 3)
+                      (column.autocomplete.minSearchChars ?? 3)
                     ) {
+                      <!--
+                        Empty input + below-threshold input share the same
+                        "type N letters" nudge so a freshly-opened menu always
+                        has a friendly prompt when no options are visible.
+                        Without the empty-state branch the menu used to dump a
+                        bare input on screen, which read as a broken affordance.
+                      -->
                       <p class="data-table__autocomplete-hint">
                         Escribí al menos {{ column.autocomplete.minSearchChars ?? 3 }} letras
                       </p>
-                    } @else if (
-                      (autocompleteSearchControl(column.key).value ?? '').trim().length >=
-                      (column.autocomplete.minSearchChars ?? 3)
-                    ) {
+                    } @else {
                       <p class="data-table__autocomplete-hint">Sin resultados</p>
                     }
                   </div>

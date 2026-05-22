@@ -84,7 +84,6 @@ export class ItemListPage {
       filter: 'autocomplete',
       autocomplete: {
         options: () => this.categoryOptions(),
-        minSearchChars: 0,
         placeholder: 'Buscar categoría',
       },
     },
@@ -95,7 +94,6 @@ export class ItemListPage {
       filter: 'autocomplete',
       autocomplete: {
         options: () => this.brandOptions(),
-        minSearchChars: 0,
         placeholder: 'Buscar marca',
       },
     },
