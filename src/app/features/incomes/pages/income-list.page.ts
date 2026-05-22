@@ -26,6 +26,7 @@ import {
   type DataTableEmptyState,
   type DataTableSort,
 } from '../../../shared/data-table';
+import { formatDateTime } from '../../../shared/format';
 import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeDetailDialogComponent } from '../components/income-detail-dialog.component';
 import { IncomeService } from '../income.service';
@@ -469,25 +470,4 @@ function formatCurrency(value: number): string {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-/**
- * Formats an ISO 8601 instant (e.g. `2025-09-26T17:30:00Z`) as
- * `dd/MM/yyyy HH:mm` in the operator's local timezone. `new Date(iso)` honours
- * the trailing `Z` so the `getDate` / `getHours` calls return wall-clock values
- * the operator expects — Argentina, in the current deployment.
- */
-function formatDateTime(iso: string): string {
-  if (!iso) {
-    return '—';
-  }
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
 }

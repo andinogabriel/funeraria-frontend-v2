@@ -10,6 +10,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 
 import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
+import { formatDateTime } from '../../../shared/format';
 import type { Item } from '../item.types';
 
 /**
@@ -43,11 +44,11 @@ export class ItemDetailDialogComponent {
 
   protected readonly priceLabel = formatCurrency(this.data.price);
 
-  protected readonly createdLabel = computed(() => formatInstant(this.data.createdAt));
+  protected readonly createdLabel = computed(() => formatDateTime(this.data.createdAt));
 
   /** Returns `null` when the row has never been updated since creation. */
   protected readonly updatedLabel = computed(() =>
-    this.data.updatedAt ? formatInstant(this.data.updatedAt) : null,
+    this.data.updatedAt ? formatDateTime(this.data.updatedAt) : null,
   );
 
   /**
@@ -69,16 +70,4 @@ function formatCurrency(value: number): string {
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function formatInstant(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
 }
