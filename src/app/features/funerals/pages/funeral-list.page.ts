@@ -26,6 +26,7 @@ import {
   type DataTableEmptyState,
   type DataTableSort,
 } from '../../../shared/data-table';
+import { formatDateTime } from '../../../shared/format';
 import { FuneralDetailDialogComponent } from '../components/funeral-detail-dialog.component';
 import { FuneralService } from '../funeral.service';
 import type { Funeral, FuneralPageQuery } from '../funeral.types';
@@ -432,19 +433,6 @@ export class FuneralListPage {
       });
     });
   }
-}
-
-/** Formats an ISO `yyyy-MM-ddTHH:mm` datetime as `dd/MM/yyyy HH:mm` for the grid. */
-function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
 }
 
 /** Formats a numeric amount as Argentine peso currency. */

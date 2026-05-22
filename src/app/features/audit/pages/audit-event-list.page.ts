@@ -14,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { debounceTime } from 'rxjs/operators';
 
 import { DataTableComponent, type DataTableColumn } from '../../../shared/data-table';
+import { formatDateTime } from '../../../shared/format';
 import { AuditService } from '../audit.service';
 import type { AuditAction, AuditEvent, AuditEventFilter } from '../audit.types';
 import { AuditEventDetailDialogComponent } from '../components/audit-event-detail-dialog.component';
@@ -128,7 +129,7 @@ export class AuditEventListPage {
     {
       key: 'occurredAt',
       label: 'Fecha',
-      value: (e) => formatInstant(e.occurredAt),
+      value: (e) => formatDateTime(e.occurredAt),
       cellClass: 'tabular-nums whitespace-nowrap',
       sortable: false,
       hideable: false,
@@ -253,23 +254,6 @@ export class AuditEventListPage {
       .search(this.buildFilter(), { page: this.pageIndex(), size: this.pageSize() })
       .subscribe();
   }
-}
-
-/**
- * Renders an ISO-8601 instant as `dd/MM/yyyy HH:mm` for table cells. Falls
- * back to the raw value when the string is unparseable so the operator still
- * sees something instead of a blank cell.
- */
-function formatInstant(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
 }
 
 /**

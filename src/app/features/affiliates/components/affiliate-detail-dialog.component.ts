@@ -9,6 +9,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 
 import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
+import { formatDate } from '../../../shared/format';
 import type { Affiliate } from '../affiliate.types';
 
 /**
@@ -54,13 +55,13 @@ export class AffiliateDetailDialogComponent {
    * Friendly birth-date label. The backend ships ISO `yyyy-MM-dd`; we render it
    * `dd/MM/yyyy` to match the locale the rest of the UI uses.
    */
-  protected readonly birthDateLabel = formatIsoToLocaleDate(this.data.birthDate);
+  protected readonly birthDateLabel = formatDate(this.data.birthDate);
 
   /**
    * Friendly start-date label (affiliate enrolment date). Same format normalisation
-   * as the birth date — see {@link formatIsoToLocaleDate}.
+   * as the birth date — see {@link formatDate} in the shared format module.
    */
-  protected readonly startDateLabel = formatIsoToLocaleDate(this.data.startDate);
+  protected readonly startDateLabel = formatDate(this.data.startDate);
 }
 
 /**
@@ -84,18 +85,4 @@ function computeAge(isoBirthDate: string): number | null {
     age -= 1;
   }
   return age >= 0 ? age : null;
-}
-
-/**
- * Reformats a `yyyy-MM-dd` date into `dd/MM/yyyy`. Returns the original string for
- * unparseable input so the user still sees the raw value instead of a swallowed
- * empty cell — useful while diagnosing backend payload drift.
- */
-function formatIsoToLocaleDate(isoDate: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (!match) {
-    return isoDate;
-  }
-  const [, year, month, day] = match;
-  return `${day}/${month}/${year}`;
 }

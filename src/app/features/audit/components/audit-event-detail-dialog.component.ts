@@ -9,6 +9,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 
 import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
+import { formatDateTimeWithSeconds } from '../../../shared/format';
 import type { AuditEvent } from '../audit.types';
 
 /**
@@ -45,7 +46,7 @@ export class AuditEventDetailDialogComponent {
    * Localised occurredAt label. Falls back to the raw ISO string if Intl rejects
    * the input — better to show something than crash the modal.
    */
-  protected readonly occurredAtLabel = formatInstant(this.data.occurredAt);
+  protected readonly occurredAtLabel = formatDateTimeWithSeconds(this.data.occurredAt);
 
   /**
    * Prettified payload. Audit payloads are persisted as JSON strings; we attempt
@@ -65,21 +66,4 @@ export class AuditEventDetailDialogComponent {
       return raw;
     }
   });
-}
-
-/**
- * Renders an ISO-8601 instant as a locale-aware `dd/MM/yyyy HH:mm:ss` label.
- * Returns the raw input when it cannot be parsed so the user still sees the
- * value during diagnosis instead of an empty cell.
- */
-function formatInstant(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ` +
-    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-  );
 }
