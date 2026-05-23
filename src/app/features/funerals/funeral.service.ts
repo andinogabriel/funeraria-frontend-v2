@@ -261,6 +261,22 @@ export class FuneralService {
   }
 
   /**
+   * Fetches the printable PDF rendering of a funeral. The detail page wires
+   * this into the "Imprimir / PDF" button — the body is consumed as a
+   * `Blob` so the caller can create an object URL and trigger an attribute
+   * download without losing the auth headers the HttpClient interceptor
+   * attaches.
+   *
+   * <p>Returns the raw Blob; the caller decides how to consume it
+   * (download, embed in an iframe, open in a new tab). Errors surface
+   * through the normal RxJS error channel — typically a 404 (id not found)
+   * or 500 (rendering crashed).
+   */
+  downloadPdf(id: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${id}/pdf`, { responseType: 'blob' });
+  }
+
+  /**
    * Deletes the funeral identified by `id`. The backend returns an
    * `OperationStatusModel` payload but we ignore the body — the cache
    * filter is the source of truth in-memory.

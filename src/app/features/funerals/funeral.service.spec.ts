@@ -174,4 +174,17 @@ describe('FuneralService', () => {
     expect(service.findById(2)?.id).toBe(2);
     expect(service.findById(999)).toBeUndefined();
   });
+
+  it('downloadPdf GETs /api/v1/funerals/{id}/pdf and returns the response as a Blob', () => {
+    let received: Blob | undefined;
+    service.downloadPdf(42).subscribe((blob) => (received = blob));
+
+    const req = http.expectOne((r) => r.method === 'GET' && r.url === '/api/v1/funerals/42/pdf');
+    expect(req.request.responseType).toBe('blob');
+    const body = new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46])], { type: 'application/pdf' });
+    req.flush(body);
+
+    expect(received).toBeInstanceOf(Blob);
+    expect(received?.type).toBe('application/pdf');
+  });
 });

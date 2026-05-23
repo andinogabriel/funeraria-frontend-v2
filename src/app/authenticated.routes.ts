@@ -158,6 +158,15 @@ export const AUTHENTICATED_ROUTES: Routes = [
         data: { mode: 'create' },
       },
       {
+        // Dedicated detail route for a single funeral. The Detalle action on
+        // the listing and on the "Mis servicios" page navigates here instead
+        // of opening a modal — a funeral is a legal document the operator
+        // shares / prints / files, so a navigable URL is a better fit.
+        path: 'servicios/:id',
+        loadComponent: () =>
+          import('./features/funerals/pages/funeral-detail.page').then((m) => m.FuneralDetailPage),
+      },
+      {
         path: 'servicios/:id/editar',
         loadComponent: () =>
           import('./features/funerals/pages/funeral-form.page').then((m) => m.FuneralFormPage),
