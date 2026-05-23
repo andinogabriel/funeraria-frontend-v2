@@ -108,6 +108,31 @@ export class ItemService {
     });
   }
 
+  /**
+   * Replaces the matching row inside the cached paginated snapshot. Hooked into
+   * the {@link ItemService#update} tap so the operator sees the new value the
+   * moment they navigate back from the edit form. No-op when the page cache is
+   * cold or the item lives on a different page than the one being viewed.
+   */
+  private replaceInCachedPage(code: string, replacement: Item): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    let changed = false;
+    const next = current.content.map((row) => {
+      if (row.code !== code) {
+        return row;
+      }
+      changed = true;
+      return replacement;
+    });
+    if (!changed) {
+      return;
+    }
+    this._page.set({ ...current, content: next });
+  }
+
   /** Lists every item and updates the cached signal. */
   loadAll(): Observable<readonly Item[]> {
     this._loading.set(true);
@@ -160,6 +185,9 @@ export class ItemService {
         if (current !== null) {
           this._list.set(current.map((i) => (i.code === code ? item : i)));
         }
+        // Patch the cached paginated snapshot too so the operator sees the
+        // new value the moment they navigate back to the list page.
+        this.replaceInCachedPage(code, item);
       }),
     );
   }

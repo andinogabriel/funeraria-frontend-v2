@@ -585,6 +585,15 @@ export class FuneralFormPage {
         ? this.service.update(this.editId, request)
         : this.service.create(request);
 
+    // See affiliate-form.page.ts for the rationale: edit navigates optimistically
+    // because the service's `update()` tap patches the page cache and the
+    // operator never sees stale data. Create waits for the response to avoid
+    // losing the form contents on a failed POST.
+    const optimistic = this.mode === 'edit';
+    if (optimistic) {
+      void this.router.navigate(['/servicios']);
+    }
+
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
@@ -592,11 +601,18 @@ export class FuneralFormPage {
           this.mode === 'edit' ? 'Servicio actualizado' : 'Servicio creado',
           'Cerrar',
         );
-        void this.router.navigate(['/servicios']);
+        if (!optimistic) {
+          void this.router.navigate(['/servicios']);
+        }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {
         this.submitting.set(false);
-        this.errorMessage.set(this.mapError(err.status ?? 0, err.error?.detail));
+        const message = this.mapError(err.status ?? 0, err.error?.detail);
+        if (optimistic) {
+          this.snackBar.open(message, 'Cerrar');
+        } else {
+          this.errorMessage.set(message);
+        }
       },
     });
   }

@@ -151,6 +151,31 @@ export class FuneralService {
     });
   }
 
+  /**
+   * Replaces the matching row inside the cached paginated snapshot. Called from
+   * the {@link FuneralService#update} tap so the operator sees the new value the
+   * moment they return from the edit form. No-op when the page cache is cold or
+   * the updated row is not part of the currently-loaded slice.
+   */
+  private replaceInCachedPage(id: number, replacement: Funeral): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    let changed = false;
+    const next = current.content.map((row) => {
+      if (row.id !== id) {
+        return row;
+      }
+      changed = true;
+      return replacement;
+    });
+    if (!changed) {
+      return;
+    }
+    this._page.set({ ...current, content: next });
+  }
+
   /** Lists every funeral (ADMIN-only on the backend). */
   loadAll(): Observable<readonly Funeral[]> {
     this._loading.set(true);
@@ -218,6 +243,9 @@ export class FuneralService {
         if (current !== null) {
           this._list.set(current.map((f) => (f.id === id ? funeral : f)));
         }
+        // Patch the cached paginated snapshot so the list page does not need
+        // to refetch to display the new value.
+        this.replaceInCachedPage(id, funeral);
       }),
     );
   }

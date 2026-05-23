@@ -465,13 +465,22 @@ export class AffiliateListPage {
       if (confirmed !== true) {
         return;
       }
+      // Snapshot the page envelope BEFORE the optimistic mutation so we can
+      // decide whether the post-success refetch is worth a round-trip. When the
+      // operator was already on the last page, deleting a row does not create a
+      // hole that needs to be filled from a non-existent page N+1 — the cache
+      // mutation alone is the canonical state. Skipping the fetch avoids the
+      // visible loading flash that followed every delete.
+      const wasLastPage = this.service.page()?.last ?? true;
       this.service.removeFromCachedPage(affiliate.dni);
 
       this.service.delete(affiliate.dni).subscribe({
         next: () => {
           this.selectedAffiliate.set(null);
           this.snackBar.open('Afiliado eliminado', 'Cerrar');
-          this.onRefresh();
+          if (!wasLastPage) {
+            this.onRefresh();
+          }
         },
         error: () => {
           this.onRefresh();
