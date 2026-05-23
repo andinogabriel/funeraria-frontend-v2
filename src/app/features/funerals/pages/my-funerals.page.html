@@ -40,3 +40,12 @@
     [(selectedRow)]="selectedFuneral"
   />
 </div>
+
+<!--
+  Cell renderer projected into the data-table via the `cellTemplate` slot on
+  the funeralDate column descriptor. The column's `value` accessor still
+  returns the raw ISO so the grid sort stays chronological; the template
+  formats the value as `dd/MM/yyyy HH:mm` in Argentina local time through the
+  shared canonical formatter.
+-->
+<ng-template #funeralDateCell let-funeral>{{ formatDateTime(funeral.funeralDate) }}</ng-template>

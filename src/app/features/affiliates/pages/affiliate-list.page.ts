@@ -5,6 +5,8 @@ import {
   effect,
   inject,
   signal,
+  TemplateRef,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,6 +26,7 @@ import {
   type DataTableEmptyState,
   type DataTableSort,
 } from '../../../shared/data-table';
+import { formatDate } from '../../../shared/format';
 import { AffiliateDetailDialogComponent } from '../components/affiliate-detail-dialog.component';
 import { AffiliateService } from '../affiliate.service';
 import type { Affiliate, AffiliatePageQuery } from '../affiliate.types';
@@ -224,7 +227,15 @@ export class AffiliateListPage {
       .map((name) => ({ value: name, label: name }));
   };
 
-  protected readonly columns: readonly DataTableColumn<Affiliate>[] = [
+  /**
+   * Template ref for the Nacimiento cell. The `value` accessor keeps the ISO
+   * date so the grid sort is chronological; the template runs `formatDate`
+   * so the operator sees `dd/MM/yyyy` instead of the raw `1990-10-09`.
+   */
+  private readonly birthDateCell =
+    viewChild<TemplateRef<{ $implicit: Affiliate }>>('birthDateCell');
+
+  protected readonly columns = computed<readonly DataTableColumn<Affiliate>[]>(() => [
     {
       key: 'dni',
       label: 'DNI',
@@ -249,6 +260,7 @@ export class AffiliateListPage {
       key: 'birthDate',
       label: 'Nacimiento',
       value: (a) => a.birthDate,
+      cellTemplate: this.birthDateCell(),
       cellClass: 'tabular-nums',
       filter: 'dateRange',
     },
@@ -271,9 +283,12 @@ export class AffiliateListPage {
       value: (a) => a.gender.name,
       defaultVisible: false,
     },
-  ] as const;
+  ]);
 
   protected readonly trackByDni = (_: number, row: Affiliate): number => row.dni;
+
+  /** Bound to the cellTemplate so the template can call the canonical formatter. */
+  protected readonly formatDate = formatDate;
 
   constructor() {
     // URL → backend. Re-fetches the page whenever any URL param changes.
