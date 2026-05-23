@@ -1,9 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+  TemplateRef,
+  viewChild,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
+import { formatDateTime } from '../../../shared/format';
 import {
   SelectionListCardComponent,
   type ListCardAction,
@@ -46,6 +55,17 @@ export class MyFuneralsPage {
   protected readonly selectedFuneral = signal<Funeral | null>(null);
   protected readonly hasSelection = computed(() => this.selectedFuneral() !== null);
 
+  /**
+   * Template ref for the Fecha cell — same pattern the admin funeral-list
+   * uses. The column descriptor wires this in so the cell renders
+   * `dd/MM/yyyy HH:mm` instead of dumping the raw ISO that came off the wire.
+   */
+  private readonly funeralDateCell =
+    viewChild<TemplateRef<{ $implicit: Funeral }>>('funeralDateCell');
+
+  /** Bound to the cellTemplate so the template can call the canonical formatter. */
+  protected readonly formatDateTime = formatDateTime;
+
   /** Distinct plan names derived from the user's own loaded funerals. */
   private readonly planOptions = computed<readonly DataTableAutocompleteOption[]>(() => {
     const distinct = new Set<string>();
@@ -77,7 +97,11 @@ export class MyFuneralsPage {
     {
       key: 'funeralDate',
       label: 'Fecha del servicio',
+      // `value` keeps the raw ISO so the grid sort stays chronological;
+      // `cellTemplate` runs the canonical `formatDateTime` so the operator
+      // sees `dd/MM/yyyy HH:mm` in Argentina local time.
       value: (funeral) => funeral.funeralDate,
+      cellTemplate: this.funeralDateCell(),
       cellClass: 'tabular-nums whitespace-nowrap',
       filter: 'dateRange',
     },

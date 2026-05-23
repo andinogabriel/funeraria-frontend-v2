@@ -93,7 +93,7 @@
 
     <app-data-table
       [data]="rows()"
-      [columns]="columns"
+      [columns]="columns()"
       [trackBy]="trackByDni"
       storageKey="affiliates.list"
       [serverSide]="true"
@@ -112,3 +112,11 @@
     />
   </mat-card>
 </div>
+
+<!--
+  Cell renderer for the Nacimiento column. The column's `value` accessor still
+  returns the raw ISO `yyyy-MM-dd` so the grid sort stays chronological; this
+  template runs the canonical `formatDate` helper so the operator sees
+  `dd/MM/yyyy`.
+-->
+<ng-template #birthDateCell let-affiliate>{{ formatDate(affiliate.birthDate) }}</ng-template>
