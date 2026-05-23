@@ -31,12 +31,20 @@ export class AuditService {
   private readonly _page = signal<Page<AuditEvent> | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
+  private readonly _pageFetchedAt = signal<Date | null>(null);
 
   /** Last page payload received from the server. `null` before the first call completes. */
   readonly page = this._page.asReadonly();
 
   /** True while an in-flight `search` is pending; UIs can render a spinner / disabled state. */
   readonly loading = this._loading.asReadonly();
+
+  /**
+   * Wall-clock moment the cached page snapshot was last refreshed. Drives the
+   * "Actualizado hace N min" indicator + the visibility auto-refresh decision.
+   * See {@link AffiliateService#pageFetchedAt}.
+   */
+  readonly pageFetchedAt = this._pageFetchedAt.asReadonly();
 
   /**
    * Optional error message left by the last failed call. Populated only after a request
@@ -89,11 +97,13 @@ export class AuditService {
       tap({
         next: (page) => {
           this._page.set(page);
+          this._pageFetchedAt.set(new Date());
           this._loading.set(false);
         },
         error: (err: { status?: number; error?: { detail?: string } }) => {
           this._loading.set(false);
           this._error.set(this.mapError(err));
+          this._pageFetchedAt.set(null);
         },
       }),
     );
@@ -104,6 +114,7 @@ export class AuditService {
     this._page.set(null);
     this._loading.set(false);
     this._error.set(null);
+    this._pageFetchedAt.set(null);
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

@@ -11,6 +11,14 @@
     </div>
     <span class="flex-1"></span>
 
+    <!--
+      Compact freshness stamp ("Actualizado hace N min") sits to the left of
+      the Refresh button so the operator can see how stale the data is at a
+      glance. The indicator re-renders every 30 s; the visibility-change
+      auto-refresh kicks in when the tab is backgrounded for >60 s.
+    -->
+    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+
     <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
       <mat-icon class="material-symbols-outlined">refresh</mat-icon>
       Actualizar

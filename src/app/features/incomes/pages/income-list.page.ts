@@ -27,6 +27,7 @@ import {
   type DataTableSort,
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
+import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
 import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeDetailDialogComponent } from '../components/income-detail-dialog.component';
 import { IncomeService } from '../income.service';
@@ -77,6 +78,7 @@ import type { Income, IncomePageQuery } from '../income.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DataTableComponent,
+    FreshnessIndicatorComponent,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
@@ -98,6 +100,7 @@ export class IncomeListPage {
   protected readonly error = this.service.error;
   protected readonly rows = this.service.rows;
   protected readonly totalElements = this.service.totalElements;
+  protected readonly pageFetchedAt = this.service.pageFetchedAt;
 
   protected readonly selectedIncome = signal<Income | null>(null);
   protected readonly hasSelection = computed(() => this.selectedIncome() !== null);
@@ -303,6 +306,9 @@ export class IncomeListPage {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.selectedIncome.set(null));
+
+    // Auto-refresh on tab-focus when the cached page is older than 60 s.
+    useVisibilityRefresh(this.pageFetchedAt, () => this.onRefresh());
   }
 
   /**

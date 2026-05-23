@@ -37,11 +37,19 @@ export class IncomeService {
   private readonly _page = signal<IncomePage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
+  private readonly _pageFetchedAt = signal<Date | null>(null);
 
   /** Latest paginated snapshot. `null` before the first load. */
   readonly page = this._page.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+
+  /**
+   * Wall-clock moment the cached page snapshot was last refreshed. Drives the
+   * "Actualizado hace N min" indicator + the visibility auto-refresh decision.
+   * See {@link AffiliateService#pageFetchedAt}.
+   */
+  readonly pageFetchedAt = this._pageFetchedAt.asReadonly();
 
   /** Rows on the current page; convenience derived signal for templates. */
   readonly rows = computed<readonly Income[]>(() => this._page()?.content ?? []);
@@ -83,11 +91,13 @@ export class IncomeService {
       tap({
         next: (data) => {
           this._page.set(data);
+          this._pageFetchedAt.set(new Date());
           this._loading.set(false);
         },
         error: (err: { status?: number; error?: { detail?: string } }) => {
           this._loading.set(false);
           this._error.set(this.mapError(err));
+          this._pageFetchedAt.set(null);
         },
       }),
     );
