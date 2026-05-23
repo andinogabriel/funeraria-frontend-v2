@@ -80,12 +80,6 @@
             <div class="flex flex-col pt-4" [style.minHeight.px]="520">
               <ng-container *ngTemplateOutlet="planFields" />
 
-              @if (!catalogsReady()) {
-                <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0 mt-4">
-                  Cargando catálogos…
-                </p>
-              }
-
               @if (errorMessage(); as message) {
                 <p
                   class="text-sm m-0 mt-4 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
@@ -166,9 +160,6 @@
             </p>
           </header>
           <ng-container *ngTemplateOutlet="planFields" />
-          @if (!catalogsReady()) {
-            <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">Cargando catálogos…</p>
-          }
         </section>
 
         @if (errorMessage(); as message) {
@@ -215,9 +206,16 @@
 
 <!-- ============================== Field templates ============================== -->
 
+<!--
+  `[appFieldSkeleton]` paints a shimmer overlay on a field while it waits for
+  its data. Catalog-backed selects shimmer until both the catalog AND (in edit
+  mode) the cached record have resolved; plain inputs / date pickers shimmer
+  only in edit mode because in create mode the operator starts from scratch
+  and there is no remote value to wait for.
+-->
 <ng-template #servicioFields>
   <form [formGroup]="servicio" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <mat-form-field appearance="fill">
+    <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
       <mat-label>Fecha del servicio</mat-label>
       <input
         matInput
@@ -234,7 +232,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill">
+    <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
       <mat-label>Hora</mat-label>
       <input matInput formControlName="funeralTime" type="time" autocomplete="off" />
       @if (
@@ -244,7 +242,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill">
+    <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
       <mat-label>Tipo de recibo</mat-label>
       <mat-select formControlName="receiptTypeId">
         <mat-option [value]="null">Predeterminado</mat-option>
@@ -255,19 +253,19 @@
       <mat-hint>Si lo dejás vacío, se usa «Egreso».</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill">
+    <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
       <mat-label>Serie del recibo</mat-label>
       <input matInput formControlName="receiptSeries" autocomplete="off" maxlength="50" />
       <mat-hint>Vacío → autogenerado por el servidor.</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill">
+    <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
       <mat-label>Número del recibo</mat-label>
       <input matInput formControlName="receiptNumber" autocomplete="off" maxlength="50" />
       <mat-hint>Vacío → autogenerado por el servidor.</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill">
+    <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
       <mat-label>Impuesto (%)</mat-label>
       <input
         matInput
@@ -289,7 +287,11 @@
       <mat-checkbox formControlName="isAffiliated" color="primary">Es afiliado</mat-checkbox>
 
       @if (isAffiliated()) {
-        <mat-form-field appearance="fill" class="flex-1 min-w-[260px]">
+        <mat-form-field
+          appearance="fill"
+          class="flex-1 min-w-[260px]"
+          [appFieldSkeleton]="!selectReady()"
+        >
           <mat-label>Afiliado</mat-label>
           <mat-select formControlName="affiliateDni">
             <mat-option [value]="null">Seleccionar…</mat-option>
@@ -305,7 +307,7 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
         <mat-label>Nombre</mat-label>
         <input matInput formControlName="firstName" autocomplete="off" maxlength="60" />
         @if (
@@ -315,7 +317,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
         <mat-label>Apellido</mat-label>
         <input matInput formControlName="lastName" autocomplete="off" maxlength="60" />
         @if (
@@ -325,7 +327,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
         <mat-label>DNI</mat-label>
         <input
           matInput
@@ -345,7 +347,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
         <mat-label>Fecha de nacimiento</mat-label>
         <input matInput [matDatepicker]="birthPicker" formControlName="birthDate" [max]="today" />
         <mat-datepicker-toggle matIconSuffix [for]="birthPicker" />
@@ -357,7 +359,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
         <mat-label>Fecha de fallecimiento</mat-label>
         <input matInput [matDatepicker]="deathPicker" formControlName="deathDate" [max]="today" />
         <mat-datepicker-toggle matIconSuffix [for]="deathPicker" />
@@ -369,7 +371,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
         <mat-label>Género</mat-label>
         <mat-select formControlName="genderId">
           <mat-option [value]="null">Seleccionar…</mat-option>
@@ -384,7 +386,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
         <mat-label>Parentesco</mat-label>
         <mat-select formControlName="deceasedRelationshipId">
           <mat-option [value]="null">Seleccionar…</mat-option>
@@ -400,7 +402,7 @@
         }
       </mat-form-field>
 
-      <mat-form-field appearance="fill">
+      <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
         <mat-label>Causa de muerte</mat-label>
         <mat-select formControlName="deathCauseId">
           <mat-option [value]="null">Seleccionar…</mat-option>
@@ -423,7 +425,11 @@
         pointless.
       -->
       @if (isAdmin()) {
-        <mat-form-field appearance="fill" class="sm:col-span-2 lg:col-span-3">
+        <mat-form-field
+          appearance="fill"
+          class="sm:col-span-2 lg:col-span-3"
+          [appFieldSkeleton]="!selectReady()"
+        >
           <mat-label>Usuario vinculado (opcional)</mat-label>
           <mat-select formControlName="deceasedUserId">
             <mat-option [value]="null">Sin vincular</mat-option>
@@ -454,7 +460,7 @@
 
     @if (includePlaceOfDeath()) {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
           <mat-label>Provincia</mat-label>
           <mat-select formControlName="provinceId">
             <mat-option [value]="null">Seleccionar…</mat-option>
@@ -470,7 +476,15 @@
           }
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <!--
+          Cities are lazy: they only load once a province is picked. The
+          skeleton fires when the per-province request is in flight, OR (in
+          edit mode) while the record is still being hydrated.
+        -->
+        <mat-form-field
+          appearance="fill"
+          [appFieldSkeleton]="!citiesReady() || (mode === 'edit' && !recordReady())"
+        >
           <mat-label>Localidad</mat-label>
           <!--
             The disabled state is owned by the FormControl itself (see the cascade effect
@@ -489,12 +503,9 @@
           ) {
             <mat-error>Elegí una localidad.</mat-error>
           }
-          @if (placeOfDeath.controls.provinceId.value !== null && cities() === null) {
-            <mat-hint>Cargando localidades…</mat-hint>
-          }
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
           <mat-label>Calle</mat-label>
           <input matInput formControlName="streetName" autocomplete="off" maxlength="120" />
           @if (
@@ -505,7 +516,7 @@
           }
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
           <mat-label>Altura</mat-label>
           <input
             matInput
@@ -517,12 +528,12 @@
           />
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
           <mat-label>Departamento</mat-label>
           <input matInput formControlName="apartment" autocomplete="off" maxlength="20" />
         </mat-form-field>
 
-        <mat-form-field appearance="fill">
+        <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
           <mat-label>Piso</mat-label>
           <input matInput formControlName="flat" autocomplete="off" maxlength="20" />
         </mat-form-field>
@@ -533,7 +544,7 @@
 
 <ng-template #planFields>
   <form [formGroup]="planSelection" class="flex flex-col gap-4">
-    <mat-form-field appearance="fill" class="lg:max-w-[480px]">
+    <mat-form-field appearance="fill" class="lg:max-w-[480px]" [appFieldSkeleton]="!selectReady()">
       <mat-label>Plan</mat-label>
       <mat-select formControlName="planId">
         <mat-option [value]="null">Seleccionar…</mat-option>

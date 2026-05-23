@@ -207,9 +207,23 @@
   or the single-card sections (desktop). Each one drives its own FormGroup so
   both presentations validate independently.
 -->
+<!--
+  `[appFieldSkeleton]` paints a shimmer overlay on top of a field while the
+  data it expects is still in flight. The form layout stays stable from the
+  first paint; only the value areas show a loading affordance:
+    - text/date fields shimmer only in edit mode, until `patchFrom` has run
+    - catalog-backed selects shimmer until both the catalog AND (in edit
+      mode) the record have resolved
+  In create mode `recordReady` is `true` from the start, so the text fields
+  never shimmer and the selects only wait for their catalog.
+-->
 <ng-template #personalFields>
   <form [formGroup]="personal" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <mat-form-field appearance="fill" class="w-full">
+    <mat-form-field
+      appearance="fill"
+      class="w-full"
+      [appFieldSkeleton]="mode === 'edit' && !recordReady()"
+    >
       <mat-label>Nombre</mat-label>
       <input matInput formControlName="firstName" autocomplete="given-name" maxlength="60" />
       @if (
@@ -219,7 +233,11 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="w-full">
+    <mat-form-field
+      appearance="fill"
+      class="w-full"
+      [appFieldSkeleton]="mode === 'edit' && !recordReady()"
+    >
       <mat-label>Apellido</mat-label>
       <input matInput formControlName="lastName" autocomplete="family-name" maxlength="60" />
       @if (personal.controls.lastName.touched && personal.controls.lastName.hasError('required')) {
@@ -227,7 +245,11 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="w-full">
+    <mat-form-field
+      appearance="fill"
+      class="w-full"
+      [appFieldSkeleton]="mode === 'edit' && !recordReady()"
+    >
       <mat-label>DNI</mat-label>
       <input
         matInput
@@ -250,7 +272,11 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="w-full">
+    <mat-form-field
+      appearance="fill"
+      class="w-full"
+      [appFieldSkeleton]="mode === 'edit' && !recordReady()"
+    >
       <mat-label>Fecha de nacimiento</mat-label>
       <input matInput [matDatepicker]="picker" formControlName="birthDate" [max]="today" readonly />
       <mat-datepicker-toggle matIconSuffix [for]="picker" />
@@ -266,7 +292,7 @@
 
 <ng-template #classificationFields>
   <form [formGroup]="classification" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <mat-form-field appearance="fill" class="w-full">
+    <mat-form-field appearance="fill" class="w-full" [appFieldSkeleton]="!selectReady()">
       <mat-label>Género</mat-label>
       <mat-select formControlName="genderId">
         @for (gender of genders() ?? []; track gender.id) {
@@ -281,7 +307,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="w-full">
+    <mat-form-field appearance="fill" class="w-full" [appFieldSkeleton]="!selectReady()">
       <mat-label>Parentesco</mat-label>
       <mat-select formControlName="relationshipId">
         @for (rel of relationships() ?? []; track rel.id) {
@@ -295,11 +321,5 @@
         <mat-error>Seleccioná un parentesco.</mat-error>
       }
     </mat-form-field>
-
-    @if (!catalogsReady()) {
-      <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0 col-span-full">
-        Cargando catálogos…
-      </p>
-    }
   </form>
 </ng-template>

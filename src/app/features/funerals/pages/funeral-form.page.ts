@@ -27,6 +27,7 @@ import { forkJoin, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { AuthStore } from '../../../core/auth/auth.store';
+import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { AffiliateService } from '../../affiliates/affiliate.service';
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import { ItemService } from '../../items/item.service';
@@ -94,6 +95,7 @@ import type {
   selector: 'app-funeral-form-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    FieldSkeletonDirective,
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
@@ -163,6 +165,21 @@ export class FuneralFormPage {
       this.plans() !== null &&
       this.affiliates() !== null,
   );
+
+  /**
+   * Gates the per-field skeleton on fields that depend on the cached funeral
+   * record (edit mode only). Starts {@code true} in create mode — no record
+   * to hydrate from — and flips to {@code true} once `patchFrom` runs or the
+   * lookup fails, so the shimmer overlay never outlives the data it was
+   * waiting for.
+   */
+  protected readonly recordReady = signal(this.mode === 'create');
+
+  /** Catalog AND record must be ready before a select can render a meaningful value. */
+  protected readonly selectReady = computed(() => this.catalogsReady() && this.recordReady());
+
+  // `citiesReady` is declared below — it depends on `selectedProvinceId`
+  // which is created with the rest of the reactive helpers further down.
 
   protected readonly today = new Date();
 
@@ -272,6 +289,20 @@ export class FuneralFormPage {
     { initialValue: this.placeOfDeath.controls.provinceId.value },
   );
 
+  /**
+   * City list readiness. The city select is empty until a province is picked
+   * AND the lazy `loadCities(provinceId)` request returns. In create mode the
+   * operator picks the province manually so the field is "ready" until they
+   * do. In edit mode `patchFrom` triggers a `loadCities` call for the bound
+   * province; until that resolves we shimmer the city field too.
+   */
+  protected readonly citiesReady = computed(() => {
+    if (this.selectedProvinceId() === null) {
+      return true;
+    }
+    return this.cities() !== null;
+  });
+
   constructor() {
     // Load catalogs + plans + active affiliates in parallel; once everything
     // resolves we hydrate the form in edit mode. The list signals back the
@@ -304,6 +335,11 @@ export class FuneralFormPage {
           this.fallecido.disable();
           this.planSelection.disable();
         }
+        // Always flip recordReady so the per-field skeleton stops shimmering,
+        // even when the record was missing — the form may be disabled but the
+        // operator should still see the static "not found" message instead of
+        // a perpetual shimmer.
+        this.recordReady.set(true);
       }
     });
 
