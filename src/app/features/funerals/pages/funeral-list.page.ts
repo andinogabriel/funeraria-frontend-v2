@@ -28,7 +28,6 @@ import {
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
 import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
-import { FuneralDetailDialogComponent } from '../components/funeral-detail-dialog.component';
 import { FuneralService } from '../funeral.service';
 import type { Funeral, FuneralPageQuery } from '../funeral.types';
 
@@ -390,11 +389,11 @@ export class FuneralListPage {
     if (!funeral) {
       return;
     }
-    this.dialog.open(FuneralDetailDialogComponent, {
-      data: funeral,
-      width: '640px',
-      maxWidth: '95vw',
-    });
+    // Detalle navigates to the dedicated `/servicios/:id` route instead of
+    // opening a modal — a funeral is a legal document the operator shares,
+    // prints or e-mails, so a navigable URL is a better fit than a dialog
+    // that loses its state on a route change.
+    void this.router.navigate(['/servicios', funeral.id]);
   }
 
   protected onEdit(): void {

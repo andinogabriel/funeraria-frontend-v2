@@ -8,8 +8,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { Router } from '@angular/router';
 
 import type { DataTableAutocompleteOption, DataTableColumn } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
@@ -17,7 +17,6 @@ import {
   SelectionListCardComponent,
   type ListCardAction,
 } from '../../../shared/selection-list-card';
-import { FuneralDetailDialogComponent } from '../components/funeral-detail-dialog.component';
 import { FuneralService } from '../funeral.service';
 import type { Funeral } from '../funeral.types';
 
@@ -45,7 +44,7 @@ import type { Funeral } from '../funeral.types';
 })
 export class MyFuneralsPage {
   private readonly service = inject(FuneralService);
-  private readonly dialog = inject(MatDialog);
+  private readonly router = inject(Router);
 
   protected readonly loading = this.service.byUserLoading;
   protected readonly error = this.service.byUserError;
@@ -148,11 +147,8 @@ export class MyFuneralsPage {
     if (!funeral) {
       return;
     }
-    this.dialog.open(FuneralDetailDialogComponent, {
-      data: funeral,
-      width: '640px',
-      maxWidth: '95vw',
-    });
+    // Detalle navigates to the dedicated route — see funeral-list.page.ts.
+    void this.router.navigate(['/servicios', funeral.id]);
   }
 
   protected onRefresh(): void {
