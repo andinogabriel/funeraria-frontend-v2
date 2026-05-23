@@ -146,6 +146,32 @@ export class AffiliateService {
     });
   }
 
+  /**
+   * Replaces the matching row inside the cached paginated snapshot. Called from
+   * the {@link AffiliateService#update} tap so the operator sees the new value
+   * the moment they return from the edit form, instead of waiting for the next
+   * `loadPage` to repaint. No-op when the page cache is cold or the row is on
+   * a different page than the one the user is looking at.
+   */
+  private replaceInCachedPage(dni: number, replacement: Affiliate): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    let changed = false;
+    const next = current.content.map((row) => {
+      if (row.dni !== dni) {
+        return row;
+      }
+      changed = true;
+      return replacement;
+    });
+    if (!changed) {
+      return;
+    }
+    this._page.set({ ...current, content: next });
+  }
+
   /** Lists active affiliates (`deceased = false`) and updates the cached signal. */
   loadActive(): Observable<readonly Affiliate[]> {
     this._loading.set(true);
@@ -210,14 +236,22 @@ export class AffiliateService {
       map((wire) => this.normalizeAffiliate(wire)),
       tap((affiliate) => {
         const current = this._list();
-        if (current === null) {
-          return;
+        if (current !== null) {
+          if (affiliate.deceased) {
+            this._list.set(current.filter((a) => a.dni !== dni));
+          } else {
+            this._list.set(current.map((a) => (a.dni === dni ? affiliate : a)));
+          }
         }
+        // Patch the cached paginated snapshot too so the operator sees the new
+        // value the moment they navigate back to the list. When the affiliate
+        // is flipped to deceased we drop the row from the page (it would not
+        // belong to an active-affiliates view anyway).
         if (affiliate.deceased) {
-          this._list.set(current.filter((a) => a.dni !== dni));
-          return;
+          this.removeFromCachedPage(dni);
+        } else {
+          this.replaceInCachedPage(dni, affiliate);
         }
-        this._list.set(current.map((a) => (a.dni === dni ? affiliate : a)));
       }),
     );
   }

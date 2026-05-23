@@ -246,15 +246,28 @@ export class ItemFormPage {
         ? this.service.update(this.editCode, request)
         : this.service.create(request);
 
+    // See affiliate-form.page.ts: edit navigates optimistically; create waits.
+    const optimistic = this.mode === 'edit';
+    if (optimistic) {
+      void this.router.navigate(['/items']);
+    }
+
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
         this.snackBar.open(this.mode === 'edit' ? 'Item actualizado' : 'Item creado', 'Cerrar');
-        void this.router.navigate(['/items']);
+        if (!optimistic) {
+          void this.router.navigate(['/items']);
+        }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {
         this.submitting.set(false);
-        this.errorMessage.set(this.mapError(err.status ?? 0, err.error?.detail));
+        const message = this.mapError(err.status ?? 0, err.error?.detail);
+        if (optimistic) {
+          this.snackBar.open(message, 'Cerrar');
+        } else {
+          this.errorMessage.set(message);
+        }
       },
     });
   }

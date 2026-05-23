@@ -217,6 +217,17 @@ export class AffiliateFormPage {
         ? this.service.update(this.editDni, request)
         : this.service.create(request);
 
+    // Edit mode is navigated optimistically: the service's `update()` tap patches
+    // both `_list` and `_page` caches, so the listing already reflects the new
+    // values by the time the operator lands on it. The snackbar reports the
+    // server outcome — including failures, which arrive after the form is
+    // already gone. Create stays synchronous (wait for response, navigate on
+    // success) to avoid losing what the operator typed if the POST fails.
+    const optimistic = this.mode === 'edit';
+    if (optimistic) {
+      void this.router.navigate(['/afiliados']);
+    }
+
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
@@ -224,11 +235,20 @@ export class AffiliateFormPage {
           this.mode === 'edit' ? 'Afiliado actualizado' : 'Afiliado creado',
           'Cerrar',
         );
-        void this.router.navigate(['/afiliados']);
+        if (!optimistic) {
+          void this.router.navigate(['/afiliados']);
+        }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {
         this.submitting.set(false);
-        this.errorMessage.set(this.mapError(err.status ?? 0, err.error?.detail));
+        const message = this.mapError(err.status ?? 0, err.error?.detail);
+        if (optimistic) {
+          // The form is no longer mounted; the snackbar is the only surviving
+          // affordance to report the failure.
+          this.snackBar.open(message, 'Cerrar');
+        } else {
+          this.errorMessage.set(message);
+        }
       },
     });
   }

@@ -419,12 +419,18 @@ export class FuneralListPage {
       if (confirmed !== true) {
         return;
       }
+      // See affiliate-list.page.ts for the rationale: when the operator is
+      // already on the last page, no row needs to be promoted from page N+1
+      // into the freed slot, so the post-success refetch is pure flicker.
+      const wasLastPage = this.service.page()?.last ?? true;
       this.service.removeFromCachedPage(funeral.id);
       this.service.delete(funeral.id).subscribe({
         next: () => {
           this.selectedFuneral.set(null);
           this.snackBar.open('Servicio eliminado', 'Cerrar');
-          this.onRefresh();
+          if (!wasLastPage) {
+            this.onRefresh();
+          }
         },
         error: () => {
           this.onRefresh();

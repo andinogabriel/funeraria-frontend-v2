@@ -231,4 +231,34 @@ describe('AffiliateService', () => {
     expect(service.pageRows().map((a) => a.dni)).toEqual([30111222]);
     expect(service.totalElements()).toBe(1);
   });
+
+  it('update patches the cached paginated snapshot so the list reflects the new value without a refetch', () => {
+    service.loadPage({ page: 0, limit: 10 }).subscribe();
+    http
+      .expectOne((r) => r.url === '/api/v1/affiliates/paginated')
+      .flush(pageEnvelope([wireAffiliate({ firstName: 'Old' })]));
+
+    service.update(35123456, request({ firstName: 'Updated' })).subscribe();
+    http
+      .expectOne((r) => r.method === 'PUT' && r.url === '/api/v1/affiliates/35123456')
+      .flush(wireAffiliate({ firstName: 'Updated' }));
+
+    expect(service.pageRows()[0].firstName).toBe('Updated');
+  });
+
+  it('update drops the row from the cached page when the response flips deceased = true', () => {
+    service.loadPage({ page: 0, limit: 10 }).subscribe();
+    http
+      .expectOne((r) => r.url === '/api/v1/affiliates/paginated')
+      .flush(pageEnvelope([wireAffiliate(), wireAffiliate({ dni: 30111222, firstName: 'Maria' })]));
+    expect(service.totalElements()).toBe(2);
+
+    service.update(35123456, request()).subscribe();
+    http
+      .expectOne((r) => r.method === 'PUT' && r.url === '/api/v1/affiliates/35123456')
+      .flush(wireAffiliate({ deceased: true }));
+
+    expect(service.pageRows().map((a) => a.dni)).toEqual([30111222]);
+    expect(service.totalElements()).toBe(1);
+  });
 });
