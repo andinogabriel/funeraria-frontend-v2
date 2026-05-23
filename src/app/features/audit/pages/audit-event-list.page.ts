@@ -1,94 +1,109 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  TemplateRef,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { debounceTime } from 'rxjs/operators';
+import { ActivatedRoute, Router } from '@angular/router';
 
-import { DataTableComponent, type DataTableColumn } from '../../../shared/data-table';
+import {
+  DataTableComponent,
+  type DataTableAutocompleteOption,
+  type DataTableColumn,
+  type DataTableColumnFilterValue,
+  type DataTableEmptyState,
+} from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
 import { AuditService } from '../audit.service';
 import type { AuditAction, AuditEvent, AuditEventFilter } from '../audit.types';
 import { AuditEventDetailDialogComponent } from '../components/audit-event-detail-dialog.component';
 
 /**
- * Lists audit events with server-side pagination and filtering.
+ * Lists audit events with server-side pagination and per-column filters.
  *
- * <h3>Server-side flow</h3>
+ * <h3>Why this view diverges from the in-page filter form it replaced</h3>
  *
- * The page owns the filter and pagination state and re-fetches from the
- * backend on every change. `DataTableComponent` runs in `serverSide=true`
- * mode so:
- * - The current page's `AuditEvent[]` is the only data the table sees.
- * - The table does NOT sort locally — the backend exposes a fixed sort
- *   (most-recent-first) by contract so all sort headers are disabled.
- * - The paginator's total is `totalElements` from the server response.
- * - Page navigation emits `(pageChange)` and the page handler issues a
- *   new search at the new offset.
+ * Auditoría is a high-volume read endpoint — registers grow unbounded — so:
+ * <ul>
+ *   <li>Every interaction (filter, page change, refresh) is a backend round-trip.</li>
+ *   <li>Filters live inside the per-column header menus the shared data-table
+ *       provides (text / autocomplete / dateRange), exactly like {@code
+ *       /afiliados}, {@code /servicios} and {@code /ingresos}. This keeps the
+ *       grid surface homogeneous across the app — the operator does not have to
+ *       learn a new filter idiom per screen.</li>
+ *   <li>Sort is fixed on the backend by contract (most-recent first), so every
+ *       column declares {@code sortable: false}. The column menu shows only the
+ *       filter input + Aceptar — no sort radios.</li>
+ * </ul>
  *
- * Filter changes reset the page index to 0 (a moved filter means the
- * results the user was paginating through are no longer relevant) and
- * are debounced so typing in a text filter does not flood the backend.
+ * <h3>Per-column filter map</h3>
  *
- * <h3>Why no `loadActive`-style boot</h3>
+ * <ul>
+ *   <li><b>Fecha</b> ({@code occurredAt}) → {@code dateRange} → backend
+ *       {@code from} / {@code to}. The data-table emits ISO date strings
+ *       ({@code yyyy-MM-dd}); we convert each end to an instant anchored to
+ *       Argentina local time (00:00 / 23:59:59.999) before hitting the
+ *       endpoint, which parses {@code OffsetDateTime}.</li>
+ *   <li><b>Actor</b> ({@code actorEmail}) → {@code text} → backend
+ *       {@code actorEmail}.</li>
+ *   <li><b>Acción</b> ({@code action}) → {@code autocomplete} sourced from the
+ *       closed catalog of {@link AuditAction} values. The picked code is
+ *       committed as the filter value.</li>
+ *   <li><b>Objetivo</b> ({@code targetType}) → {@code text} → backend
+ *       {@code targetType}.</li>
+ *   <li><b>ID</b> ({@code targetId}) → {@code text} → backend
+ *       {@code targetId}.</li>
+ *   <li>{@code traceId} / {@code correlationId} carry no filter (hidden by
+ *       default; only useful when tracing a specific request).</li>
+ * </ul>
  *
- * Unlike affiliates, the audit dataset is unbounded; we never load "all"
- * events into memory. Every consumer interaction (filter, page change,
- * refresh) is an HTTP round-trip. The {@link AuditService#page} signal
- * is overwritten on each successful response, so the UI reads from a
- * single canonical source.
+ * <h3>URL-sync of state</h3>
+ *
+ * Pagination ({@code page}, {@code size}) AND filters ({@code actorEmail},
+ * {@code action}, {@code targetType}, {@code targetId}, {@code from},
+ * {@code to}) all live in the URL. Browser back / forward / refresh /
+ * shareable link restore the exact view. The page reads the URL on init + on
+ * every change, hydrates the data-table inputs from those signals, and writes
+ * back through {@code router.navigate({ replaceUrl: true })}.
  */
 @Component({
   selector: 'app-audit-event-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DataTableComponent,
-    MatButtonModule,
-    MatCardModule,
-    MatDatepickerModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
-    MatSelectModule,
-    MatTooltipModule,
-    ReactiveFormsModule,
-  ],
+  imports: [DataTableComponent, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
   templateUrl: './audit-event-list.page.html',
   styleUrl: './audit-event-list.page.scss',
 })
 export class AuditEventListPage {
   private readonly service = inject(AuditService);
   private readonly dialog = inject(MatDialog);
-  private readonly fb = inject(NonNullableFormBuilder);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
 
-  /**
-   * Filter form. Text inputs share a single debounce window so a fast typist
-   * does not fire several requests in a row, while selects + date pickers
-   * commit immediately because their interactions are inherently discrete.
-   */
-  protected readonly filters = this.fb.group({
-    actorEmail: this.fb.control(''),
-    action: this.fb.control<AuditAction | ''>(''),
-    targetType: this.fb.control(''),
-    targetId: this.fb.control(''),
-    from: this.fb.control<Date | null>(null),
-    to: this.fb.control<Date | null>(null),
-  });
+  protected readonly events = computed<readonly AuditEvent[]>(
+    () => this.service.page()?.content ?? [],
+  );
+  protected readonly totalElements = computed<number>(
+    () => this.service.page()?.totalElements ?? 0,
+  );
 
-  /** Closed catalog of actions exposed in the filter select. */
-  protected readonly actionOptions: readonly AuditAction[] = [
+  protected readonly selectedEvent = signal<AuditEvent | null>(null);
+  protected readonly hasSelection = computed(() => this.selectedEvent() !== null);
+
+  /** Closed catalog of actions surfaced in the Acción autocomplete. */
+  private static readonly ACTION_OPTIONS: readonly AuditAction[] = [
     'USER_ROLE_GRANTED',
     'USER_ROLE_REVOKED',
     'USER_ACTIVATED',
@@ -99,58 +114,135 @@ export class AuditEventListPage {
     'FUNERAL_STATE_CHANGED',
   ] as const;
 
-  /** Current page state (0-based, in line with `PageRequest`). */
+  private readonly actionOptions = (): readonly DataTableAutocompleteOption[] =>
+    AuditEventListPage.ACTION_OPTIONS.map((value) => ({ value, label: value }));
+
+  /** Template ref for the Fecha cell — formats the ISO instant in AR-local time. */
+  private readonly occurredAtCell =
+    viewChild<TemplateRef<{ $implicit: AuditEvent }>>('occurredAtCell');
+
+  /** Bound to the cellTemplate so the template can call the canonical formatter. */
+  protected readonly formatDateTime = formatDateTime;
+
+  /** Reactive snapshot of the URL query params — drives the backend call. */
+  private readonly query = this.route.queryParamMap;
+
   protected readonly pageIndex = signal(0);
-  protected readonly pageSize = signal(25);
+  protected readonly pageSize = signal(10);
+
+  protected readonly filterState = signal({
+    actorEmail: '',
+    action: '' as AuditAction | '',
+    targetType: '',
+    targetId: '',
+    from: null as string | null,
+    to: null as string | null,
+  });
+
+  /** Per-column filter map passed into the data-table. */
+  protected readonly columnFilters = computed<ReadonlyMap<string, DataTableColumnFilterValue>>(
+    () => {
+      const f = this.filterState();
+      const map = new Map<string, DataTableColumnFilterValue>();
+      if (f.actorEmail.length > 0) {
+        map.set('actorEmail', { type: 'text', value: f.actorEmail });
+      }
+      if (f.action.length > 0) {
+        map.set('action', { type: 'autocomplete', value: f.action, label: f.action });
+      }
+      if (f.targetType.length > 0) {
+        map.set('targetType', { type: 'text', value: f.targetType });
+      }
+      if (f.targetId.length > 0) {
+        map.set('targetId', { type: 'text', value: f.targetId });
+      }
+      if (f.from !== null || f.to !== null) {
+        map.set('occurredAt', { type: 'dateRange', from: f.from, to: f.to });
+      }
+      return map;
+    },
+  );
+
+  protected readonly hasActiveFilters = computed(() => {
+    const f = this.filterState();
+    return (
+      f.actorEmail.length > 0 ||
+      f.action.length > 0 ||
+      f.targetType.length > 0 ||
+      f.targetId.length > 0 ||
+      f.from !== null ||
+      f.to !== null
+    );
+  });
 
   /**
-   * Current page of events derived from the service signal. `null` before the
-   * first call resolves; the template handles that with a loading branch.
+   * Three-state empty message: filtered (no matches), out-of-range page, or
+   * truly empty audit trail.
    */
-  protected readonly events = computed<readonly AuditEvent[]>(
-    () => this.service.page()?.content ?? [],
-  );
+  protected readonly emptyState = computed<DataTableEmptyState>(() => {
+    if (this.hasActiveFilters()) {
+      return {
+        icon: 'filter_alt_off',
+        title: 'Sin resultados',
+        body: 'Probá con otro criterio o ampliá el rango de fechas.',
+      };
+    }
+    if (this.totalElements() > 0 && this.pageIndex() > 0) {
+      return {
+        icon: 'pageview',
+        title: 'Esta página está vacía',
+        body: 'El URL apunta a una página que no contiene datos. Volvé al inicio para ver el listado.',
+        action: {
+          label: 'Ir a la primera página',
+          icon: 'first_page',
+          handler: () => this.pushToUrl({ page: 0 }),
+        },
+      };
+    }
+    return {
+      icon: 'policy',
+      title: 'No hay eventos registrados',
+      body: 'Cuando se ejecute una operación sensible aparecerá aquí.',
+    };
+  });
 
-  /** Total elements across all pages — what the paginator needs in server-side mode. */
-  protected readonly totalElements = computed<number>(
-    () => this.service.page()?.totalElements ?? 0,
-  );
-
-  /** Currently selected row, two-way bound with the data-table. */
-  protected readonly selectedEvent = signal<AuditEvent | null>(null);
-
-  protected readonly hasSelection = computed(() => this.selectedEvent() !== null);
-
-  /** Column descriptors. Sort is disabled (`sortable: false`) on every column because
-   * the backend exposes a fixed sort by contract — exposing toggleable headers would
-   * mislead the user into thinking they can re-order the page.
-   */
-  protected readonly columns: readonly DataTableColumn<AuditEvent>[] = [
+  protected readonly columns = computed<readonly DataTableColumn<AuditEvent>[]>(() => [
     {
       key: 'occurredAt',
       label: 'Fecha',
-      value: (e) => formatDateTime(e.occurredAt),
+      // `value` keeps the raw ISO so the cell sort stays chronological even
+      // though the column is non-sortable from the UI.
+      value: (e) => e.occurredAt,
+      cellTemplate: this.occurredAtCell(),
       cellClass: 'tabular-nums whitespace-nowrap',
       sortable: false,
       hideable: false,
+      filter: 'dateRange',
     },
     {
       key: 'actorEmail',
       label: 'Actor',
       value: (e) => e.actorEmail,
       sortable: false,
+      filter: 'text',
     },
     {
       key: 'action',
       label: 'Acción',
       value: (e) => e.action,
       sortable: false,
+      filter: 'autocomplete',
+      autocomplete: {
+        options: this.actionOptions,
+        placeholder: 'Buscar acción',
+      },
     },
     {
       key: 'targetType',
       label: 'Objetivo',
       value: (e) => e.targetType,
       sortable: false,
+      filter: 'text',
     },
     {
       key: 'targetId',
@@ -158,6 +250,7 @@ export class AuditEventListPage {
       value: (e) => e.targetId,
       cellClass: 'font-mono tabular-nums',
       sortable: false,
+      filter: 'text',
     },
     {
       key: 'traceId',
@@ -175,33 +268,101 @@ export class AuditEventListPage {
       sortable: false,
       defaultVisible: false,
     },
-  ] as const;
+  ]);
 
   protected readonly trackById = (_: number, row: AuditEvent): number => row.id;
 
   constructor() {
-    // Fire one fetch on mount so the table is populated.
-    this.fetch();
+    // URL → page state. Re-hydrates the local signals whenever the URL changes.
+    this.query.pipe(takeUntilDestroyed()).subscribe((params) => {
+      const rawPage = params.get('page');
+      const parsedPage = rawPage === null ? 0 : Number.parseInt(rawPage, 10);
+      this.pageIndex.set(Number.isFinite(parsedPage) && parsedPage >= 0 ? parsedPage : 0);
 
-    // Re-fetch whenever filters change. Text inputs go through a debounce to keep
-    // the keystrokes-per-request ratio sensible. Page index resets to 0 because the
-    // results the user was paginating through are no longer relevant.
-    this.filters.valueChanges.pipe(debounceTime(300), takeUntilDestroyed()).subscribe(() => {
-      this.pageIndex.set(0);
+      const rawSize = params.get('size');
+      const parsedSize = rawSize === null ? 10 : Number.parseInt(rawSize, 10);
+      this.pageSize.set(Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 10);
+
+      const rawAction = params.get('action') ?? '';
+      this.filterState.set({
+        actorEmail: params.get('actorEmail') ?? '',
+        action: AuditEventListPage.ACTION_OPTIONS.includes(rawAction as AuditAction)
+          ? (rawAction as AuditAction)
+          : '',
+        targetType: params.get('targetType') ?? '',
+        targetId: params.get('targetId') ?? '',
+        from: params.get('from'),
+        to: params.get('to'),
+      });
+
+      // Selection no longer reflects the slice we're about to fetch.
       this.selectedEvent.set(null);
-      this.fetch();
+    });
+
+    // State → backend. Re-fetches on every URL-driven state change.
+    effect(() => {
+      this.service
+        .search(this.buildFilter(), { page: this.pageIndex(), size: this.pageSize() })
+        .subscribe({ error: () => undefined });
     });
   }
 
-  /** Handles `(pageChange)` from the data-table; issues a fresh fetch at the new offset. */
-  protected onPageChange(event: { pageIndex: number; pageSize: number }): void {
-    this.pageIndex.set(event.pageIndex);
-    this.pageSize.set(event.pageSize);
-    this.selectedEvent.set(null);
-    this.fetch();
+  /**
+   * Single-call handler for the data-table's column-menu Aceptar. Carries the
+   * filter change in one atomic patch so the router writes it in a single
+   * navigate() call. Sort is fixed by contract, so the sortDirection portion of
+   * the event is ignored.
+   */
+  protected onColumnMenuApply(event: {
+    key: string;
+    filter: DataTableColumnFilterValue | null;
+  }): void {
+    const patch: Record<string, string | number | null> = { page: 0 };
+
+    if (event.key === 'actorEmail') {
+      patch['actorEmail'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'targetType') {
+      patch['targetType'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'targetId') {
+      patch['targetId'] = event.filter?.type === 'text' ? event.filter.value : null;
+    } else if (event.key === 'action') {
+      patch['action'] = event.filter?.type === 'autocomplete' ? event.filter.value : null;
+    } else if (event.key === 'occurredAt') {
+      if (event.filter?.type === 'dateRange') {
+        patch['from'] = event.filter.from;
+        patch['to'] = event.filter.to;
+      } else {
+        patch['from'] = null;
+        patch['to'] = null;
+      }
+    }
+
+    this.pushToUrl(patch);
   }
 
-  /** Opens the read-only detail modal for the currently-selected event. */
+  protected onPageChange(event: { pageIndex: number; pageSize: number }): void {
+    this.pushToUrl({ page: event.pageIndex, size: event.pageSize });
+  }
+
+  protected onClearFilters(): void {
+    this.pushToUrl({
+      actorEmail: null,
+      action: null,
+      targetType: null,
+      targetId: null,
+      from: null,
+      to: null,
+      page: 0,
+    });
+  }
+
+  protected onRefresh(): void {
+    this.selectedEvent.set(null);
+    this.service
+      .search(this.buildFilter(), { page: this.pageIndex(), size: this.pageSize() })
+      .subscribe({ error: () => undefined });
+  }
+
   protected onShowDetail(): void {
     const selected = this.selectedEvent();
     if (!selected) {
@@ -214,60 +375,52 @@ export class AuditEventListPage {
     });
   }
 
-  /** Manual refresh button: clears the selection and re-runs the current search. */
-  protected onRefresh(): void {
-    this.selectedEvent.set(null);
-    this.fetch();
-  }
-
-  /** Clears every filter back to its initial empty state. */
-  protected onResetFilters(): void {
-    this.filters.reset({
-      actorEmail: '',
-      action: '',
-      targetType: '',
-      targetId: '',
-      from: null,
-      to: null,
-    });
-  }
-
   /**
-   * Translates the form value into the backend's filter contract. Empty strings
-   * and `null` dates are omitted so the helper drops them from the query string;
-   * dates use ISO-8601 instants so `OffsetDateTime.parse` accepts them as-is.
+   * Builds the backend filter payload from the URL-driven state. ISO date
+   * strings ({@code yyyy-MM-dd}) are anchored to Argentina local time
+   * (00:00 for {@code from}, 23:59:59.999 for {@code to}) before being
+   * serialised as UTC instants for the {@code OffsetDateTime.parse} on the
+   * backend.
    */
   private buildFilter(): AuditEventFilter {
-    const value = this.filters.getRawValue();
+    const f = this.filterState();
     return {
-      actorEmail: value.actorEmail.trim() || undefined,
-      action: value.action || undefined,
-      targetType: value.targetType.trim() || undefined,
-      targetId: value.targetId.trim() || undefined,
-      from: value.from ? dateAsInstant(value.from, 'start') : undefined,
-      to: value.to ? dateAsInstant(value.to, 'end') : undefined,
+      actorEmail: f.actorEmail.trim() || undefined,
+      action: f.action || undefined,
+      targetType: f.targetType.trim() || undefined,
+      targetId: f.targetId.trim() || undefined,
+      from: f.from ? argDateToInstant(f.from, 'start') : undefined,
+      to: f.to ? argDateToInstant(f.to, 'end') : undefined,
     };
   }
 
-  private fetch(): void {
-    this.service
-      .search(this.buildFilter(), { page: this.pageIndex(), size: this.pageSize() })
-      .subscribe();
+  private pushToUrl(patch: Record<string, string | number | null>): void {
+    const next: Record<string, string | undefined> = {};
+    const current = this.route.snapshot.queryParamMap;
+    for (const key of current.keys) {
+      next[key] = current.get(key) ?? undefined;
+    }
+    for (const [key, value] of Object.entries(patch)) {
+      next[key] = value === null || value === undefined ? undefined : String(value);
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: next,
+      replaceUrl: true,
+    });
   }
 }
 
 /**
- * Converts a `Date` picked from the Material datepicker into an ISO-8601 instant.
- * `start` anchors the day at 00:00 local; `end` anchors at 23:59:59.999 local.
- * The instant is then serialised as UTC (`toISOString`), which the backend
- * parses via `OffsetDateTime.parse`.
+ * Converts a {@code yyyy-MM-dd} string into the matching ISO-8601 instant
+ * anchored to Argentina local time. {@code 'start'} returns 00:00:00.000;
+ * {@code 'end'} returns 23:59:59.999. The instant is serialised as UTC so the
+ * backend can parse it with {@code OffsetDateTime.parse}.
+ *
+ * Argentina is UTC-3 with no DST, so the offset is a constant — no need to go
+ * through {@code Intl} machinery for this single conversion.
  */
-function dateAsInstant(date: Date, bound: 'start' | 'end'): string {
-  const anchored = new Date(date);
-  if (bound === 'start') {
-    anchored.setHours(0, 0, 0, 0);
-  } else {
-    anchored.setHours(23, 59, 59, 999);
-  }
-  return anchored.toISOString();
+function argDateToInstant(isoDate: string, bound: 'start' | 'end'): string {
+  const time = bound === 'start' ? '00:00:00.000' : '23:59:59.999';
+  return new Date(`${isoDate}T${time}-03:00`).toISOString();
 }
