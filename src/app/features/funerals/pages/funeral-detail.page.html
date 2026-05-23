@@ -193,8 +193,22 @@
 
         @if (f.plan.itemsPlan.length > 0) {
           <mat-divider />
-          <section>
-            <h2 class="text-lg font-semibold m-0 mb-4">Items del plan</h2>
+          <!--
+            Items del plan in an expansion panel so the operator can collapse a
+            long list (a Plan Memorial can ship 10+ rows) when scanning the
+            other sections. Defaults to expanded — the items are the point of
+            the record — but a single click hides them. The panel ships its
+            own card-like surround which doubles as the visual separator from
+            the Auditoría section underneath.
+          -->
+          <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md">
+            <mat-expansion-panel-header>
+              <mat-panel-title class="!text-base !font-semibold"> Items del plan </mat-panel-title>
+              <mat-panel-description class="!justify-end !mr-0">
+                {{ f.plan.itemsPlan.length }}
+                {{ f.plan.itemsPlan.length === 1 ? 'item' : 'items' }}
+              </mat-panel-description>
+            </mat-expansion-panel-header>
             <ul
               class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)] rounded-md border border-[var(--mat-sys-outline-variant)]"
             >
@@ -214,10 +228,16 @@
                 </li>
               }
             </ul>
-          </section>
+          </mat-expansion-panel>
         }
 
-        <mat-divider />
+        <!--
+          Extra top margin pushes the Auditoría divider away from the items
+          list / accordion footer so the two sections do not visually merge.
+          The shared `gap-8` on the wrapping flex column was too tight given
+          the dense rows above.
+        -->
+        <mat-divider class="!mt-4" />
 
         <section>
           <h2 class="text-lg font-semibold m-0 mb-4">Auditoría</h2>
