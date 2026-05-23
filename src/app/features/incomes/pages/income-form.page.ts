@@ -16,6 +16,7 @@ import { forkJoin } from 'rxjs';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import { ItemService } from '../../items/item.service';
+import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeService } from '../income.service';
 import type { Income, IncomeDetail, IncomeRequest } from '../income.types';
@@ -47,6 +48,7 @@ import type { Income, IncomeDetail, IncomeRequest } from '../income.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CurrencyPipe,
+    FieldSkeletonDirective,
     MatButtonModule,
     MatCardModule,
     MatDividerModule,
@@ -89,6 +91,17 @@ export class IncomeFormPage {
     () => this.suppliers() !== null && this.items() !== null && this.receiptTypes() !== null,
   );
 
+  /**
+   * Gates the per-field skeleton on fields hydrated from the cached record.
+   * Starts {@code true} in create mode and flips to {@code true} once
+   * `patchFrom` runs (or the lookup fails) so the shimmer overlay never
+   * outlives the data it was waiting for.
+   */
+  protected readonly recordReady = signal(this.mode === 'create');
+
+  /** Catalog AND record must be ready before a select can render a meaningful value. */
+  protected readonly selectReady = computed(() => this.catalogsReady() && this.recordReady());
+
   protected readonly form = this.fb.group({
     receiptNumber: this.fb.control<number | null>(null),
     receiptSeries: this.fb.control<number | null>(null),
@@ -128,10 +141,14 @@ export class IncomeFormPage {
     ]).subscribe(() => {
       if (this.editReceiptNumber !== null) {
         this.service.findByReceiptNumber(this.editReceiptNumber).subscribe({
-          next: (income) => this.patchFrom(income),
+          next: (income) => {
+            this.patchFrom(income);
+            this.recordReady.set(true);
+          },
           error: () => {
             this.errorMessage.set('No se encontró el ingreso solicitado.');
             this.form.disable();
+            this.recordReady.set(true);
           },
         });
       }

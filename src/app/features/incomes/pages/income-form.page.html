@@ -24,8 +24,15 @@
             Tipo, serie y número. Si dejás vacíos serie y número el backend autogenera.
           </p>
         </header>
+        <!--
+          `[appFieldSkeleton]` paints a shimmer overlay on each field while it
+          waits for its data. Catalog-backed selects shimmer until both the
+          catalog AND (in edit mode) the cached record have resolved; the plain
+          number inputs only shimmer in edit mode because in create mode they
+          start blank by intent and have no remote data to wait for.
+        -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
             <mat-label>Tipo de recibo</mat-label>
             <mat-select formControlName="receiptTypeId">
               <mat-option [value]="null">Predeterminado</mat-option>
@@ -35,7 +42,7 @@
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
             <mat-label>Serie</mat-label>
             <input
               matInput
@@ -47,7 +54,7 @@
             />
           </mat-form-field>
 
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
             <mat-label>Número</mat-label>
             <input
               matInput
@@ -59,7 +66,7 @@
             />
           </mat-form-field>
 
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="fill" [appFieldSkeleton]="!selectReady()">
             <mat-label>Proveedor (opcional)</mat-label>
             <mat-select formControlName="supplierNif">
               <mat-option [value]="null">Sin proveedor</mat-option>
@@ -71,7 +78,7 @@
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
             <mat-label>Impuesto (%)</mat-label>
             <input
               matInput
@@ -140,7 +147,11 @@
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <mat-form-field appearance="fill" class="lg:col-span-2">
+                  <mat-form-field
+                    appearance="fill"
+                    class="lg:col-span-2"
+                    [appFieldSkeleton]="!selectReady()"
+                  >
                     <mat-label>Item</mat-label>
                     <mat-select formControlName="itemCode">
                       <mat-option [value]="null">Seleccionar…</mat-option>

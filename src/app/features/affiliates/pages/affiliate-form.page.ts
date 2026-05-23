@@ -25,6 +25,7 @@ import { map } from 'rxjs/operators';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import type { Gender, Relationship } from '../../catalogs/catalogs.types';
+import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { AffiliateService } from '../affiliate.service';
 import type { AffiliateRequest } from '../affiliate.types';
 
@@ -55,6 +56,7 @@ import type { AffiliateRequest } from '../affiliate.types';
   selector: 'app-affiliate-form-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    FieldSkeletonDirective,
     MatButtonModule,
     MatCardModule,
     MatDatepickerModule,
@@ -100,6 +102,21 @@ export class AffiliateFormPage {
     () => this.genders() !== null && this.relationships() !== null,
   );
 
+  /**
+   * In edit mode, gates the per-field skeleton on the fields that get
+   * hydrated from the cached record (`patchFrom`). Starts {@code true} in
+   * create mode (no record to fetch) and flips to {@code true} the moment
+   * `patchFrom` runs or the record lookup fails. The fields therefore show
+   * the shimmer overlay only while there genuinely is no data to display.
+   */
+  protected readonly recordReady = signal(this.mode === 'create');
+
+  /**
+   * Convenience flag for catalog-backed selects: they need both the catalog
+   * AND the record (in edit mode) before they can render a meaningful value.
+   */
+  protected readonly selectReady = computed(() => this.catalogsReady() && this.recordReady());
+
   /** Upper bound for the birth-date picker — affiliates cannot be in the future. */
   protected readonly today = new Date();
 
@@ -141,11 +158,13 @@ export class AffiliateFormPage {
 
     // If we're in edit mode, hydrate from the service cache. If the cache is cold
     // (deep-link to /afiliados/:dni/editar with no prior list visit), we kick off a
-    // load and try again.
+    // load and try again. `recordReady` flips to true on every terminal branch so
+    // the per-field skeleton stops shimmering even when the record is missing.
     if (this.editDni !== null) {
       const cached = this.service.findByDni(this.editDni);
       if (cached) {
         this.patchFrom(cached);
+        this.recordReady.set(true);
       } else {
         this.service.loadActive().subscribe(() => {
           const fresh = this.service.findByDni(this.editDni as number);
@@ -156,6 +175,7 @@ export class AffiliateFormPage {
             this.personal.disable();
             this.classification.disable();
           }
+          this.recordReady.set(true);
         });
       }
     }

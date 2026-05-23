@@ -170,3 +170,63 @@ body {
   display: block;
   width: 100%;
 }
+
+// -----------------------------------------------------------------------------
+// FieldSkeletonDirective shimmer overlay.
+//
+// Applied via `[appFieldSkeleton]="!ready()"` on any element (typically a
+// <mat-form-field> that depends on a catalog request still in flight). The
+// directive appends an absolutely-positioned <span class="…__overlay"> child
+// inside the host and toggles the `--loading` modifier on the host itself.
+//
+// We keep these rules global (rather than scoped to the directive's component)
+// because the directive has no view — it manipulates the host DOM directly so
+// the underlying form control stays mounted and its FormControl binding is
+// preserved.
+// -----------------------------------------------------------------------------
+.app-field-skeleton {
+  // Anchor the absolute overlay to the host. mat-form-field is already
+  // `position: relative` by default, but cheap insurance for non-mat hosts.
+  position: relative;
+}
+
+.app-field-skeleton--loading {
+  // Block keyboard / pointer interaction with the placeholder field. The
+  // overlay is decorative (aria-hidden); aria-busy on the host announces the
+  // loading state to assistive tech.
+  pointer-events: none;
+}
+
+.app-field-skeleton__overlay {
+  position: absolute;
+  // Cover the field but leave a small margin so a thin sliver of the host's
+  // outline / fill background remains visible — the operator still sees that
+  // a form field is there, just without committed content yet.
+  inset: 4px;
+  border-radius: 6px;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent) 0%,
+    color-mix(in srgb, var(--mat-sys-on-surface) 16%, transparent) 50%,
+    color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: app-field-skeleton-shimmer 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes app-field-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-field-skeleton__overlay {
+    animation: none;
+  }
+}
