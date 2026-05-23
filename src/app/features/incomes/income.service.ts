@@ -109,7 +109,14 @@ export class IncomeService {
   update(receiptNumber: string, request: IncomeRequest): Observable<Income> {
     return this.http
       .put<IncomeWire>(`${this.baseUrl}/${encodeURIComponent(receiptNumber)}`, request)
-      .pipe(map((wire) => normalizeIncome(wire)));
+      .pipe(
+        map((wire) => normalizeIncome(wire)),
+        // Patch the cached paginated snapshot in place so the list page does
+        // not need a fresh round-trip to show the new value the moment the
+        // operator returns from the edit form. No-op when the page cache is
+        // cold or the receipt lives on a different page.
+        tap((income) => this.replaceInCachedPage(receiptNumber, income)),
+      );
   }
 
   delete(receiptNumber: string): Observable<void> {
@@ -138,6 +145,31 @@ export class IncomeService {
       content: filtered,
       totalElements: Math.max(0, current.totalElements - 1),
     });
+  }
+
+  /**
+   * Replaces the matching row inside the cached paginated snapshot. Hooked into
+   * the {@link IncomeService#update} pipeline so the operator sees the new value
+   * the moment they navigate back to the listing. Silent when the page cache is
+   * cold or the receipt is not on the currently-loaded slice.
+   */
+  private replaceInCachedPage(receiptNumber: string, replacement: Income): void {
+    const current = this._page();
+    if (current === null) {
+      return;
+    }
+    let changed = false;
+    const next = current.content.map((row) => {
+      if (row.receiptNumber !== receiptNumber) {
+        return row;
+      }
+      changed = true;
+      return replacement;
+    });
+    if (!changed) {
+      return;
+    }
+    this._page.set({ ...current, content: next });
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

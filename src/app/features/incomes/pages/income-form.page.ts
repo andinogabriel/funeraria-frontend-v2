@@ -231,6 +231,12 @@ export class IncomeFormPage {
         ? this.service.update(this.editReceiptNumber, request)
         : this.service.create(request);
 
+    // See affiliate-form.page.ts: edit navigates optimistically; create waits.
+    const optimistic = this.mode === 'edit';
+    if (optimistic) {
+      void this.router.navigate(['/ingresos']);
+    }
+
     observable.subscribe({
       next: () => {
         this.submitting.set(false);
@@ -238,11 +244,18 @@ export class IncomeFormPage {
           this.mode === 'edit' ? 'Ingreso actualizado' : 'Ingreso creado',
           'Cerrar',
         );
-        void this.router.navigate(['/ingresos']);
+        if (!optimistic) {
+          void this.router.navigate(['/ingresos']);
+        }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {
         this.submitting.set(false);
-        this.errorMessage.set(this.mapError(err.status ?? 0, err.error?.detail));
+        const message = this.mapError(err.status ?? 0, err.error?.detail);
+        if (optimistic) {
+          this.snackBar.open(message, 'Cerrar');
+        } else {
+          this.errorMessage.set(message);
+        }
       },
     });
   }
