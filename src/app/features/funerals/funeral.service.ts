@@ -38,6 +38,7 @@ export class FuneralService {
   private readonly _page = signal<FuneralPage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
+  private readonly _pageFetchedAt = signal<Date | null>(null);
 
   /**
    * Separate cache for the "by user" surface so the admin grid and the
@@ -66,6 +67,13 @@ export class FuneralService {
   readonly byUserList = this._byUserList.asReadonly();
   readonly byUserLoading = this._byUserLoading.asReadonly();
   readonly byUserError = this._byUserError.asReadonly();
+
+  /**
+   * Wall-clock moment the cached page snapshot was last refreshed. Drives the
+   * "Actualizado hace N min" indicator on the list page + the visibility
+   * auto-refresh decision. See {@link AffiliateService#pageFetchedAt}.
+   */
+  readonly pageFetchedAt = this._pageFetchedAt.asReadonly();
 
   /** `true` once a successful load has produced an empty list. */
   readonly empty = computed(() => {
@@ -119,11 +127,13 @@ export class FuneralService {
       tap({
         next: (data) => {
           this._page.set(data);
+          this._pageFetchedAt.set(new Date());
           this._loading.set(false);
         },
         error: (err: { status?: number; error?: { detail?: string } }) => {
           this._loading.set(false);
           this._error.set(this.mapError(err));
+          this._pageFetchedAt.set(null);
         },
       }),
     );

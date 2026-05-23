@@ -27,6 +27,7 @@ import {
   type DataTableSort,
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
+import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
 import { FuneralDetailDialogComponent } from '../components/funeral-detail-dialog.component';
 import { FuneralService } from '../funeral.service';
 import type { Funeral, FuneralPageQuery } from '../funeral.types';
@@ -55,6 +56,7 @@ import type { Funeral, FuneralPageQuery } from '../funeral.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DataTableComponent,
+    FreshnessIndicatorComponent,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
@@ -75,6 +77,7 @@ export class FuneralListPage {
   protected readonly error = this.service.error;
   protected readonly rows = this.service.pageRows;
   protected readonly totalElements = this.service.totalElements;
+  protected readonly pageFetchedAt = this.service.pageFetchedAt;
 
   protected readonly selectedFuneral = signal<Funeral | null>(null);
   protected readonly hasSelection = computed(() => this.selectedFuneral() !== null);
@@ -278,6 +281,9 @@ export class FuneralListPage {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.selectedFuneral.set(null));
+
+    // Auto-refresh on tab-focus when the cached page is older than 60 s.
+    useVisibilityRefresh(this.pageFetchedAt, () => this.onRefresh());
   }
 
   protected onColumnMenuApply(event: {

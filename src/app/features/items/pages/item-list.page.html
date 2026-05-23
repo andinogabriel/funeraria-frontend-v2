@@ -11,6 +11,8 @@
     </div>
     <span class="flex-1"></span>
 
+    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+
     <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
       <mat-icon class="material-symbols-outlined">refresh</mat-icon>
       Actualizar

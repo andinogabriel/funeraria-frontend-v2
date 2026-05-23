@@ -24,6 +24,7 @@ import {
   type DataTableEmptyState,
   type DataTableSort,
 } from '../../../shared/data-table';
+import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
 import { ItemDetailDialogComponent } from '../components/item-detail-dialog.component';
 import { ItemService } from '../item.service';
 import type { Item, ItemPageQuery } from '../item.types';
@@ -52,6 +53,7 @@ import type { Item, ItemPageQuery } from '../item.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DataTableComponent,
+    FreshnessIndicatorComponent,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
@@ -72,6 +74,7 @@ export class ItemListPage {
   protected readonly error = this.service.error;
   protected readonly rows = this.service.pageRows;
   protected readonly totalElements = this.service.totalElements;
+  protected readonly pageFetchedAt = this.service.pageFetchedAt;
 
   protected readonly selectedItem = signal<Item | null>(null);
   protected readonly hasSelection = computed(() => this.selectedItem() !== null);
@@ -268,6 +271,9 @@ export class ItemListPage {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.selectedItem.set(null));
+
+    // Auto-refresh on tab-focus when the cached page is older than 60 s.
+    useVisibilityRefresh(this.pageFetchedAt, () => this.onRefresh());
   }
 
   protected onColumnMenuApply(event: {

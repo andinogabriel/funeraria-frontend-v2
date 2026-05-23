@@ -27,6 +27,7 @@ export class ItemService {
   private readonly _page = signal<ItemPage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
+  private readonly _pageFetchedAt = signal<Date | null>(null);
 
   readonly list = this._list.asReadonly();
 
@@ -41,6 +42,13 @@ export class ItemService {
 
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+
+  /**
+   * Wall-clock moment the cached page snapshot was last refreshed. Drives the
+   * "Actualizado hace N min" indicator + the visibility auto-refresh decision.
+   * See {@link AffiliateService#pageFetchedAt}.
+   */
+  readonly pageFetchedAt = this._pageFetchedAt.asReadonly();
 
   /**
    * Fetches a paginated slice of items from the new server-side endpoint. Updates the
@@ -77,11 +85,13 @@ export class ItemService {
       tap({
         next: (data) => {
           this._page.set(data);
+          this._pageFetchedAt.set(new Date());
           this._loading.set(false);
         },
         error: (err: { status?: number; error?: { detail?: string } }) => {
           this._loading.set(false);
           this._error.set(this.mapError(err));
+          this._pageFetchedAt.set(null);
         },
       }),
     );

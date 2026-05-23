@@ -46,11 +46,22 @@ export class AffiliateService {
   private readonly _page = signal<AffiliatePage | null>(null);
   private readonly _loading = signal(false);
   private readonly _error = signal<string | null>(null);
+  private readonly _pageFetchedAt = signal<Date | null>(null);
 
   readonly list = this._list.asReadonly();
 
   /** Latest paginated snapshot. `null` before the first {@link loadPage} call. */
   readonly page = this._page.asReadonly();
+
+  /**
+   * Wall-clock moment the cached page snapshot was last refreshed from the
+   * server. Drives the "Actualizado hace N min" freshness indicator on the
+   * list page and the visibility-change auto-refresh decision. Stays
+   * {@code null} until the first successful {@link loadPage}; resets back to
+   * {@code null} when a fetch fails (the indicator hides on failure rather
+   * than lie about freshness).
+   */
+  readonly pageFetchedAt = this._pageFetchedAt.asReadonly();
 
   /** Rows on the current page — convenience derived signal for templates. */
   readonly pageRows = computed<readonly Affiliate[]>(() => this._page()?.content ?? []);
@@ -115,11 +126,13 @@ export class AffiliateService {
       tap({
         next: (data) => {
           this._page.set(data);
+          this._pageFetchedAt.set(new Date());
           this._loading.set(false);
         },
         error: (err: { status?: number; error?: { detail?: string } }) => {
           this._loading.set(false);
           this._error.set(this.mapError(err));
+          this._pageFetchedAt.set(null);
         },
       }),
     );

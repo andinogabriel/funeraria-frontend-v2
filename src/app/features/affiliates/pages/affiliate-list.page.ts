@@ -27,6 +27,7 @@ import {
   type DataTableSort,
 } from '../../../shared/data-table';
 import { formatDate } from '../../../shared/format';
+import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
 import { AffiliateDetailDialogComponent } from '../components/affiliate-detail-dialog.component';
 import { AffiliateService } from '../affiliate.service';
 import type { Affiliate, AffiliatePageQuery } from '../affiliate.types';
@@ -77,6 +78,7 @@ import type { Affiliate, AffiliatePageQuery } from '../affiliate.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DataTableComponent,
+    FreshnessIndicatorComponent,
     MatButtonModule,
     MatCardModule,
     MatIconModule,
@@ -97,6 +99,7 @@ export class AffiliateListPage {
   protected readonly error = this.service.error;
   protected readonly rows = this.service.pageRows;
   protected readonly totalElements = this.service.totalElements;
+  protected readonly pageFetchedAt = this.service.pageFetchedAt;
 
   protected readonly selectedAffiliate = signal<Affiliate | null>(null);
   protected readonly hasSelection = computed(() => this.selectedAffiliate() !== null);
@@ -314,6 +317,11 @@ export class AffiliateListPage {
     this.route.queryParamMap
       .pipe(takeUntilDestroyed())
       .subscribe(() => this.selectedAffiliate.set(null));
+
+    // Auto-refresh on tab-focus when the cached page is older than 60 s, so two
+    // operators looking at the same padrón don't silently diverge after one of
+    // them stepped away.
+    useVisibilityRefresh(this.pageFetchedAt, () => this.onRefresh());
   }
 
   /**

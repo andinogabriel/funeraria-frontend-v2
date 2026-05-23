@@ -24,6 +24,7 @@ import {
   type DataTableEmptyState,
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
+import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
 import { AuditService } from '../audit.service';
 import type { AuditAction, AuditEvent, AuditEventFilter } from '../audit.types';
 import { AuditEventDetailDialogComponent } from '../components/audit-event-detail-dialog.component';
@@ -79,7 +80,14 @@ import { AuditEventDetailDialogComponent } from '../components/audit-event-detai
 @Component({
   selector: 'app-audit-event-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DataTableComponent, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
+  imports: [
+    DataTableComponent,
+    FreshnessIndicatorComponent,
+    MatButtonModule,
+    MatCardModule,
+    MatIconModule,
+    MatTooltipModule,
+  ],
   templateUrl: './audit-event-list.page.html',
   styleUrl: './audit-event-list.page.scss',
 })
@@ -91,6 +99,7 @@ export class AuditEventListPage {
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
+  protected readonly pageFetchedAt = this.service.pageFetchedAt;
 
   protected readonly events = computed<readonly AuditEvent[]>(
     () => this.service.page()?.content ?? [],
@@ -305,6 +314,10 @@ export class AuditEventListPage {
         .search(this.buildFilter(), { page: this.pageIndex(), size: this.pageSize() })
         .subscribe({ error: () => undefined });
     });
+
+    // Auto-refresh on tab-focus when the cached page is older than 60 s — audit
+    // is the surface where divergence between two operators hurts most.
+    useVisibilityRefresh(this.pageFetchedAt, () => this.onRefresh());
   }
 
   /**
