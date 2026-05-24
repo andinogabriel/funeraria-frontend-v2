@@ -187,4 +187,58 @@ describe('FuneralService', () => {
     expect(received).toBeInstanceOf(Blob);
     expect(received?.type).toBe('application/pdf');
   });
+
+  it('loadDeletedPage GETs /api/v1/funerals/deleted with the trimmed filter params + populates the bin cache', () => {
+    service
+      .loadDeletedPage({
+        page: 0,
+        limit: 10,
+        deceasedName: '  Gomez ',
+        deletedBy: 'admin@',
+      })
+      .subscribe();
+    const req = http.expectOne((r) => r.url === '/api/v1/funerals/deleted');
+    expect(req.request.params.get('page')).toBe('0');
+    expect(req.request.params.get('limit')).toBe('10');
+    expect(req.request.params.get('deceasedName')).toBe('Gomez');
+    expect(req.request.params.get('deletedBy')).toBe('admin@');
+    req.flush({
+      content: [
+        wireFuneral({
+          id: 1,
+          deletedAt: '2026-05-23T18:42:11Z',
+          deletedBy: 'admin@example.com',
+        }),
+      ],
+      totalElements: 1,
+      totalPages: 1,
+      size: 10,
+      number: 0,
+      first: true,
+      last: true,
+    });
+
+    // The bin cache is populated; the active-page cache stays untouched.
+    expect(service.binRows()).toHaveLength(1);
+    expect(service.binRows()[0].deletedBy).toBe('admin@example.com');
+    expect(service.binTotalElements()).toBe(1);
+    expect(service.pageRows()).toHaveLength(0);
+  });
+
+  it('loadDeletedPage omits empty filter params from the URL', () => {
+    service.loadDeletedPage({ deceasedName: '', dni: '   ', receiptNumber: undefined }).subscribe();
+    const req = http.expectOne((r) => r.url === '/api/v1/funerals/deleted');
+    expect(req.request.params.has('deceasedName')).toBe(false);
+    expect(req.request.params.has('dni')).toBe(false);
+    expect(req.request.params.has('receiptNumber')).toBe(false);
+    req.flush({
+      content: [],
+      totalElements: 0,
+      totalPages: 0,
+      size: 10,
+      number: 0,
+      first: true,
+      last: true,
+    });
+  });
 });
