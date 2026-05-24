@@ -70,6 +70,28 @@ export interface AffiliatePage {
   readonly last: boolean;
 }
 
+/**
+ * Query parameters accepted by `GET /api/v1/affiliates/deleted` — the admin papelera
+ * surface. Empty / undefined fields are dropped from the URL, same sentinel pattern as
+ * {@link AffiliatePageQuery}.
+ */
+export interface AffiliateBinPageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  /** Case-insensitive substring against the affiliate's first name. */
+  readonly firstName?: string;
+  /** Case-insensitive substring against the affiliate's last name. */
+  readonly lastName?: string;
+  /** Case-insensitive substring against the affiliate's DNI cast to string. */
+  readonly dni?: string;
+  /** Case-insensitive substring against the admin email captured at delete time. */
+  readonly deletedBy?: string;
+  /** Inclusive lower bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedFrom?: string;
+  /** Inclusive upper bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedTo?: string;
+}
+
 /** Query parameters accepted by `GET /api/v1/affiliates/paginated`. */
 export interface AffiliatePageQuery {
   readonly page?: number;

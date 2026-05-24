@@ -111,12 +111,11 @@ export class ShellComponent {
   private readonly allNavItems: readonly NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/afiliados', label: 'Afiliados', icon: 'group' },
-    {
-      path: '/afiliados/eliminados',
-      label: 'Papelera afiliados',
-      icon: 'delete_outline',
-      requiresAdmin: true,
-    },
+    // `/afiliados/eliminados` (papelera) is reachable via a top-right button on
+    // the `/afiliados` page, gated to admin. Adding it to the sidebar gave it
+    // top-level visual weight equal to "Afiliados" itself, which read as
+    // misleading — the papelera is a sibling action on the parent surface, not
+    // a peer destination.
     { path: '/servicios', label: 'Servicios', icon: 'church' },
     { path: '/mis-servicios', label: 'Mis servicios', icon: 'person_pin', requiresUser: true },
     { path: '/planes', label: 'Planes', icon: 'workspace_premium' },

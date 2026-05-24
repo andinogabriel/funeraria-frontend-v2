@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { toQueryParams } from '../../core/api/http-helpers';
 import type {
   Affiliate,
+  AffiliateBinPageQuery,
   AffiliatePage,
   AffiliatePageQuery,
   AffiliateRequest,
@@ -203,18 +204,36 @@ export class AffiliateService {
   }
 
   /**
-   * Paginated read of soft-deleted affiliates from
+   * Filtered + paginated read of soft-deleted affiliates from
    * `GET /api/v1/affiliates/deleted` (admin only). Updates the dedicated
    * {@link binPage} signal — separate from the active-page cache so the two
    * surfaces never clobber each other.
+   *
+   * <p>Filter params follow the empty-string sentinel pattern: the backend
+   * treats an absent param as "no filter", so we drop blank values entirely
+   * to keep the URL clean and avoid the empty `?firstName=` noise.
    */
-  loadDeletedPage(query: { page?: number; limit?: number } = {}): Observable<AffiliatePage> {
+  loadDeletedPage(query: AffiliateBinPageQuery = {}): Observable<AffiliatePage> {
     this._binLoading.set(true);
     this._binError.set(null);
 
     let params = new HttpParams();
     if (query.page !== undefined) params = params.set('page', String(query.page));
     if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+    if (query.firstName && query.firstName.trim().length > 0) {
+      params = params.set('firstName', query.firstName.trim());
+    }
+    if (query.lastName && query.lastName.trim().length > 0) {
+      params = params.set('lastName', query.lastName.trim());
+    }
+    if (query.dni && query.dni.trim().length > 0) {
+      params = params.set('dni', query.dni.trim());
+    }
+    if (query.deletedBy && query.deletedBy.trim().length > 0) {
+      params = params.set('deletedBy', query.deletedBy.trim());
+    }
+    if (query.deletedFrom) params = params.set('deletedFrom', query.deletedFrom);
+    if (query.deletedTo) params = params.set('deletedTo', query.deletedTo);
 
     return this.http.get<AffiliatePageWire>(`${this.baseUrl}/deleted`, { params }).pipe(
       map((wire) => this.normalizePage(wire)),

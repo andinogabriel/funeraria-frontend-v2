@@ -23,6 +23,22 @@
       <mat-icon class="material-symbols-outlined">refresh</mat-icon>
       Actualizar
     </button>
+    @if (isAdmin()) {
+      <!--
+        Admin-only access to the soft-delete papelera. Sibling action on the
+        parent surface, not a peer destination in the sidebar — keeps the nav
+        focused while still giving admins one click to the audit view.
+      -->
+      <a
+        mat-stroked-button
+        routerLink="/afiliados/eliminados"
+        matTooltip="Ver afiliados eliminados"
+        aria-label="Papelera"
+      >
+        <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+        Papelera
+      </a>
+    }
     <a mat-flat-button color="primary" routerLink="/afiliados/nuevo">
       <mat-icon class="material-symbols-outlined">add</mat-icon>
       Nuevo afiliado

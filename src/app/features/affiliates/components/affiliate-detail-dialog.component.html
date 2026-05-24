@@ -25,7 +25,13 @@
 
       <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Estado</dt>
       <dd class="text-sm m-0">
-        @if (data.deceased) {
+        @if (isDeleted) {
+          <span
+            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+          >
+            Eliminado
+          </span>
+        } @else if (data.deceased) {
           <span
             class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
           >
@@ -39,6 +45,21 @@
           </span>
         }
       </dd>
+
+      <!--
+        Tombstone fields. Only rendered when the dialog is opened from the
+        papelera (deletedAt populated), so the active-listing detail view
+        stays unchanged byte-for-byte.
+      -->
+      @if (isDeleted) {
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Eliminado</dt>
+        <dd class="text-sm m-0 tabular-nums">{{ deletedAtLabel }}</dd>
+
+        @if (data.deletedBy; as deletedBy) {
+          <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Eliminado por</dt>
+          <dd class="text-sm m-0">{{ deletedBy }}</dd>
+        }
+      }
     </dl>
   </mat-dialog-content>
 
