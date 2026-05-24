@@ -18,7 +18,7 @@
     <mat-divider class="!my-4" />
 
     @if (data.itemsPlan.length === 0) {
-      <section>
+      <section class="mb-4">
         <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
           Items incluidos
         </h3>
@@ -38,7 +38,14 @@
         right ("12 items") works as a peek so they don't have to expand the
         panel to know how many there are.
       -->
-      <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md">
+      <!--
+        `!mb-2` keeps a small gap between the accordion (collapsed OR
+        expanded) and the dialog actions footer underneath. Without it the
+        accordion header collides with "Cerrar" when collapsed, and the last
+        item card sits flush against the button when expanded — QA review
+        flagged both shapes as cramped.
+      -->
+      <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md !mb-4">
         <mat-expansion-panel-header>
           <mat-panel-title class="!text-sm !font-semibold">Items incluidos</mat-panel-title>
           <mat-panel-description class="!justify-end !mr-4">
