@@ -9,7 +9,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 
 import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
-import { formatDate } from '../../../shared/format';
+import { formatDate, formatDateTime } from '../../../shared/format';
 import type { Affiliate } from '../affiliate.types';
 
 /**
@@ -62,6 +62,19 @@ export class AffiliateDetailDialogComponent {
    * as the birth date — see {@link formatDate} in the shared format module.
    */
   protected readonly startDateLabel = formatDate(this.data.startDate);
+
+  /**
+   * Whether this affiliate is the soft-deleted variant. The component is reused from
+   * the active listing AND from the papelera; on a deleted record we want to swap the
+   * "Activo / Fallecido" chip for an "Eliminado" one and surface the tombstone
+   * (`deletedAt` / `deletedBy`) so the auditor sees who/when at a glance.
+   */
+  protected readonly isDeleted = this.data.deletedAt !== null;
+
+  /** AR-local label for the deletion moment; empty string when `deletedAt` is null. */
+  protected readonly deletedAtLabel = this.data.deletedAt
+    ? formatDateTime(this.data.deletedAt)
+    : '';
 }
 
 /**

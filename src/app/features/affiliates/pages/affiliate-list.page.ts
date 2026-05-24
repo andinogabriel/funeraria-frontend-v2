@@ -17,6 +17,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
+import { AuthStore } from '../../../core/auth/auth.store';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import {
   DataTableComponent,
@@ -94,6 +95,14 @@ export class AffiliateListPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly authStore = inject(AuthStore);
+
+  /**
+   * `true` when the active session has `ROLE_ADMIN`. Gates the "Papelera"
+   * header button — the backend endpoint behind it is admin-only, so showing
+   * the link to non-admins would just lead to a 403.
+   */
+  protected readonly isAdmin = computed(() => this.authStore.authorities().includes('ROLE_ADMIN'));
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
