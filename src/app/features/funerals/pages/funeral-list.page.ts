@@ -28,6 +28,7 @@ import {
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
 import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
+import { AuthStore } from '../../../core/auth/auth.store';
 import { FuneralService } from '../funeral.service';
 import type { Funeral, FuneralPageQuery } from '../funeral.types';
 
@@ -71,6 +72,13 @@ export class FuneralListPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly authStore = inject(AuthStore);
+
+  /**
+   * `true` when the active session has `ROLE_ADMIN`. Gates the "Papelera"
+   * header button — backend endpoint is admin-only.
+   */
+  protected readonly isAdmin = computed(() => this.authStore.authorities().includes('ROLE_ADMIN'));
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;

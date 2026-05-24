@@ -161,6 +161,14 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/funerals/pages/funeral-list.page').then((m) => m.FuneralListPage),
       },
       {
+        // Admin-only papelera surface for soft-deleted funerals. No route
+        // guard — the backend gates the endpoint with `ROLE_ADMIN` and the
+        // sibling "Papelera" header button is hidden for non-admins.
+        path: 'servicios/eliminados',
+        loadComponent: () =>
+          import('./features/funerals/pages/funeral-bin.page').then((m) => m.FuneralBinPage),
+      },
+      {
         path: 'servicios/nuevo',
         loadComponent: () =>
           import('./features/funerals/pages/funeral-form.page').then((m) => m.FuneralFormPage),

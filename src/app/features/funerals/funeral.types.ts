@@ -113,6 +113,18 @@ export interface Funeral {
   readonly receiptType: ReceiptType | null;
   readonly deceased: DeceasedResponse;
   readonly plan: FuneralPlanResponse;
+  /**
+   * ISO-8601 UTC instant when the funeral was soft-deleted, or `null` for active
+   * services. Only populated by the admin papelera endpoint
+   * (`GET /api/v1/funerals/deleted`); the regular listings filter deleted rows out so
+   * this field is always `null` there.
+   */
+  readonly deletedAt: string | null;
+  /**
+   * Email of the admin that requested the soft-delete, or `null` for active services.
+   * Same population semantics as {@link deletedAt}.
+   */
+  readonly deletedBy: string | null;
 }
 
 /**
@@ -151,6 +163,28 @@ export interface FuneralPage {
   readonly number: number;
   readonly first: boolean;
   readonly last: boolean;
+}
+
+/**
+ * Query parameters accepted by `GET /api/v1/funerals/deleted` — the admin papelera
+ * surface. Same sentinel pattern as {@link FuneralPageQuery}: empty / undefined fields
+ * are dropped from the URL by the service.
+ */
+export interface FuneralBinPageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  /** Case-insensitive substring against `firstName + ' ' + lastName` of the deceased. */
+  readonly deceasedName?: string;
+  /** Case-insensitive substring against the deceased's DNI cast to string. */
+  readonly dni?: string;
+  /** Case-insensitive substring against the funeral's receipt number. */
+  readonly receiptNumber?: string;
+  /** Case-insensitive substring against the admin email captured at delete time. */
+  readonly deletedBy?: string;
+  /** Inclusive lower bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedFrom?: string;
+  /** Inclusive upper bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedTo?: string;
 }
 
 /** Query parameters accepted by `GET /api/v1/funerals/paginated`. */

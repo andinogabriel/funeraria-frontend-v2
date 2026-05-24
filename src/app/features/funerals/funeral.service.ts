@@ -8,6 +8,7 @@ import type {
   DeceasedResponse,
   DeceasedUser,
   Funeral,
+  FuneralBinPageQuery,
   FuneralPage,
   FuneralPageQuery,
   FuneralPlanResponse,
@@ -75,6 +76,24 @@ export class FuneralService {
    */
   readonly pageFetchedAt = this._pageFetchedAt.asReadonly();
 
+  /**
+   * Dedicated cache for the admin-only papelera surface (`/servicios/eliminados`).
+   * Kept separate from the active-page cache so the two lists never stomp on each
+   * other — navigating between the regular listing and the papelera does not clear
+   * either.
+   */
+  private readonly _binPage = signal<FuneralPage | null>(null);
+  private readonly _binLoading = signal(false);
+  private readonly _binError = signal<string | null>(null);
+  private readonly _binFetchedAt = signal<Date | null>(null);
+
+  readonly binPage = this._binPage.asReadonly();
+  readonly binRows = computed<readonly Funeral[]>(() => this._binPage()?.content ?? []);
+  readonly binTotalElements = computed(() => this._binPage()?.totalElements ?? 0);
+  readonly binLoading = this._binLoading.asReadonly();
+  readonly binError = this._binError.asReadonly();
+  readonly binFetchedAt = this._binFetchedAt.asReadonly();
+
   /** `true` once a successful load has produced an empty list. */
   readonly empty = computed(() => {
     const value = this._list();
@@ -134,6 +153,63 @@ export class FuneralService {
           this._loading.set(false);
           this._error.set(this.mapError(err));
           this._pageFetchedAt.set(null);
+        },
+      }),
+    );
+  }
+
+  /**
+   * Filtered + paginated read of soft-deleted funerals from
+   * `GET /api/v1/funerals/deleted` (admin only). Updates the dedicated
+   * {@link binPage} signal — separate from the active-page cache so the two
+   * surfaces never clobber each other.
+   *
+   * <p>Filter params follow the empty-string sentinel pattern: the backend
+   * treats an absent param as "no filter", so we drop blank values entirely
+   * to keep the URL clean and avoid the empty `?deceasedName=` noise.
+   */
+  loadDeletedPage(query: FuneralBinPageQuery = {}): Observable<FuneralPage> {
+    this._binLoading.set(true);
+    this._binError.set(null);
+
+    let params = new HttpParams();
+    if (query.page !== undefined) params = params.set('page', String(query.page));
+    if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+    if (query.deceasedName && query.deceasedName.trim().length > 0) {
+      params = params.set('deceasedName', query.deceasedName.trim());
+    }
+    if (query.dni && query.dni.trim().length > 0) {
+      params = params.set('dni', query.dni.trim());
+    }
+    if (query.receiptNumber && query.receiptNumber.trim().length > 0) {
+      params = params.set('receiptNumber', query.receiptNumber.trim());
+    }
+    if (query.deletedBy && query.deletedBy.trim().length > 0) {
+      params = params.set('deletedBy', query.deletedBy.trim());
+    }
+    if (query.deletedFrom) params = params.set('deletedFrom', query.deletedFrom);
+    if (query.deletedTo) params = params.set('deletedTo', query.deletedTo);
+
+    return this.http.get<FuneralPageWire>(`${this.baseUrl}/deleted`, { params }).pipe(
+      map((wire) => ({
+        content: wire.content.map((entry) => normalizeFuneral(entry)),
+        totalElements: wire.totalElements,
+        totalPages: wire.totalPages,
+        size: wire.size,
+        number: wire.number,
+        first: wire.first,
+        last: wire.last,
+      })),
+      tap({
+        next: (data) => {
+          this._binPage.set(data);
+          this._binFetchedAt.set(new Date());
+          this._binLoading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._binLoading.set(false);
+          this._binError.set(this.mapError(err));
+          this._binFetchedAt.set(null);
         },
       }),
     );
@@ -327,6 +403,10 @@ interface FuneralWire {
   readonly receiptType: ReceiptType | null;
   readonly deceased: DeceasedWire;
   readonly plan: FuneralPlanResponse;
+  /** ISO-8601 UTC instant, only present on the papelera endpoint. */
+  readonly deletedAt?: string | null;
+  /** Actor email, only present on the papelera endpoint. */
+  readonly deletedBy?: string | null;
 }
 
 /** Spring Data `Page<FuneralWire>` envelope as the backend serialises it. */
@@ -380,6 +460,11 @@ function normalizeFuneral(wire: FuneralWire): Funeral {
     receiptType: wire.receiptType,
     deceased: normalizeDeceased(wire.deceased),
     plan: wire.plan,
+    // `deletedAt` / `deletedBy` are only present on the papelera endpoint; on the active
+    // listings the backend's `@JsonInclude(NON_NULL)` strips them. Default to `null` so
+    // downstream consumers can rely on the field shape.
+    deletedAt: wire.deletedAt ?? null,
+    deletedBy: wire.deletedBy ?? null,
   };
 }
 
