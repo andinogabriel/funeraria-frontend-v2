@@ -468,9 +468,16 @@
       disabled hook. We hide the built-in selector and render our own
       `<mat-select>` so we can grey out 50/100 while the dataset is too small to
       surface anything in those buckets (see `effectivePageSizeOptions`).
+
+      Layout: single row on every viewport. `ml-auto` on the paginator below
+      pushes it to the right whether the size selector is shown or not, so
+      the bar always reads as "size selector on the left, paginator on the
+      right" (or "paginator alone on the right" when the selector is hidden).
+      `pt-2` carries breathing room between the last data row and the bar so
+      the two read as separate blocks.
     -->
     <div
-      class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 !bg-[var(--mat-sys-surface)] pr-2"
+      class="data-table__paginator-bar sticky bottom-0 z-10 flex items-center gap-2 !bg-[var(--mat-sys-surface)] px-2 pt-2"
     >
       @if (!hidePageSizeSelector()) {
         <div class="data-table__page-size-label flex items-center gap-2 text-sm">
@@ -495,6 +502,7 @@
         </div>
       }
       <mat-paginator
+        class="ml-auto"
         [length]="paginatorLength()"
         [pageSize]="pageSize()"
         [pageSizeOptions]="pageSizeOptions()"
