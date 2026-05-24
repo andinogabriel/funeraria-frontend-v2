@@ -65,6 +65,23 @@
   font-size: 14px;
 }
 
+// Stop the paginator range label ("1 – 4 de 4") from wrapping when the bar
+// is tight on mobile — without `white-space: nowrap` each space in the label
+// becomes a line break and the operator sees a vertical "1 / – / 4 / de / 4"
+// instead of one readable string. The paginator's outer container also
+// wraps by default; force it to stay on a single row so the label + nav
+// buttons live next to each other, and let horizontal overflow happen on
+// very narrow screens (cheaper than re-laying out the bar conditionally).
+:host ::ng-deep .mat-mdc-paginator-range-label {
+  white-space: nowrap;
+  margin: 0 16px 0 8px;
+}
+
+:host ::ng-deep .mat-mdc-paginator-container,
+:host ::ng-deep .mat-mdc-paginator-range-actions {
+  flex-wrap: nowrap;
+}
+
 // Sticky header inside the scroll viewport. Without an opaque background the
 // rows below would show through the (transparent) sticky cells as they scroll
 // past, which reads as a glitch. The surface token keeps light and dark themes
