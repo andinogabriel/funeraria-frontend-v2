@@ -17,18 +17,34 @@
 
     <mat-divider class="!my-4" />
 
-    <section>
-      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-        Items incluidos
-      </h3>
-
-      @if (data.itemsPlan.length === 0) {
+    @if (data.itemsPlan.length === 0) {
+      <section>
+        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+          Items incluidos
+        </h3>
         <p
           class="text-sm text-[var(--mat-sys-on-surface-variant)] rounded-md p-3 bg-[var(--mat-sys-surface-container)] m-0"
         >
           Este plan no tiene items asignados.
         </p>
-      } @else {
+      </section>
+    } @else {
+      <!--
+        Items incluidos in an expansion panel — same primitive used on the
+        funeral detail page, so the operator sees the same affordance across
+        the app. Defaults to expanded because the items are the substance of
+        the record; collapses with one click when the operator just wants to
+        scan the margen / precio / descripción up top. The count on the
+        right ("12 items") works as a peek so they don't have to expand the
+        panel to know how many there are.
+      -->
+      <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="!text-sm !font-semibold">Items incluidos</mat-panel-title>
+          <mat-panel-description class="!justify-end !mr-4">
+            {{ data.itemsPlan.length }} {{ data.itemsPlan.length === 1 ? 'item' : 'items' }}
+          </mat-panel-description>
+        </mat-expansion-panel-header>
         <ul class="flex flex-col gap-2 m-0 p-0 list-none">
           @for (row of data.itemsPlan; track row.item.code) {
             <li
@@ -48,8 +64,8 @@
             </li>
           }
         </ul>
-      }
-    </section>
+      </mat-expansion-panel>
+    }
   </mat-dialog-content>
 
   <mat-dialog-actions align="end">

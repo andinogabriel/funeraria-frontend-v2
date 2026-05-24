@@ -200,11 +200,20 @@
             the record — but a single click hides them. The panel ships its
             own card-like surround which doubles as the visual separator from
             the Auditoría section underneath.
+
+            `!mt-4` adds breathing room between the Recibo divider above and
+            this panel — without it the divider sat flush against the
+            accordion frame and read as a single border.
           -->
-          <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md">
+          <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md !mt-4">
             <mat-expansion-panel-header>
-              <mat-panel-title class="!text-base !font-semibold"> Items del plan </mat-panel-title>
-              <mat-panel-description class="!justify-end !mr-0">
+              <mat-panel-title class="!text-base !font-semibold">Items del plan</mat-panel-title>
+              <!--
+                `!mr-4` adds a gap between the count and the chevron toggle on
+                the right — Material's default has them touching, which read as
+                cramped given the rest of the spacing on this surface.
+              -->
+              <mat-panel-description class="!justify-end !mr-4">
                 {{ f.plan.itemsPlan.length }}
                 {{ f.plan.itemsPlan.length === 1 ? 'item' : 'items' }}
               </mat-panel-description>

@@ -7,6 +7,7 @@ import {
   MatDialogContent,
 } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 
 import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
@@ -28,6 +29,7 @@ import type { Plan } from '../plan.types';
     MatDialogClose,
     MatDialogContent,
     MatDividerModule,
+    MatExpansionModule,
     MatIconModule,
   ],
   templateUrl: './plan-detail-dialog.component.html',
