@@ -261,4 +261,39 @@ describe('AffiliateService', () => {
     expect(service.pageRows().map((a) => a.dni)).toEqual([30111222]);
     expect(service.totalElements()).toBe(1);
   });
+
+  it('loadDeletedPage hits /affiliates/deleted and populates the binPage cache with tombstone fields', () => {
+    service.loadDeletedPage({ page: 0, limit: 10 }).subscribe();
+    const req = http.expectOne((r) => r.method === 'GET' && r.url === '/api/v1/affiliates/deleted');
+    expect(req.request.params.get('page')).toBe('0');
+    expect(req.request.params.get('limit')).toBe('10');
+    req.flush(
+      pageEnvelope([
+        wireAffiliate({
+          dni: 30111222,
+          firstName: 'Maria',
+          deletedAt: '2026-05-23T18:42:11Z',
+          deletedBy: 'admin@example.com',
+        }),
+      ]),
+    );
+
+    // The active-listing caches stay untouched — the bin is read into its own slot.
+    expect(service.binRows()).toHaveLength(1);
+    expect(service.binTotalElements()).toBe(1);
+    expect(service.pageRows()).toHaveLength(0);
+    expect(service.binRows()[0].deletedBy).toBe('admin@example.com');
+    expect(service.binRows()[0].deletedAt).toBe('2026-05-23T18:42:11Z');
+  });
+
+  it('loadDeletedPage reports a friendly error on 403 without polluting the active caches', () => {
+    service.loadDeletedPage().subscribe({ error: () => undefined });
+    http
+      .expectOne((r) => r.url === '/api/v1/affiliates/deleted')
+      .flush(null, { status: 403, statusText: 'Forbidden' });
+
+    expect(service.binLoading()).toBe(false);
+    expect(service.binError()).toBe('No tenés permiso para ver el listado de afiliados.');
+    expect(service.binPage()).toBeNull();
+  });
 });

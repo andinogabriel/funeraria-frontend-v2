@@ -72,6 +72,23 @@ export class AffiliateService {
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
+  /**
+   * Dedicated cache for the admin-only papelera surface (`/afiliados/eliminados`). Kept
+   * separate from the active-page cache so the two lists never stomp on each other —
+   * navigating between the regular listing and the papelera does not clear either.
+   */
+  private readonly _binPage = signal<AffiliatePage | null>(null);
+  private readonly _binLoading = signal(false);
+  private readonly _binError = signal<string | null>(null);
+  private readonly _binFetchedAt = signal<Date | null>(null);
+
+  readonly binPage = this._binPage.asReadonly();
+  readonly binRows = computed<readonly Affiliate[]>(() => this._binPage()?.content ?? []);
+  readonly binTotalElements = computed(() => this._binPage()?.totalElements ?? 0);
+  readonly binLoading = this._binLoading.asReadonly();
+  readonly binError = this._binError.asReadonly();
+  readonly binFetchedAt = this._binFetchedAt.asReadonly();
+
   /** `true` once a successful load has produced an empty list. */
   readonly empty = computed(() => {
     const value = this._list();
@@ -183,6 +200,37 @@ export class AffiliateService {
       return;
     }
     this._page.set({ ...current, content: next });
+  }
+
+  /**
+   * Paginated read of soft-deleted affiliates from
+   * `GET /api/v1/affiliates/deleted` (admin only). Updates the dedicated
+   * {@link binPage} signal — separate from the active-page cache so the two
+   * surfaces never clobber each other.
+   */
+  loadDeletedPage(query: { page?: number; limit?: number } = {}): Observable<AffiliatePage> {
+    this._binLoading.set(true);
+    this._binError.set(null);
+
+    let params = new HttpParams();
+    if (query.page !== undefined) params = params.set('page', String(query.page));
+    if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+
+    return this.http.get<AffiliatePageWire>(`${this.baseUrl}/deleted`, { params }).pipe(
+      map((wire) => this.normalizePage(wire)),
+      tap({
+        next: (data) => {
+          this._binPage.set(data);
+          this._binFetchedAt.set(new Date());
+          this._binLoading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._binLoading.set(false);
+          this._binError.set(this.mapError(err));
+          this._binFetchedAt.set(null);
+        },
+      }),
+    );
   }
 
   /** Lists active affiliates (`deceased = false`) and updates the cached signal. */
@@ -309,6 +357,11 @@ export class AffiliateService {
       deceased: wire.deceased,
       gender: wire.gender,
       relationship: wire.relationship,
+      // `deletedAt` / `deletedBy` are only present on the papelera endpoint; on the active
+      // listings the backend's `@JsonInclude(NON_NULL)` strips them. Default to `null` so
+      // downstream consumers can rely on the field shape.
+      deletedAt: wire.deletedAt ?? null,
+      deletedBy: wire.deletedBy ?? null,
     };
   }
 
@@ -340,6 +393,10 @@ interface AffiliateWire {
   readonly deceased: boolean;
   readonly gender: Affiliate['gender'];
   readonly relationship: Affiliate['relationship'];
+  /** ISO-8601 UTC instant, only present on the papelera endpoint. */
+  readonly deletedAt?: string | null;
+  /** Actor email, only present on the papelera endpoint. */
+  readonly deletedBy?: string | null;
 }
 
 /** Spring Data `Page<AffiliateWire>` envelope as the backend serialises it. */

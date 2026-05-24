@@ -52,6 +52,15 @@ export const AUTHENTICATED_ROUTES: Routes = [
           ),
       },
       {
+        // Admin-only papelera surface for soft-deleted affiliates. No route
+        // guard — the backend gates the endpoint with `ROLE_ADMIN` and the
+        // sidebar hides the entry for non-admins, so deep-linking only
+        // surfaces the service's friendly 403 message.
+        path: 'afiliados/eliminados',
+        loadComponent: () =>
+          import('./features/affiliates/pages/affiliate-bin.page').then((m) => m.AffiliateBinPage),
+      },
+      {
         path: 'afiliados/nuevo',
         loadComponent: () =>
           import('./features/affiliates/pages/affiliate-form.page').then(
