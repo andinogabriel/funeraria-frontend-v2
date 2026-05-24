@@ -111,6 +111,12 @@ export class ShellComponent {
   private readonly allNavItems: readonly NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { path: '/afiliados', label: 'Afiliados', icon: 'group' },
+    {
+      path: '/afiliados/eliminados',
+      label: 'Papelera afiliados',
+      icon: 'delete_outline',
+      requiresAdmin: true,
+    },
     { path: '/servicios', label: 'Servicios', icon: 'church' },
     { path: '/mis-servicios', label: 'Mis servicios', icon: 'person_pin', requiresUser: true },
     { path: '/planes', label: 'Planes', icon: 'workspace_premium' },

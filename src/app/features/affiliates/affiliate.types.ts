@@ -45,6 +45,18 @@ export interface Affiliate {
   readonly deceased: boolean;
   readonly gender: Gender;
   readonly relationship: Relationship;
+  /**
+   * ISO-8601 UTC instant when the affiliate was soft-deleted, or `null` for active
+   * affiliates. Only populated by the admin papelera endpoint
+   * (`GET /api/v1/affiliates/deleted`); the regular listings filter deleted rows out so
+   * this field is always `null` there.
+   */
+  readonly deletedAt: string | null;
+  /**
+   * Email of the admin that requested the soft-delete, or `null` for active affiliates.
+   * Same population semantics as {@link deletedAt}.
+   */
+  readonly deletedBy: string | null;
 }
 
 /** Server-side paginated response — Spring Data `Page<AffiliateResponseDto>`. */

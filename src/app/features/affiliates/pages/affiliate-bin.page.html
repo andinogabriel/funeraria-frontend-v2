@@ -1,0 +1,61 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <a mat-icon-button routerLink="/afiliados" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      delete_outline
+    </mat-icon>
+    <div class="flex flex-col min-w-0">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Papelera</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Afiliados eliminados. Solo consulta — sin restaurar ni purgar.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+
+    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+
+    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+      Actualizar
+    </button>
+  </header>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  <mat-card
+    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
+  >
+    <app-data-table
+      [data]="rows()"
+      [columns]="columns()"
+      [trackBy]="trackByDni"
+      storageKey="affiliates.bin"
+      [serverSide]="true"
+      [loading]="loading()"
+      [totalElements]="totalElements()"
+      [initialPageIndex]="pageIndex()"
+      [initialPageSize]="pageSize()"
+      [emptyState]="emptyState()"
+      (pageChange)="onPageChange($event)"
+    />
+  </mat-card>
+</div>
+
+<!--
+  Cell renderer for the Eliminado column. The column's `value` accessor
+  returns the raw ISO instant so it remains sortable in principle; this
+  template runs the canonical `formatDateTime` so the operator sees
+  `dd/MM/yyyy HH:mm` in Argentina local time.
+-->
+<ng-template #deletedAtCell let-affiliate>
+  {{ affiliate.deletedAt ? formatDateTime(affiliate.deletedAt) : '—' }}
+</ng-template>
