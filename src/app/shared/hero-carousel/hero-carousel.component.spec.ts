@@ -53,7 +53,7 @@ describe('HeroCarouselComponent', () => {
     expect(c.activeIndex()).toBe(1);
   });
 
-  it('trackTransform combines the active-index offset with the live drag delta', () => {
+  it('trackTransform offsets by displayIndex so the front clone is skipped on start', () => {
     const fixture = TestBed.createComponent(HeroCarouselComponent);
     fixture.componentRef.setInput('slides', slides);
     fixture.detectChanges();
@@ -64,10 +64,44 @@ describe('HeroCarouselComponent', () => {
       dragOffset: { set: (value: number) => void };
     };
 
-    expect(c.trackTransform()).toBe('translate3d(calc(0% + 0px), 0, 0)');
-    c.goTo(1);
+    // Multi-slide path renders [last_clone, ...slides, first_clone]; the first real
+    // slide sits at rendered index 1, so the default transform is -100%.
     expect(c.trackTransform()).toBe('translate3d(calc(-100% + 0px), 0, 0)');
+    c.goTo(1);
+    expect(c.trackTransform()).toBe('translate3d(calc(-200% + 0px), 0, 0)');
     c.dragOffset.set(-45);
-    expect(c.trackTransform()).toBe('translate3d(calc(-100% + -45px), 0, 0)');
+    expect(c.trackTransform()).toBe('translate3d(calc(-200% + -45px), 0, 0)');
+  });
+
+  it('renderedSlides pads the array with clones at both ends so the wrap-on-drag never blanks out', () => {
+    const fixture = TestBed.createComponent(HeroCarouselComponent);
+    fixture.componentRef.setInput('slides', slides);
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance as unknown as {
+      renderedSlides: () => readonly { title: string }[];
+    };
+
+    const rendered = c.renderedSlides();
+    expect(rendered).toHaveLength(slides.length + 2);
+    // First rendered slide is the clone of the last source slide.
+    expect(rendered[0].title).toBe('Slide C');
+    // Last rendered slide is the clone of the first source slide.
+    expect(rendered[rendered.length - 1].title).toBe('Slide A');
+  });
+
+  it('renderedSlides does not pad when there is a single slide (clone trick is unnecessary)', () => {
+    const fixture = TestBed.createComponent(HeroCarouselComponent);
+    fixture.componentRef.setInput('slides', slides.slice(0, 1));
+    fixture.detectChanges();
+
+    const c = fixture.componentInstance as unknown as {
+      renderedSlides: () => readonly { title: string }[];
+      trackTransform: () => string;
+    };
+
+    expect(c.renderedSlides()).toHaveLength(1);
+    // Single-slide path keeps displayIndex at 0 so no offset is applied.
+    expect(c.trackTransform()).toBe('translate3d(calc(0% + 0px), 0, 0)');
   });
 });

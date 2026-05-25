@@ -5,9 +5,11 @@ import {
   DestroyRef,
   ElementRef,
   HostListener,
+  effect,
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -39,11 +41,7 @@ export interface HeroSlide {
 }
 
 /**
- * Hero carousel with auto-rotate + manual navigation. Slides live on a horizontal track
- * (CSS `transform: translateX(...)`) so the operator can drag the track with the mouse on
- * desktop or with a finger on mobile and watch the slide follow the cursor in real time,
- * snapping to the nearest slide on release. The dots, prev / next chevrons and arrow keys
- * keep working as before — the drag is additive, not a replacement.
+ * Hero carousel with auto-rotate + manual navigation + wrap-on-drag.
  *
  * <h3>Drag mechanics</h3>
  *
@@ -53,12 +51,24 @@ export interface HeroSlide {
  * shorter than 8 % of the carousel width snap back to the originating slide so an
  * accidental click does not advance the rotation.
  *
+ * <h3>Infinite loop trick</h3>
+ *
+ * The track renders {@code [last_clone, ...slides, first_clone]} when more than one slide
+ * is supplied. The {@link displayIndex} signal points at the actual rendered position
+ * (real slides live at indices {@code 1..N}; the clones at {@code 0} and {@code N+1} are
+ * visually identical to their originals). When a wrap commit happens — e.g. the operator
+ * drags right from slide 0 — we animate to the clone position so the drag visual stays
+ * continuous, then silently snap {@link displayIndex} back to the matching real position
+ * on {@code transitionend}. The snap pixel-matches because the clone and the real slide
+ * render the same image, so the operator sees no flash.
+ *
  * <h3>Accessibility</h3>
  *
  * - `role="region"` + `aria-roledescription="carousel"` so screen readers announce it as a
  *   carousel rather than a generic group.
  * - Each slide carries `role="group"` + an `aria-label` built from eyebrow + title.
  * - A polite `aria-live` region announces the active slide on every change.
+ * - The two clones are `aria-hidden` so screen readers never count them.
  * - `prefers-reduced-motion: reduce` drops the slide-transition animation entirely.
  */
 @Component({
@@ -78,8 +88,17 @@ export class HeroCarouselComponent {
   /** Auto-rotate cadence in milliseconds. Set to 0 to disable the timer. */
   readonly autoRotateMs = input<number>(6_000);
 
-  /** Active slide index. Public so the host template can drive transitions. */
+  /** Active LOGICAL slide index (0 .. slides.length - 1). Public for the announcer. */
   protected readonly activeIndex = signal(0);
+
+  /**
+   * Rendered-track display index. For the multi-slide path the track holds
+   * {@code [last_clone, ...slides, first_clone]} and the display index ranges
+   * {@code 0 .. slides.length + 1}; the default position is {@code activeIndex + 1} so
+   * the first real slide is visible. For the single-slide path the clones are skipped
+   * and the display index stays at 0.
+   */
+  protected readonly displayIndex = signal(1);
 
   /** Pauses the auto-rotate while hover / focus / drag is held. */
   private readonly paused = signal(false);
@@ -90,17 +109,36 @@ export class HeroCarouselComponent {
   /** True while the track follows the pointer; suppresses transitions for crisp 1:1 motion. */
   protected readonly dragging = signal(false);
 
+  /**
+   * Disables the CSS transition for exactly one frame so the post-wrap silent snap from
+   * clone to real does not animate (otherwise the track would sweep back across every
+   * intermediate slide, visible as a jarring sideways pan).
+   */
+  protected readonly suppressTransition = signal(false);
+
   protected readonly activeSlide = computed(() => this.slides()[this.activeIndex()]);
 
   protected readonly slideCount = computed(() => this.slides().length);
 
   /**
-   * Inline `transform` for the track. Combines the active-slide offset (`-i * 100%`) with
-   * the live drag delta (`+dragPx`) so the slide follows the pointer one-for-one during a
-   * drag and snaps to the nearest neighbour on release.
+   * Slides actually rendered on the track. When there's more than one source slide we
+   * pad the array with clones at both ends so the operator can drag past either edge
+   * and see the wrapped neighbour mid-drag. Single-slide and empty inputs short-circuit.
+   */
+  protected readonly renderedSlides = computed<readonly HeroSlide[]>(() => {
+    const source = this.slides();
+    if (source.length <= 1) {
+      return source;
+    }
+    return [source[source.length - 1], ...source, source[0]];
+  });
+
+  /**
+   * Inline `transform` for the track. Combines the display-slide offset (`-i * 100%`)
+   * with the live drag delta (`+dragPx`).
    */
   protected readonly trackTransform = computed(
-    () => `translate3d(calc(${-this.activeIndex() * 100}% + ${this.dragOffset()}px), 0, 0)`,
+    () => `translate3d(calc(${-this.displayIndex() * 100}% + ${this.dragOffset()}px), 0, 0)`,
   );
 
   /** Localised label announced by the polite aria-live region. */
@@ -119,7 +157,26 @@ export class HeroCarouselComponent {
   private dragPointerId: number | null = null;
   private lastAdvance = 0;
 
+  /**
+   * True while a wrap commit is animating to the clone position. The next
+   * {@code transitionend} on the track silently swaps {@link displayIndex} from the
+   * clone back to the matching real slide, then clears this flag.
+   */
+  private pendingWrapSnap = false;
+
   constructor() {
+    // Seed `displayIndex` from `activeIndex` whenever the slide count changes (typically
+    // once at init when the `slides` input is bound). Single-slide path stays at 0 (no
+    // clones); multi-slide path offsets by 1 to skip the front clone. `untracked` keeps
+    // the effect from re-firing on subsequent `activeIndex` changes — only slideCount
+    // should drive a re-seed.
+    effect(() => {
+      const total = this.slideCount();
+      untracked(() => {
+        this.displayIndex.set(total <= 1 ? 0 : this.activeIndex() + 1);
+      });
+    });
+
     interval(250)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -140,7 +197,12 @@ export class HeroCarouselComponent {
     this.next();
   }
 
-  /** Moves to the slide at the requested index, wrapping at both ends. */
+  /**
+   * Moves to the slide at the requested LOGICAL index, wrapping at both ends. Non-drag
+   * paths (dots / chevrons / arrow keys / auto-rotate) use this; they jump straight to
+   * the real display position without the clone trick because the operator did not
+   * initiate any visual continuation.
+   */
   protected goTo(index: number): void {
     const total = this.slideCount();
     if (total === 0) {
@@ -148,6 +210,9 @@ export class HeroCarouselComponent {
     }
     const next = ((index % total) + total) % total;
     this.activeIndex.set(next);
+    // Single-slide path skips the clones, so display stays at 0; multi-slide path
+    // offsets by 1 to skip the front clone.
+    this.displayIndex.set(total <= 1 ? 0 : next + 1);
     this.lastAdvance = Date.now();
   }
 
@@ -218,18 +283,48 @@ export class HeroCarouselComponent {
 
     this.dragStartX = null;
     this.dragPointerId = null;
-    this.dragOffset.set(0);
     this.dragging.set(false);
     this.paused.set(false);
 
+    // Drag too short to count as a swipe — clear the offset and let the transition snap
+    // back to the originating slide.
     if (Math.abs(dx) < commitThresholdPx) {
-      return; // snap back to the originating slide
+      this.dragOffset.set(0);
+      return;
     }
-    if (dx < 0) {
-      this.next();
-    } else {
-      this.prev();
+
+    const total = this.slideCount();
+    if (total <= 1) {
+      // Nothing to wrap to.
+      this.dragOffset.set(0);
+      return;
     }
+
+    const oldIdx = this.activeIndex();
+    const wantsNext = dx < 0;
+    const newIdx = wantsNext ? (oldIdx + 1) % total : (oldIdx - 1 + total) % total;
+    const isWrap = wantsNext ? oldIdx === total - 1 : oldIdx === 0;
+
+    if (!isWrap) {
+      // Normal commit — just move to the new real position. The CSS transition animates
+      // the track one slide width over.
+      this.activeIndex.set(newIdx);
+      this.displayIndex.set(newIdx + 1);
+      this.dragOffset.set(0);
+      this.lastAdvance = Date.now();
+      return;
+    }
+
+    // Wrap commit — animate to the CLONE position (continuation of the drag direction)
+    // so the user perceives the slide they were swiping toward landing into view. After
+    // the transition completes, silently snap to the matching real position (clones look
+    // identical to the originals so the swap is invisible).
+    const clonePosition = wantsNext ? total + 1 : 0;
+    this.activeIndex.set(newIdx);
+    this.displayIndex.set(clonePosition);
+    this.dragOffset.set(0);
+    this.pendingWrapSnap = true;
+    this.lastAdvance = Date.now();
   }
 
   /** Cancels the drag without committing (e.g. browser navigated away from the pointer). */
@@ -239,6 +334,32 @@ export class HeroCarouselComponent {
     this.dragOffset.set(0);
     this.dragging.set(false);
     this.paused.set(false);
+  }
+
+  /**
+   * Fires after every track transition completes. Used exclusively to perform the
+   * silent clone → real swap when a wrap drag has just animated into a clone position.
+   */
+  protected onTrackTransitionEnd(): void {
+    if (!this.pendingWrapSnap) {
+      return;
+    }
+    this.pendingWrapSnap = false;
+    // Suppress the transition for one frame, jump to the matching real slide, then
+    // re-enable transitions on the following frame. The jump pixel-matches the clone
+    // so the operator sees no flash.
+    this.suppressTransition.set(true);
+    this.displayIndex.set(this.activeIndex() + 1);
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        // Touching offsetHeight forces a layout flush so the no-transition transform is
+        // committed before we re-enable transitions on the next frame.
+        void this.carouselEl().nativeElement.offsetHeight;
+        window.requestAnimationFrame(() => this.suppressTransition.set(false));
+      });
+    } else {
+      this.suppressTransition.set(false);
+    }
   }
 
   @HostListener('keydown', ['$event'])
