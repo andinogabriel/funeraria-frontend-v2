@@ -57,6 +57,14 @@
   &--dragging {
     transition: none;
   }
+
+  // Applied for exactly one frame after a wrap drag completes its visible animation
+  // into a clone position. The track is then snapped from the clone to the matching
+  // real slide; both positions render identical pixels so the snap is invisible — but
+  // only if no transition is interpolated between them.
+  &--no-transition {
+    transition: none;
+  }
 }
 
 .hero-carousel__slide {
