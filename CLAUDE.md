@@ -64,6 +64,7 @@ CI runs format → lint → test → build, in that order. Local sequence before
 - **PR cadence**: chained `chore/p<N>-<slug>` branches, squash-merge, auto-merge when CI is green.
 - **`final` does not exist in TS**, so use `readonly` everywhere it works (signals on services, public class fields). Inputs from `input.required<T>()` or `input<T>()`.
 - **Records don't exist either**, but `interface` for value shapes and `class` only when behavior is involved. Avoid `type` aliases for object shapes when an `interface` would do (better error messages).
+- **Sub-lists inside a form / dialog / detail panel ship in a `mat-expansion-panel [expanded]="true"`** with the item count on `mat-panel-description`. Keeps the surface scannable when the list grows. See `.claude/agents/frontend-architect.md` for the full rule + examples.
 - **No emojis in code or commits** unless explicitly requested.
 
 ## Review agents — run before opening a PR

@@ -31,6 +31,15 @@ If the caller scoped you ("only the new list page"), respect it. Otherwise audit
 - **`emitEvent: false` on programmatic patches** when you don't want valueChanges to fire (the URL → form sync pattern in `income-list.page.ts`).
 - **Debounce form-to-URL pushes** (`debounceTime(250)` is the convention here). Filter changes reset `page` to 0.
 
+### Listings inside a form or dialog
+
+- **Wrap any sub-list inside a form, dialog, or detail panel in `mat-expansion-panel [expanded]="true"`.** Examples in the repo: the items-included list in the plan detail dialog, the items-del-plan list on the funeral detail page + the funeral-bin detail dialog, the items quantities block in `funeral-form`. Pattern:
+  - Default expanded so the operator sees the substance immediately.
+  - `hideToggle="false"` and a `mat-panel-description` on the right with the item count (e.g. `12 items`) so the operator can peek without expanding.
+  - `!mb-4` (or `!mb-2`) on the panel so it does not collide with the dialog actions / next section.
+  - `!mt-4` if the panel sits right after a `mat-divider` that would otherwise read as the panel's top border.
+- Why: long item lists push the rest of the surface out of the fold without the accordion. The peek count lets the operator stay efficient without expanding.
+
 ### Styling
 
 - **Material 3 system tokens only** for colors / typography. `var(--mat-sys-primary)`, `var(--mat-sys-on-surface)`, etc. — never hardcoded hex unless the design needs a literal brand color the palette doesn't carry.
