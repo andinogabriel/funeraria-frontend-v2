@@ -87,10 +87,21 @@
 
     @if (data.plan.itemsPlan.length > 0) {
       <mat-divider class="!my-4" />
-      <section>
-        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-          Items del plan
-        </h3>
+      <!--
+        Listings inside a form / dialog ship inside a `mat-expansion-panel`
+        expanded by default — see the convention in
+        `.claude/agents/frontend-architect.md`. Keeps the dialog scrollable
+        when the plan ships 10+ rows; the count on the right works as a
+        peek so the operator does not have to expand to know how many.
+      -->
+      <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md !mb-2">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="!text-sm !font-semibold">Items del plan</mat-panel-title>
+          <mat-panel-description class="!justify-end !mr-4">
+            {{ data.plan.itemsPlan.length }}
+            {{ data.plan.itemsPlan.length === 1 ? 'item' : 'items' }}
+          </mat-panel-description>
+        </mat-expansion-panel-header>
         <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
           @for (row of data.plan.itemsPlan; track row.item.code) {
             <li class="flex items-center justify-between py-2 gap-3">
@@ -108,7 +119,7 @@
             </li>
           }
         </ul>
-      </section>
+      </mat-expansion-panel>
     }
 
     <mat-divider class="!my-4" />
