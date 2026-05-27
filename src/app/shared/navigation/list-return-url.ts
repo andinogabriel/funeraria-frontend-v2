@@ -44,9 +44,10 @@ export const STATE_KEY = 'listReturnUrl' as const;
  * sensible.
  */
 export function readListReturnUrl(fallback: string): string {
-  const state = (typeof history !== 'undefined' ? history.state : null) as
-    | Record<string, unknown>
-    | null;
+  const state = (typeof history !== 'undefined' ? history.state : null) as Record<
+    string,
+    unknown
+  > | null;
   const value = state ? state[STATE_KEY] : undefined;
   return typeof value === 'string' && value.length > 0 ? value : fallback;
 }
