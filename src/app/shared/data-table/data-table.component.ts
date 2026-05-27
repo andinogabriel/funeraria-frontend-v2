@@ -13,6 +13,7 @@ import {
   output,
   signal,
   TemplateRef,
+  untracked,
   ViewChild,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -409,39 +410,48 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * <p>An option is enabled when one of these holds:
    * <ul>
    *   <li>it is the smallest option (the operator can always shrink page size);</li>
-   *   <li>it matches the currently active page size (never disable the user's own
-   *       selection out from under them);</li>
-   *   <li>the current page is NOT already the last page (there is at least one
-   *       unseen row past `(pageIndex + 1) * pageSize`) AND the dataset has
-   *       strictly more rows than the previous option in the list — i.e., picking
-   *       this option would meaningfully change the slice the user is browsing.</li>
+   *   <li>the dataset has strictly more rows than the previous option in the list
+   *       — i.e., picking this option would meaningfully change the slice the user
+   *       is browsing.</li>
    * </ul>
    *
-   * <p>The rule is page-aware on purpose. From page 0 with size=10 and 12 rows,
-   * picking 25 collapses the two-page view into one — useful, so 25 stays
-   * enabled. From page 1 (the trailing 2 rows) with the same 12 rows, there is
-   * nothing past the current view to surface; enlarging to 25 would just reset
-   * to page 0 without revealing anything new, so the larger options grey out.
-   *
-   * <p>The `total > previousOption` clause keeps the progression tight: with 33
-   * rows on page 0 the operator can pick 25 (33 > 10) or 50 (33 > 25) but not
-   * 100 (33 ≤ 50), matching the "next worthwhile step up" intent.
+   * <p>The progression is tight: with 33 rows the operator can pick 10, 25
+   * (33 &gt; 10) or 50 (33 &gt; 25) but not 100 (33 &le; 50), matching the
+   * "next worthwhile step up" intent. The currently selected size receives no
+   * special treatment — if a fresh filter shrinks the result set below the
+   * current page size, the option greys out so the operator can see at a glance
+   * that it is no longer worth picking. A companion effect (see constructor)
+   * auto-downsizes the selection in that case so the rendered chip matches the
+   * largest still-useful option.
    */
   protected readonly effectivePageSizeOptions = computed<
     readonly { value: number; disabled: boolean }[]
   >(() => {
     const options = [...this.pageSizeOptions()].sort((a, b) => a - b);
     const total = this.paginatorLength();
-    const current = this.pageSize();
-    const pageIndex = this.pageIndex();
-    const hasUnseenRowsPastCurrentPage = (pageIndex + 1) * current < total;
     return options.map((value, index) => {
-      if (value === current) return { value, disabled: false };
       if (index === 0) return { value, disabled: false };
       const previous = options[index - 1] ?? 0;
-      const wouldSurfaceMoreData = hasUnseenRowsPastCurrentPage && total > previous;
-      return { value, disabled: !wouldSurfaceMoreData };
+      return { value, disabled: total <= previous };
     });
+  });
+
+  /**
+   * Largest page-size option whose `previous` step is still below the current total.
+   * Returns the smallest option when nothing else is "useful" (eg. empty result set),
+   * so the auto-downsize effect always has a valid target to fall back on.
+   */
+  private readonly largestUsefulPageSize = computed<number>(() => {
+    const options = [...this.pageSizeOptions()].sort((a, b) => a - b);
+    const total = this.paginatorLength();
+    let largest = options[0] ?? this.pageSize();
+    for (let i = 1; i < options.length; i++) {
+      const previous = options[i - 1] ?? 0;
+      if (total > previous) {
+        largest = options[i];
+      }
+    }
+    return largest;
   });
 
   /** Full display order = visible config columns + action column when projected. */
@@ -478,25 +488,76 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     // on every render. Without this effect, post-hydration URL changes (back /
     // forward, programmatic navigation, an external `router.navigate` from a
     // sibling event) would leave the table's internal signals stuck on the
-    // first-mount values. We mirror the inputs into the internal signals
-    // whenever they actually differ.
+    // first-mount values.
+    //
+    // We track the last *input* values we copied in (not the live signal
+    // values) so we react only to genuine URL-side deltas. Without that, the
+    // auto-downsize effect below — which writes `pageSize` from inside an
+    // effect — would ping-pong with this one: write 25 → effect re-runs →
+    // sees initialPageSize=100 vs pageSize=25 → writes back 100 → auto-
+    // downsize fires again → infinite loop.
     effect(() => {
       if (!this.hydrated() || !this.serverSide()) {
         return;
       }
       const nextIndex = this.initialPageIndex();
       const nextSize = this.initialPageSize();
-      if (nextIndex !== this.pageIndex()) {
-        this.pageIndex.set(nextIndex);
+      if (nextIndex !== this.lastAppliedInitialPageIndex) {
+        this.lastAppliedInitialPageIndex = nextIndex;
+        untracked(() => {
+          if (nextIndex !== this.pageIndex()) {
+            this.pageIndex.set(nextIndex);
+          }
+        });
       }
-      if (nextSize !== this.pageSize()) {
-        this.pageSize.set(nextSize);
+      if (nextSize !== this.lastAppliedInitialPageSize) {
+        this.lastAppliedInitialPageSize = nextSize;
+        untracked(() => {
+          if (nextSize !== this.pageSize()) {
+            this.pageSize.set(nextSize);
+          }
+        });
+      }
+    });
+
+    // Auto-downsize the active page size when a filter (or any other change to
+    // the total) shrinks the result set below the current selection. Without
+    // this the operator is left looking at "100 filas por página" while only
+    // 30 rows exist; the chip would stay enabled but every option would either
+    // be redundant (anything &ge; 100) or downgraded — surprising. We snap to
+    // the largest still-useful option so the rendered chip matches what the
+    // disabled-flag logic in `effectivePageSizeOptions` already implies, and
+    // we re-emit `pageChange` so the parent's URL stays in sync. Guarded on
+    // `hydrated` so we do not fight the initial preferences load, on
+    // `paginatorLength > 0` so an in-flight refetch (which momentarily drops
+    // total to 0) does not collapse the selection to the smallest option, and
+    // on `current > largestUseful` so a fresh mount with a matching page size
+    // is a no-op.
+    effect(() => {
+      if (!this.hydrated()) {
+        return;
+      }
+      const total = this.paginatorLength();
+      if (total <= 0) {
+        return;
+      }
+      const current = this.pageSize();
+      const target = this.largestUsefulPageSize();
+      if (current > target) {
+        this.onPageSizeSelect(target);
       }
     });
   }
 
   /** Tracks whether the component finished applying defaults/persisted state. */
   private readonly hydrated = signal(false);
+
+  // Last input values copied into the internal pagination signals by the URL-
+  // sync effect. Tracking them lets the effect react only to genuine input
+  // deltas, so internal writes (eg. the auto-downsize effect setting
+  // `pageSize`) do not trigger a write-back from the URL-sync effect.
+  private lastAppliedInitialPageIndex: number | null = null;
+  private lastAppliedInitialPageSize: number | null = null;
 
   ngOnInit(): void {
     this.hydrateFromPreferences();

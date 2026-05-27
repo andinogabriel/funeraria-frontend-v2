@@ -365,11 +365,13 @@ describe('DataTableComponent', () => {
       ]);
     });
 
-    it('on the trailing page, disables every larger option (no unseen rows to surface)', () => {
-      // Same 12-row dataset on page 1: the operator is at the tail of the
-      // dataset, nothing past the current view to reveal — enlarging the page
-      // size would just reset to page 0 without surfacing anything new. Only
-      // 10 (the current size) stays enabled.
+    it('disable progression depends only on totals, not on current page index', () => {
+      // Regression: the previous rule gated larger options on
+      // `(pageIndex + 1) * pageSize < total`, which surprised operators on the
+      // trailing page (every larger option appeared greyed even when the
+      // dataset would have collapsed neatly into one big page). The rule now
+      // looks only at the total vs the previous-tier threshold, so the option
+      // set on page 1 matches the option set on page 0 for the same total.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
@@ -382,7 +384,7 @@ describe('DataTableComponent', () => {
       const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
       expect(options).toEqual([
         { value: 10, disabled: false },
-        { value: 25, disabled: true },
+        { value: 25, disabled: false },
         { value: 50, disabled: true },
         { value: 100, disabled: true },
       ]);
@@ -424,21 +426,48 @@ describe('DataTableComponent', () => {
       expect(options.map((o) => o.disabled)).toEqual([false, false, false, false]);
     });
 
-    it('keeps the currently active page size enabled even if the dataset shrinks below the tier', () => {
-      // Sanity: if the parent persisted pageSize=25 and the dataset later has just
-      // 8 rows, we still need 25 to render as the picked value (and therefore
-      // selectable) — otherwise the control would look broken / stuck.
+    it('auto-downsizes the active page size when the dataset is too small for the current tier', () => {
+      // The operator picked pageSize=100 on the unfiltered list (say, 1200
+      // rows). A column filter then narrows the result set to 30 rows. We do
+      // not want to leave the chip stuck on "100 filas por página" with every
+      // alternative greyed out — instead the data-table snaps to the largest
+      // still-useful option (50, since 30 > 25 ≥ previous tier) and re-emits
+      // pageChange so the parent's URL stays in sync. Modelled as a fresh
+      // mount with the post-filter totals already in place — the effect fires
+      // on hydrate just as it would on a mid-session refetch.
       const f = TestBed.createComponent(HostComponent);
       f.componentInstance.rows = rows;
       f.componentInstance.columns = columns;
       f.componentInstance.serverSide = true;
-      f.componentInstance.totalElements = 8;
-      f.componentInstance.initialPageSize = 25;
+      f.componentInstance.totalElements = 30;
+      f.componentInstance.initialPageSize = 100;
       f.detectChanges();
 
+      expect(pageSizeApi(f.componentInstance.table).pageSize()).toBe(50);
+      expect(pageSizeApi(f.componentInstance.table).pageIndex()).toBe(0);
+      expect(f.componentInstance.lastPageChange).toEqual({ pageIndex: 0, pageSize: 50 });
+
       const options = pageSizeApi(f.componentInstance.table).effectivePageSizeOptions();
-      const twentyFive = options.find((o) => o.value === 25);
-      expect(twentyFive?.disabled).toBe(false);
+      // 10 enabled (smallest), 25 enabled (30>10), 50 enabled (30>25 — the
+      // new selection), 100 disabled (30 ≤ 50 — what we just downsized from).
+      expect(options.map((o) => o.disabled)).toEqual([false, false, false, true]);
+    });
+
+    it('does not auto-downsize when the dataset is momentarily empty (refetch in flight)', () => {
+      // Parents sometimes drop `totalElements` to 0 between requests. We do
+      // not want that transient blip to collapse the operator's page-size
+      // selection to the smallest option; the auto-downsize effect skips
+      // empty totals on purpose.
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = rows;
+      f.componentInstance.columns = columns;
+      f.componentInstance.serverSide = true;
+      f.componentInstance.totalElements = 0;
+      f.componentInstance.initialPageSize = 100;
+      f.detectChanges();
+
+      expect(pageSizeApi(f.componentInstance.table).pageSize()).toBe(100);
+      expect(f.componentInstance.lastPageChange).toBeUndefined();
     });
 
     it('emits pageChange with pageIndex 0 when a new page size is selected', () => {
