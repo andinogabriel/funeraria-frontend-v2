@@ -11,11 +11,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import { ItemService } from '../../items/item.service';
+import { readListReturnUrl } from '../../../shared/navigation';
 import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeService } from '../income.service';
@@ -59,7 +60,6 @@ import type { Income, IncomeDetail, IncomeRequest } from '../income.types';
     MatSelectModule,
     MatTooltipModule,
     ReactiveFormsModule,
-    RouterLink,
   ],
   templateUrl: './income-form.page.html',
   styleUrl: './income-form.page.scss',
@@ -77,6 +77,14 @@ export class IncomeFormPage {
   protected readonly mode: 'create' | 'edit' =
     this.route.snapshot.data['mode'] === 'edit' ? 'edit' : 'create';
   private readonly editReceiptNumber: string | null = this.parseEditReceiptNumber();
+
+  /**
+   * URL to return to on Cancel / back / successful save. Snapshotted from
+   * `history.state` so a save still drops the operator back into the exact
+   * filter slice they came from. Falls back to the bare listing for deep-
+   * links and the Nuevo-ingreso flow.
+   */
+  protected readonly listReturnUrl: string = readListReturnUrl('/ingresos');
 
   protected readonly title = this.mode === 'create' ? 'Nuevo ingreso' : 'Editar ingreso';
 
@@ -155,13 +163,22 @@ export class IncomeFormPage {
     });
   }
 
+  /**
+   * Back / Cancel handler. Routes to the snapshot taken on mount so the
+   * operator lands on the exact filter slice they came from. Bypasses the
+   * form's own state — no validation, no dirty check, no submit.
+   */
+  protected onBack(): void {
+    void this.router.navigateByUrl(this.listReturnUrl);
+  }
+
   protected onSubmit(): void {
     if (this.form.invalid || this.submitting() || !this.catalogsReady()) {
       this.form.markAllAsTouched();
       return;
     }
     if (this.mode === 'edit' && this.form.pristine) {
-      void this.router.navigate(['/ingresos']);
+      void this.router.navigateByUrl(this.listReturnUrl);
       return;
     }
     if (this.details.length === 0) {
@@ -234,7 +251,7 @@ export class IncomeFormPage {
     // See affiliate-form.page.ts: edit navigates optimistically; create waits.
     const optimistic = this.mode === 'edit';
     if (optimistic) {
-      void this.router.navigate(['/ingresos']);
+      void this.router.navigateByUrl(this.listReturnUrl);
     }
 
     observable.subscribe({
@@ -245,7 +262,7 @@ export class IncomeFormPage {
           'Cerrar',
         );
         if (!optimistic) {
-          void this.router.navigate(['/ingresos']);
+          void this.router.navigateByUrl(this.listReturnUrl);
         }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {

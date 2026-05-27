@@ -22,11 +22,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { AuthStore } from '../../../core/auth/auth.store';
+import { readListReturnUrl } from '../../../shared/navigation';
 import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { AffiliateService } from '../../affiliates/affiliate.service';
 import { CatalogsService } from '../../catalogs/catalogs.service';
@@ -109,7 +110,6 @@ import type {
     MatStepperModule,
     NgTemplateOutlet,
     ReactiveFormsModule,
-    RouterLink,
   ],
   templateUrl: './funeral-form.page.html',
   styleUrl: './funeral-form.page.scss',
@@ -131,6 +131,16 @@ export class FuneralFormPage {
   protected readonly mode: 'create' | 'edit' =
     this.route.snapshot.data['mode'] === 'edit' ? 'edit' : 'create';
   private readonly editId: number | null = this.parseEditId();
+
+  /**
+   * URL to bounce back to on Cancel / back arrow / successful save. Snapshotted
+   * on mount from `history.state` (populated by the list page when the operator
+   * picks Editar with active filters) so the navigation that brought us here
+   * is the one we honour, regardless of any subsequent in-page state pushes.
+   * Falls back to the bare `/servicios` listing for deep-links and the
+   * Nuevo-servicio flow that doesn't originate from a filtered slice.
+   */
+  protected readonly listReturnUrl: string = readListReturnUrl('/servicios');
 
   protected readonly title = this.mode === 'create' ? 'Nuevo servicio' : 'Editar servicio';
 
@@ -440,6 +450,15 @@ export class FuneralFormPage {
     });
   }
 
+  /**
+   * Back / Cancel handler. Always routes to the snapshot taken on mount so
+   * the operator lands on the exact list slice they came from. Bypasses
+   * the form's own state — no validation, no dirty check, no submit.
+   */
+  protected onBack(): void {
+    void this.router.navigateByUrl(this.listReturnUrl);
+  }
+
   protected onSubmit(): void {
     const valid =
       this.servicio.valid &&
@@ -461,7 +480,7 @@ export class FuneralFormPage {
       this.planSelection.pristine &&
       this.placeOfDeath.pristine
     ) {
-      void this.router.navigate(['/servicios']);
+      void this.router.navigateByUrl(this.listReturnUrl);
       return;
     }
 
@@ -591,7 +610,7 @@ export class FuneralFormPage {
     // losing the form contents on a failed POST.
     const optimistic = this.mode === 'edit';
     if (optimistic) {
-      void this.router.navigate(['/servicios']);
+      void this.router.navigateByUrl(this.listReturnUrl);
     }
 
     observable.subscribe({
@@ -602,7 +621,7 @@ export class FuneralFormPage {
           'Cerrar',
         );
         if (!optimistic) {
-          void this.router.navigate(['/servicios']);
+          void this.router.navigateByUrl(this.listReturnUrl);
         }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {

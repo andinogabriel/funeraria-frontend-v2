@@ -28,6 +28,7 @@ import {
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
 import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
+import { withListReturnUrl } from '../../../shared/navigation';
 import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeDetailDialogComponent } from '../components/income-detail-dialog.component';
 import { IncomeService } from '../income.service';
@@ -430,7 +431,11 @@ export class IncomeListPage {
     if (!income) {
       return;
     }
-    void this.router.navigate(['/ingresos', income.receiptNumber, 'editar']);
+    // Carry the current URL on `history.state` so the form's Cancel / back /
+    // post-save navigation can bounce us back to the exact filter slice.
+    void this.router.navigate(['/ingresos', income.receiptNumber, 'editar'], {
+      state: withListReturnUrl(this.router.url),
+    });
   }
 
   protected onDelete(): void {

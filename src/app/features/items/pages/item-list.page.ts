@@ -25,6 +25,7 @@ import {
   type DataTableSort,
 } from '../../../shared/data-table';
 import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
+import { withListReturnUrl } from '../../../shared/navigation';
 import { ItemDetailDialogComponent } from '../components/item-detail-dialog.component';
 import { ItemService } from '../item.service';
 import type { Item, ItemPageQuery } from '../item.types';
@@ -378,7 +379,11 @@ export class ItemListPage {
   protected onEdit(): void {
     const item = this.selectedItem();
     if (!item) return;
-    void this.router.navigate(['/items', item.code, 'editar']);
+    // Carry the current URL on `history.state` so the form's Cancel / back /
+    // post-save navigation can bounce us back to the exact filter slice.
+    void this.router.navigate(['/items', item.code, 'editar'], {
+      state: withListReturnUrl(this.router.url),
+    });
   }
 
   protected onDelete(): void {

@@ -28,6 +28,7 @@ import {
 } from '../../../shared/data-table';
 import { formatDateTime } from '../../../shared/format';
 import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
+import { withListReturnUrl } from '../../../shared/navigation';
 import { AuthStore } from '../../../core/auth/auth.store';
 import { FuneralService } from '../funeral.service';
 import type { Funeral, FuneralPageQuery } from '../funeral.types';
@@ -400,8 +401,13 @@ export class FuneralListPage {
     // Detalle navigates to the dedicated `/servicios/:id` route instead of
     // opening a modal — a funeral is a legal document the operator shares,
     // prints or e-mails, so a navigable URL is a better fit than a dialog
-    // that loses its state on a route change.
-    void this.router.navigate(['/servicios', funeral.id]);
+    // that loses its state on a route change. The current URL (with any
+    // active filters / sort / page) rides along on `history.state` so the
+    // detail page's back arrow can drop the operator back into the exact
+    // same slice they were browsing.
+    void this.router.navigate(['/servicios', funeral.id], {
+      state: withListReturnUrl(this.router.url),
+    });
   }
 
   protected onEdit(): void {
@@ -409,7 +415,9 @@ export class FuneralListPage {
     if (!funeral) {
       return;
     }
-    void this.router.navigate(['/servicios', funeral.id, 'editar']);
+    void this.router.navigate(['/servicios', funeral.id, 'editar'], {
+      state: withListReturnUrl(this.router.url),
+    });
   }
 
   protected onDelete(): void {
