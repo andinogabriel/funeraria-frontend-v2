@@ -20,10 +20,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+import { readListReturnUrl } from '../../../shared/navigation';
 import { BrandService } from '../../brands/brand.service';
 import { CategoryService } from '../../categories/category.service';
 import { ItemService } from '../item.service';
@@ -65,7 +66,6 @@ import type { Item, ItemRequest } from '../item.types';
     MatStepperModule,
     NgTemplateOutlet,
     ReactiveFormsModule,
-    RouterLink,
   ],
   templateUrl: './item-form.page.html',
   styleUrl: './item-form.page.scss',
@@ -83,6 +83,14 @@ export class ItemFormPage {
   protected readonly mode: 'create' | 'edit' =
     this.route.snapshot.data['mode'] === 'edit' ? 'edit' : 'create';
   private readonly editCode: string | null = this.parseEditCode();
+
+  /**
+   * URL to return to on Cancel / back / successful save. Snapshotted from
+   * `history.state` so a save still drops the operator back into the exact
+   * filter slice they came from. Falls back to the bare listing for deep-
+   * links and the Nuevo-item flow.
+   */
+  protected readonly listReturnUrl: string = readListReturnUrl('/items');
 
   protected readonly title = this.mode === 'create' ? 'Nuevo item' : 'Editar item';
 
@@ -197,6 +205,15 @@ export class ItemFormPage {
     });
   }
 
+  /**
+   * Back / Cancel handler. Routes to the snapshot taken on mount so the
+   * operator lands on the exact filter slice they came from. Bypasses the
+   * form's own state — no validation, no dirty check, no submit.
+   */
+  protected onBack(): void {
+    void this.router.navigateByUrl(this.listReturnUrl);
+  }
+
   protected onSubmit(): void {
     const valid = this.datos.valid && this.classification.valid;
     if (!valid || this.submitting() || !this.catalogsReady()) {
@@ -206,7 +223,7 @@ export class ItemFormPage {
     }
     // Skip the no-op `PUT` when neither step was touched (see brand-form.page.ts).
     if (this.mode === 'edit' && this.datos.pristine && this.classification.pristine) {
-      void this.router.navigate(['/items']);
+      void this.router.navigateByUrl(this.listReturnUrl);
       return;
     }
     const datos = this.datos.getRawValue();
@@ -249,7 +266,7 @@ export class ItemFormPage {
     // See affiliate-form.page.ts: edit navigates optimistically; create waits.
     const optimistic = this.mode === 'edit';
     if (optimistic) {
-      void this.router.navigate(['/items']);
+      void this.router.navigateByUrl(this.listReturnUrl);
     }
 
     observable.subscribe({
@@ -257,7 +274,7 @@ export class ItemFormPage {
         this.submitting.set(false);
         this.snackBar.open(this.mode === 'edit' ? 'Item actualizado' : 'Item creado', 'Cerrar');
         if (!optimistic) {
-          void this.router.navigate(['/items']);
+          void this.router.navigateByUrl(this.listReturnUrl);
         }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {

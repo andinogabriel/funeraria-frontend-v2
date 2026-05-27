@@ -29,6 +29,7 @@ import {
 } from '../../../shared/data-table';
 import { formatDate } from '../../../shared/format';
 import { FreshnessIndicatorComponent, useVisibilityRefresh } from '../../../shared/freshness';
+import { withListReturnUrl } from '../../../shared/navigation';
 import { AffiliateDetailDialogComponent } from '../components/affiliate-detail-dialog.component';
 import { AffiliateService } from '../affiliate.service';
 import type { Affiliate, AffiliatePageQuery } from '../affiliate.types';
@@ -459,7 +460,12 @@ export class AffiliateListPage {
     if (!affiliate) {
       return;
     }
-    void this.router.navigate(['/afiliados', affiliate.dni, 'editar']);
+    // Carry the current URL on `history.state` so the form's Cancel / back
+    // arrow / post-save navigation can bounce us back to the exact filter
+    // slice we came from instead of the bare listing.
+    void this.router.navigate(['/afiliados', affiliate.dni, 'editar'], {
+      state: withListReturnUrl(this.router.url),
+    });
   }
 
   protected onDelete(): void {

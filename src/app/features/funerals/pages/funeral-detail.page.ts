@@ -16,11 +16,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
 
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import { formatDate, formatDateTime } from '../../../shared/format';
+import { readListReturnUrl, withListReturnUrl } from '../../../shared/navigation';
 import { FuneralService } from '../funeral.service';
 import type { Funeral } from '../funeral.types';
 
@@ -71,7 +72,6 @@ import type { Funeral } from '../funeral.types';
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    RouterLink,
   ],
   templateUrl: './funeral-detail.page.html',
   styleUrl: './funeral-detail.page.scss',
@@ -108,6 +108,17 @@ export class FuneralDetailPage {
 
   /** True while the PDF download is in flight; disables the button. */
   protected readonly downloadingPdf = signal(false);
+
+  /**
+   * URL to bounce back to when the operator hits the back arrow or the
+   * "Volver al listado" CTA on the not-found card. Snapshotted on mount
+   * so a subsequent in-app navigation does not flip it under our feet —
+   * `history.state` itself would still be correct, but other consumers
+   * (Edit, Eliminar) may push their own states meanwhile.
+   *
+   * Sender: {@link FuneralListPage#onShowDetail}.
+   */
+  protected readonly listReturnUrl: string = readListReturnUrl('/servicios');
 
   protected readonly title = computed(() => {
     const funeral = this.funeral();
@@ -181,6 +192,32 @@ export class FuneralDetailPage {
     this.fetchOnIdChange();
   }
 
+  /**
+   * Back navigation handler. Restores the listing in the exact slice the
+   * operator was browsing (filters / sort / page / size all carried by
+   * the URL the list page handed us on the way in).
+   */
+  protected onBack(): void {
+    void this.router.navigateByUrl(this.listReturnUrl);
+  }
+
+  /**
+   * Forwards the cached return URL to the edit form so a save / cancel
+   * from there still walks all the way back to the originating listing
+   * slice. Without this hop the chain would break: the form would only
+   * see its own `history.state`, which the user-initiated `<a routerLink>`
+   * would have wiped out.
+   */
+  protected onEdit(): void {
+    const funeral = this.funeral();
+    if (!funeral) {
+      return;
+    }
+    void this.router.navigate(['/servicios', funeral.id, 'editar'], {
+      state: withListReturnUrl(this.listReturnUrl),
+    });
+  }
+
   protected onDownloadPdf(): void {
     const funeral = this.funeral();
     if (!funeral || this.downloadingPdf()) {
@@ -222,7 +259,10 @@ export class FuneralDetailPage {
       this.service.delete(funeral.id).subscribe({
         next: () => {
           this.snackBar.open('Servicio eliminado', 'Cerrar');
-          void this.router.navigate(['/servicios']);
+          // The row we just deleted obviously won't be on the listing
+          // anymore, so bouncing back to the filtered slice is still
+          // safe — the table will just render N-1 rows.
+          void this.router.navigateByUrl(this.listReturnUrl);
         },
         error: () => this.snackBar.open('No se pudo eliminar el servicio', 'Cerrar'),
       });

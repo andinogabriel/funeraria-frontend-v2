@@ -1,8 +1,8 @@
 <div class="flex flex-col gap-6">
   <header class="flex flex-wrap items-center gap-3">
-    <a mat-icon-button routerLink="/servicios" aria-label="Volver al listado">
+    <button mat-icon-button type="button" (click)="onBack()" aria-label="Volver al listado">
       <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
-    </a>
+    </button>
     <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
       church
     </mat-icon>
@@ -38,15 +38,16 @@
         }
         Imprimir / PDF
       </button>
-      <a
+      <button
         mat-stroked-button
-        [routerLink]="['/servicios', f.id, 'editar']"
+        type="button"
+        (click)="onEdit()"
         matTooltip="Editar el servicio"
         aria-label="Editar"
       >
         <mat-icon class="material-symbols-outlined">edit</mat-icon>
         Editar
-      </a>
+      </button>
       <button
         mat-stroked-button
         color="warn"
@@ -78,9 +79,9 @@
         <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
           El URL apunta a un servicio que no existe o que fue eliminado.
         </p>
-        <a mat-flat-button color="primary" routerLink="/servicios" class="!mt-2">
+        <button mat-flat-button color="primary" type="button" (click)="onBack()" class="!mt-2">
           Volver al listado
-        </a>
+        </button>
       </mat-card-content>
     </mat-card>
   } @else if (funeral(); as f) {

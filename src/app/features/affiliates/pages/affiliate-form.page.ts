@@ -19,12 +19,13 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import type { Gender, Relationship } from '../../catalogs/catalogs.types';
+import { readListReturnUrl } from '../../../shared/navigation';
 import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { AffiliateService } from '../affiliate.service';
 import type { AffiliateRequest } from '../affiliate.types';
@@ -69,7 +70,6 @@ import type { AffiliateRequest } from '../affiliate.types';
     MatStepperModule,
     NgTemplateOutlet,
     ReactiveFormsModule,
-    RouterLink,
   ],
   templateUrl: './affiliate-form.page.html',
   styleUrl: './affiliate-form.page.scss',
@@ -89,6 +89,14 @@ export class AffiliateFormPage {
 
   /** DNI of the affiliate being edited (or `null` in create mode / malformed segment). */
   private readonly editDni: number | null = this.parseEditDni();
+
+  /**
+   * URL to return to on Cancel / back / successful save. Snapshotted from
+   * `history.state` so a save still drops the operator back into the exact
+   * filter slice they came from. Falls back to the bare listing for deep-
+   * links and the Nuevo-afiliado flow.
+   */
+  protected readonly listReturnUrl: string = readListReturnUrl('/afiliados');
 
   protected readonly genders = this.catalogs.genders;
   protected readonly relationships = this.catalogs.relationships;
@@ -181,6 +189,15 @@ export class AffiliateFormPage {
     }
   }
 
+  /**
+   * Back / Cancel handler. Routes to the snapshot taken on mount so the
+   * operator lands on the exact filter slice they came from. Bypasses the
+   * form's own state — no validation, no dirty check, no submit.
+   */
+  protected onBack(): void {
+    void this.router.navigateByUrl(this.listReturnUrl);
+  }
+
   protected onSubmit(): void {
     const formValid = this.personal.valid && this.classification.valid;
     if (!formValid || this.submitting() || !this.catalogsReady()) {
@@ -190,7 +207,7 @@ export class AffiliateFormPage {
     }
     // Skip the no-op `PUT` when neither step was touched (see brand-form.page.ts).
     if (this.mode === 'edit' && this.personal.pristine && this.classification.pristine) {
-      void this.router.navigate(['/afiliados']);
+      void this.router.navigateByUrl(this.listReturnUrl);
       return;
     }
     const personal = this.personal.getRawValue();
@@ -225,7 +242,7 @@ export class AffiliateFormPage {
     // success) to avoid losing what the operator typed if the POST fails.
     const optimistic = this.mode === 'edit';
     if (optimistic) {
-      void this.router.navigate(['/afiliados']);
+      void this.router.navigateByUrl(this.listReturnUrl);
     }
 
     observable.subscribe({
@@ -236,7 +253,7 @@ export class AffiliateFormPage {
           'Cerrar',
         );
         if (!optimistic) {
-          void this.router.navigate(['/afiliados']);
+          void this.router.navigateByUrl(this.listReturnUrl);
         }
       },
       error: (err: { status?: number; error?: { detail?: string } }) => {
