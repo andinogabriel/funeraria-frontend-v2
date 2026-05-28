@@ -1,0 +1,90 @@
+<div appDraggableDialog>
+  <app-dialog-header icon="workspace_premium">{{ data.name }}</app-dialog-header>
+
+  <mat-dialog-content class="!min-w-[320px] sm:!min-w-[480px]">
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Margen</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ data.profitPercentage }}%</dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Precio</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ priceLabel }}</dd>
+
+      @if (data.description) {
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Descripción</dt>
+        <dd class="text-sm m-0">{{ data.description }}</dd>
+      }
+    </dl>
+
+    <mat-divider class="!my-4" />
+
+    @if (data.itemsPlan.length === 0) {
+      <section class="mb-4">
+        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+          Items incluidos
+        </h3>
+        <p
+          class="text-sm text-[var(--mat-sys-on-surface-variant)] rounded-md p-3 bg-[var(--mat-sys-surface-container)] m-0"
+        >
+          Este plan no tenía items asignados.
+        </p>
+      </section>
+    } @else {
+      <!--
+        Items incluidos in an expansion panel — same primitive used on the
+        active detail dialog so the papelera variant keeps the visual rhythm
+        consistent. Defaults to expanded because the items snapshot is the
+        substance of the audit record.
+      -->
+      <mat-expansion-panel [expanded]="true" hideToggle="false" class="!rounded-md !mb-4">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="!text-sm !font-semibold">Items incluidos</mat-panel-title>
+          <mat-panel-description class="!justify-end !mr-4">
+            {{ data.itemsPlan.length }} {{ data.itemsPlan.length === 1 ? 'item' : 'items' }}
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+        <ul class="flex flex-col gap-2 m-0 p-0 list-none">
+          @for (row of data.itemsPlan; track row.item.code) {
+            <li
+              class="flex items-center justify-between gap-3 rounded-md p-3 bg-[var(--mat-sys-surface-container)]"
+            >
+              <div class="flex flex-col">
+                <span class="text-sm font-medium">{{ row.item.name }}</span>
+                <span class="text-xs font-mono text-[var(--mat-sys-on-surface-variant)]">
+                  {{ row.item.code }}
+                </span>
+              </div>
+              <span
+                class="inline-flex items-center rounded-full px-2 py-0.5 text-xs bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)] tabular-nums"
+              >
+                × {{ row.quantity }}
+              </span>
+            </li>
+          }
+        </ul>
+      </mat-expansion-panel>
+    }
+
+    <mat-divider class="!my-4" />
+
+    <!--
+      Auditoría — the reason this dialog exists separately from the active
+      detail one. `deletedAt` / `deletedBy` only ship in the papelera response.
+    -->
+    <section>
+      <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
+        Auditoría
+      </h3>
+      <dl class="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-3 m-0">
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Eliminado</dt>
+        <dd class="text-sm m-0 tabular-nums">{{ deletedAtLabel }}</dd>
+
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Eliminado por</dt>
+        <dd class="text-sm m-0">{{ data.deletedBy ?? '—' }}</dd>
+      </dl>
+    </section>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close>Cerrar</button>
+  </mat-dialog-actions>
+</div>

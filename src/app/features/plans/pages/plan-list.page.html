@@ -15,6 +15,22 @@
       <mat-icon class="material-symbols-outlined">refresh</mat-icon>
       Actualizar
     </button>
+    @if (isAdmin()) {
+      <!--
+        Admin-only access to the soft-delete papelera. Sibling action on the
+        parent surface, not a peer destination in the sidebar — same pattern
+        used on `/afiliados` and `/servicios`.
+      -->
+      <a
+        mat-stroked-button
+        routerLink="/planes/eliminados"
+        matTooltip="Ver planes eliminados"
+        aria-label="Papelera"
+      >
+        <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+        Papelera
+      </a>
+    }
     <a mat-flat-button color="primary" routerLink="/planes/nuevo">
       <mat-icon class="material-symbols-outlined">add</mat-icon>
       Nuevo plan

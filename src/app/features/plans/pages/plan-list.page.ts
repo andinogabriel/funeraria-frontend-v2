@@ -5,6 +5,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 
+import { MatTooltipModule } from '@angular/material/tooltip';
+
+import { AuthStore } from '../../../core/auth/auth.store';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import type { DataTableColumn } from '../../../shared/data-table';
 import {
@@ -27,7 +30,13 @@ import type { Plan } from '../plan.types';
 @Component({
   selector: 'app-plan-list-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule, RouterLink, SelectionListCardComponent],
+  imports: [
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    RouterLink,
+    SelectionListCardComponent,
+  ],
   templateUrl: './plan-list.page.html',
   styleUrl: './plan-list.page.scss',
 })
@@ -36,6 +45,14 @@ export class PlanListPage {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
+  private readonly authStore = inject(AuthStore);
+
+  /**
+   * `true` when the active session has `ROLE_ADMIN`. Gates the "Papelera"
+   * header button — backend endpoint is admin-only. Same pattern used on
+   * `/afiliados` and `/servicios`.
+   */
+  protected readonly isAdmin = computed(() => this.authStore.authorities().includes('ROLE_ADMIN'));
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
