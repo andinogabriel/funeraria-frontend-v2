@@ -143,6 +143,15 @@ export class ItemFormPage {
     itemLength: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }),
     itemHeight: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }),
     itemWidth: this.fb.control<number | null>(null, { validators: [Validators.min(0)] }),
+    /**
+     * Low-stock threshold. Backend column carries a `NOT NULL DEFAULT 10`, so a
+     * null on this control means "no change" on edit and "use the backend
+     * default" on create. We leave it null-initialised here and rely on the
+     * `patchFrom` to seed the persisted value when editing.
+     */
+    lowStockThreshold: this.fb.control<number | null>(null, {
+      validators: [Validators.min(0)],
+    }),
   });
 
   /**
@@ -254,6 +263,10 @@ export class ItemFormPage {
       itemWidth: dimensionsApply ? cls.itemWidth : null,
       brand,
       category,
+      // Send through verbatim — null is the wire signal for "no change" so a
+      // clean form (unchanged threshold) stays a silent no-op on the backend
+      // audit log. A real value triggers an ITEM_THRESHOLD_UPDATED entry.
+      lowStockThreshold: cls.lowStockThreshold,
     };
 
     this.submitting.set(true);
@@ -307,6 +320,7 @@ export class ItemFormPage {
       itemLength: item.itemLength,
       itemHeight: item.itemHeight,
       itemWidth: item.itemWidth,
+      lowStockThreshold: item.lowStockThreshold,
     });
     // Code is the natural key — once saved we never let the operator change it.
     this.datos.controls.code.disable();
