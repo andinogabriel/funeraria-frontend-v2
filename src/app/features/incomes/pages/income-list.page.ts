@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -32,7 +33,7 @@ import { withListReturnUrl } from '../../../shared/navigation';
 import { SupplierService } from '../../suppliers/supplier.service';
 import { IncomeDetailDialogComponent } from '../components/income-detail-dialog.component';
 import { IncomeService } from '../income.service';
-import type { Income, IncomePageQuery } from '../income.types';
+import type { Income, IncomePageQuery, IncomeStatus } from '../income.types';
 
 /**
  * Incomes (compras / ingresos) list page. Server-side paginated against
@@ -81,6 +82,7 @@ import type { Income, IncomePageQuery } from '../income.types';
     DataTableComponent,
     FreshnessIndicatorComponent,
     MatButtonModule,
+    MatButtonToggleModule,
     MatCardModule,
     MatIconModule,
     MatTooltipModule,
@@ -106,6 +108,18 @@ export class IncomeListPage {
   protected readonly selectedIncome = signal<Income | null>(null);
   protected readonly hasSelection = computed(() => this.selectedIncome() !== null);
 
+  /**
+   * Disables the "Anular" action for rows where the backend would reject the
+   * call anyway: already-annulled originals, and reversal counter-entries (which
+   * are immutable by accounting contract). The same 409s would fire server-side
+   * if the operator clicked through — pre-filtering at the UI keeps the affordance
+   * honest.
+   */
+  protected readonly canAnnul = computed(() => {
+    const sel = this.selectedIncome();
+    return sel !== null && sel.status === 'ACTIVE' && sel.reversalOfId === null;
+  });
+
   /** Reactive snapshot of the URL query params — drives the backend call. */
   protected readonly query = toSignal(this.route.queryParamMap, {
     initialValue: this.route.snapshot.queryParamMap,
@@ -127,6 +141,22 @@ export class IncomeListPage {
     const active = this.query().get('sortBy') ?? 'incomeDate';
     const dirParam = (this.query().get('sortDir') ?? 'desc') as 'asc' | 'desc';
     return { active, direction: dirParam };
+  });
+
+  /**
+   * Lifecycle filter chip the toolbar exposes. Defaults to ACTIVE so the operator
+   * lands on the live ledger (originals + reversal counter-entries); ANNULLED
+   * surfaces only the cancelled originals; an empty string drives the "Todas"
+   * view where every status mixes in the same list.
+   */
+  protected readonly statusFilter = computed<IncomeStatus | ''>(() => {
+    const raw = this.query().get('status');
+    if (raw === 'ANNULLED') return 'ANNULLED';
+    if (raw === '') return '';
+    // Default + any unrecognised value → ACTIVE so the operator always lands on
+    // the live ledger first. The chip group commits 'ACTIVE' explicitly on click
+    // so the URL still carries the operator's choice.
+    return 'ACTIVE';
   });
 
   /** Filter values parsed from the URL — feed into the backend call and the data-table. */
@@ -225,12 +255,20 @@ export class IncomeListPage {
    * descriptor (defined eagerly) can pick up the template ref after init.
    */
   private readonly incomeDateCell = viewChild<TemplateRef<{ $implicit: Income }>>('incomeDateCell');
+  private readonly receiptNumberCell =
+    viewChild<TemplateRef<{ $implicit: Income }>>('receiptNumberCell');
 
   protected readonly columns = computed<readonly DataTableColumn<Income>[]>(() => [
     {
+      // The Recibo cell renders the receipt number alongside a lifecycle badge
+      // ("Anulado" for cancelled originals, "Reversion de #N" for reversal
+      // counter-entries) so the operator sees the income's role at a glance.
+      // The `value` accessor stays as the raw receipt number so the column's
+      // grid-side sort + filter behave exactly as before.
       key: 'receiptNumber',
       label: 'Recibo',
       value: (income) => income.receiptNumber,
+      cellTemplate: this.receiptNumberCell(),
       cellClass: 'font-mono',
       hideable: false,
       filter: 'text',
@@ -289,11 +327,15 @@ export class IncomeListPage {
     // URL → backend. Re-fetches the page whenever any URL param changes.
     effect(() => {
       const f = this.filterState();
+      const s = this.statusFilter();
       const params: IncomePageQuery = {
         page: this.pageIndex(),
         limit: this.pageSize(),
         sortBy: this.sortState().active,
         sortDir: this.sortState().direction === 'asc' ? 'asc' : 'desc',
+        // Empty string drives the "Todas" view — omit the param entirely so the
+        // backend's null sentinel kicks in and returns every lifecycle state.
+        status: s === '' ? undefined : s,
         receiptNumber: f.receiptNumber || undefined,
         supplierNif: f.supplierNif || undefined,
         from: f.from ?? undefined,
@@ -400,18 +442,34 @@ export class IncomeListPage {
   protected onRefresh(): void {
     this.selectedIncome.set(null);
     const f = this.filterState();
+    const s = this.statusFilter();
     this.service
       .loadPage({
         page: this.pageIndex(),
         limit: this.pageSize(),
         sortBy: this.sortState().active,
         sortDir: this.sortState().direction === 'asc' ? 'asc' : 'desc',
+        status: s === '' ? undefined : s,
         receiptNumber: f.receiptNumber || undefined,
         supplierNif: f.supplierNif || undefined,
         from: f.from ?? undefined,
         to: f.to ?? undefined,
       })
       .subscribe({ error: () => undefined });
+  }
+
+  /**
+   * Commits a lifecycle filter change from the toolbar chip group. Resets the
+   * paginator to page 0 so the operator never lands on an out-of-range slice
+   * after narrowing the result set.
+   */
+  protected onStatusChange(value: IncomeStatus | ''): void {
+    this.pushToUrl({
+      // Empty string explicit on the URL drives the "Todas" branch in the
+      // statusFilter computed; ACTIVE / ANNULLED commit as-is.
+      status: value,
+      page: 0,
+    });
   }
 
   protected onShowDetail(): void {
@@ -438,17 +496,31 @@ export class IncomeListPage {
     });
   }
 
-  protected onDelete(): void {
+  /**
+   * Annuls the selected income. Replaces the legacy Delete action — see the backend
+   * PR for the rationale (an annul keeps the original visible as `ANNULLED` and
+   * persists a reversal counter-entry so the audit trail is reconstructible).
+   *
+   * <p>The confirm dialog spells out the side-effects (stock restored, reversal
+   * created) so the operator understands the action is not a hide. On error the
+   * backend's localised `detail` is surfaced verbatim — the three 409 messages
+   * (already annulled / target is a reversal / insufficient stock) tell the
+   * operator exactly what to fix.
+   */
+  protected onAnnul(): void {
     const income = this.selectedIncome();
     if (!income) {
       return;
     }
     const ref = this.dialog.open(ConfirmDialogComponent, {
-      width: '420px',
+      width: '480px',
       data: {
-        title: 'Eliminar ingreso',
-        message: `¿Estás seguro de querer eliminar el recibo ${income.receiptNumber}?`,
-        confirmLabel: 'Eliminar',
+        title: 'Anular ingreso',
+        message:
+          `¿Estás seguro de querer anular el recibo ${income.receiptNumber}? ` +
+          `Se generará un asiento de reversión y el stock recibido volverá al ` +
+          `catálogo. La operación no se puede revertir.`,
+        confirmLabel: 'Anular',
         cancelLabel: 'Cancelar',
         destructive: true,
       },
@@ -458,23 +530,23 @@ export class IncomeListPage {
       if (confirmed !== true) {
         return;
       }
-      // See affiliate-list.page.ts for the rationale: when the operator is
-      // already on the last page, no row needs to be promoted from page N+1
-      // into the freed slot, so the post-success refetch is pure flicker.
-      const wasLastPage = this.service.page()?.last ?? true;
-      this.service.removeFromCachedPage(income.receiptNumber);
-
-      this.service.delete(income.receiptNumber).subscribe({
+      this.service.annul(income.id).subscribe({
         next: () => {
           this.selectedIncome.set(null);
-          this.snackBar.open('Ingreso eliminado', 'Cerrar');
-          if (!wasLastPage) {
-            this.onRefresh();
-          }
-        },
-        error: () => {
+          this.snackBar.open('Ingreso anulado. Asiento de reversión generado.', 'Cerrar');
+          // Reload the page so the original flips to ANNULLED and the reversal
+          // counter-entry shows up at the top of the list.
           this.onRefresh();
-          this.snackBar.open('No se pudo eliminar el ingreso', 'Cerrar');
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          // Backend ships 409 with a localised `detail` message for the three
+          // annul guards. Surface it verbatim so the operator knows exactly
+          // which guard fired; non-409 failures fall back to a generic line.
+          const message =
+            err.status === 409
+              ? (err.error?.detail ?? 'No se puede anular el ingreso en su estado actual.')
+              : 'No se pudo anular el ingreso';
+          this.snackBar.open(message, 'Cerrar', { duration: 7000 });
         },
       });
     });
