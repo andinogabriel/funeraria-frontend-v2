@@ -3,7 +3,13 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { Income, IncomePage, IncomePageQuery, IncomeRequest } from './income.types';
+import type {
+  Income,
+  IncomePage,
+  IncomePageQuery,
+  IncomeRequest,
+  IncomeStatus,
+} from './income.types';
 
 /**
  * Client for the incomes (compras / ingresos) slice. Admin-only on the backend.
@@ -71,8 +77,8 @@ export class IncomeService {
     if (query.limit !== undefined) params = params.set('limit', String(query.limit));
     if (query.sortBy) params = params.set('sortBy', query.sortBy);
     if (query.sortDir) params = params.set('sortDir', query.sortDir);
-    if (query.isDeleted !== undefined) {
-      params = params.set('isDeleted', String(query.isDeleted));
+    if (query.status !== undefined) {
+      params = params.set('status', query.status);
     }
     // Per-column filter params: skip empty / null values so the URL stays clean when the
     // operator has not applied that filter. The backend interprets the absence of a
@@ -129,32 +135,19 @@ export class IncomeService {
       );
   }
 
-  delete(receiptNumber: string): Observable<void> {
-    return this.http
-      .delete<unknown>(`${this.baseUrl}/${encodeURIComponent(receiptNumber)}`)
-      .pipe(map(() => undefined));
-  }
-
   /**
-   * Optimistically removes a row from the cached page snapshot so the UI does not have to
-   * wait for the next `loadPage` to drop the receipt the operator just deleted. Used by
-   * the list page for the snappy-delete pattern; the subsequent {@link loadPage} reconciles
-   * the totals + sort order with the server.
+   * Annuls the income identified by {@code id}. Returns the freshly-minted reversal
+   * counter-entry so the operator UI can render it (badge "Reversion de #N") next to the
+   * original — which is now `ANNULLED` — without a separate refresh.
+   *
+   * <p>The backend ships three 409 paths for this endpoint (already annulled / target
+   * is itself a reversal / insufficient stock); the caller surfaces them through the
+   * standard `err.error.detail` chain so the operator sees the localised message.
    */
-  removeFromCachedPage(receiptNumber: string): void {
-    const current = this._page();
-    if (current === null) {
-      return;
-    }
-    const filtered = current.content.filter((row) => row.receiptNumber !== receiptNumber);
-    if (filtered.length === current.content.length) {
-      return;
-    }
-    this._page.set({
-      ...current,
-      content: filtered,
-      totalElements: Math.max(0, current.totalElements - 1),
-    });
+  annul(id: number): Observable<Income> {
+    return this.http
+      .post<IncomeWire>(`${this.baseUrl}/${id}/annul`, null)
+      .pipe(map((wire) => normalizeIncome(wire)));
   }
 
   /**
@@ -199,6 +192,7 @@ export class IncomeService {
 /* -------------------------------------------------------------------------- */
 
 interface IncomeWire {
+  readonly id: number;
   readonly receiptNumber: string;
   readonly receiptSeries: string;
   /** ISO 8601 with trailing `Z` (UTC instant). */
@@ -212,6 +206,8 @@ interface IncomeWire {
   readonly incomeUser: Income['incomeUser'];
   readonly lastModifiedBy?: Income['lastModifiedBy'];
   readonly incomeDetails: Income['incomeDetails'];
+  readonly status: IncomeStatus;
+  readonly reversalOfId?: number | null;
 }
 
 interface IncomePageWire {
@@ -238,6 +234,7 @@ function normalizePage(wire: IncomePageWire): IncomePage {
 
 function normalizeIncome(wire: IncomeWire): Income {
   return {
+    id: wire.id,
     receiptNumber: wire.receiptNumber,
     receiptSeries: wire.receiptSeries,
     // The backend ships these as ISO 8601 with a trailing `Z` (Java `Instant`
@@ -255,5 +252,7 @@ function normalizeIncome(wire: IncomeWire): Income {
     // not a raw audit string — see the type comment in income.types.
     lastModifiedBy: wire.lastModifiedBy ?? null,
     incomeDetails: wire.incomeDetails,
+    status: wire.status,
+    reversalOfId: wire.reversalOfId ?? null,
   };
 }

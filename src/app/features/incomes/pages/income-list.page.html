@@ -47,6 +47,24 @@
     <div
       class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
     >
+      <!--
+        Lifecycle filter chips on the toolbar's left edge. ACTIVE is the
+        default landing view; ANNULLED surfaces only cancelled originals;
+        empty value drives the "Todas" branch in the statusFilter computed.
+        The chip group commits on every click — no Aceptar required — and
+        the page-0 reset rides through `onStatusChange`.
+      -->
+      <mat-button-toggle-group
+        [value]="statusFilter()"
+        (change)="onStatusChange($event.value)"
+        hideSingleSelectionIndicator="true"
+        aria-label="Filtrar por estado"
+      >
+        <mat-button-toggle value="ACTIVE">Activos</mat-button-toggle>
+        <mat-button-toggle value="ANNULLED">Anulados</mat-button-toggle>
+        <mat-button-toggle value="">Todos</mat-button-toggle>
+      </mat-button-toggle-group>
+
       @if (hasActiveFilters()) {
         <button
           mat-stroked-button
@@ -84,12 +102,12 @@
         <button
           mat-icon-button
           color="warn"
-          [disabled]="!hasSelection()"
-          (click)="onDelete()"
-          matTooltip="Eliminar"
-          aria-label="Eliminar ingreso seleccionado"
+          [disabled]="!canAnnul()"
+          (click)="onAnnul()"
+          matTooltip="Anular ingreso"
+          aria-label="Anular ingreso seleccionado"
         >
-          <mat-icon class="material-symbols-outlined">delete</mat-icon>
+          <mat-icon class="material-symbols-outlined">block</mat-icon>
         </button>
       </div>
     </div>
@@ -123,3 +141,31 @@
   formats the value as `dd/MM/yyyy HH:mm` in the operator's local timezone.
 -->
 <ng-template #incomeDateCell let-income>{{ formatDateTime(income.incomeDate) }}</ng-template>
+
+<!--
+  Recibo cell: receipt number plus a lifecycle badge so the operator can tell
+  originals, anulados and reversal counter-entries apart at a glance without
+  drilling into the detail dialog.
+  - `Anulado` badge fires on originals whose status === 'ANNULLED'.
+  - `Reversion de #N` fires on reversal counter-entries (any row with
+    `reversalOfId` not null — these are always status=ACTIVE by contract).
+  The two are mutually exclusive: an annulled row never carries a reversalOfId
+  (only the matching reversal does), and a reversal row never carries
+  status=ANNULLED.
+-->
+<ng-template #receiptNumberCell let-income>
+  <span class="font-mono">{{ income.receiptNumber }}</span>
+  @if (income.reversalOfId !== null) {
+    <span
+      class="ml-2 text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-tertiary-container)] text-[var(--mat-sys-on-tertiary-container)] font-sans whitespace-nowrap"
+    >
+      Reversión
+    </span>
+  } @else if (income.status === 'ANNULLED') {
+    <span
+      class="ml-2 text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-sans whitespace-nowrap"
+    >
+      Anulado
+    </span>
+  }
+</ng-template>

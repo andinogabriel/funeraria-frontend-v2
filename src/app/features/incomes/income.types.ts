@@ -44,8 +44,18 @@ export interface IncomeRequest {
   readonly incomeDetails: readonly IncomeDetail[];
 }
 
+/**
+ * Lifecycle state of an income row. {@code ACTIVE} covers originals in use plus
+ * reversal counter-entries (which also carry {@code ACTIVE} status but have a
+ * non-null {@link Income.reversalOfId}); {@code ANNULLED} only applies to cancelled
+ * originals.
+ */
+export type IncomeStatus = 'ACTIVE' | 'ANNULLED';
+
 /** Income record returned by `GET /api/v1/incomes/{receiptNumber}` and the paginated endpoint. */
 export interface Income {
+  /** PK of the row. The annul endpoint takes this id (not the receipt number). */
+  readonly id: number;
   readonly receiptNumber: string;
   readonly receiptSeries: string;
   /** ISO 8601 with trailing `Z` (UTC instant). */
@@ -66,6 +76,14 @@ export interface Income {
    */
   readonly lastModifiedBy: IncomeUser | null;
   readonly incomeDetails: readonly IncomeDetail[];
+  /** Lifecycle state of the receipt — `ACTIVE` for originals + reversals, `ANNULLED` for cancelled originals. */
+  readonly status: IncomeStatus;
+  /**
+   * Id of the original receipt when this row IS a reversal counter-entry; {@code null}
+   * on every active original and on every annulled original. Drives the
+   * "Reversion de #N" badge on the list.
+   */
+  readonly reversalOfId: number | null;
 }
 
 /** Server-side paginated response — Spring Data `Page<IncomeResponseDto>`. */
@@ -85,7 +103,12 @@ export interface IncomePageQuery {
   readonly limit?: number;
   readonly sortBy?: string;
   readonly sortDir?: 'asc' | 'desc';
-  readonly isDeleted?: boolean;
+  /**
+   * Lifecycle filter. Omit (or set to {@code undefined}) for the "Todas" view —
+   * originals + reversals + annulled rows all together. `ACTIVE` shows live receipts
+   * (originals + reversal counter-entries); `ANNULLED` shows only cancelled originals.
+   */
+  readonly status?: IncomeStatus;
   /** Case-insensitive substring match against the income's receipt number. */
   readonly receiptNumber?: string;
   /**
