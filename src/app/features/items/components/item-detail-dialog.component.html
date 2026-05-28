@@ -28,6 +28,9 @@
         <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Stock</dt>
         <dd class="text-sm m-0 tabular-nums">{{ data.stock }}</dd>
       }
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Umbral stock bajo</dt>
+      <dd class="text-sm m-0 tabular-nums">{{ data.lowStockThreshold }}</dd>
     </dl>
 
     @if (hasDimensions()) {

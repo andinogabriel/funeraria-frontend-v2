@@ -263,6 +263,34 @@
         }
       </mat-select>
     </mat-form-field>
+
+    <!--
+      Low-stock threshold. Drives the future low-stock notification (PR5b) —
+      when an item's stock falls below this value the admin gets pinged. The
+      backend column defaults to 10 so leaving the field blank on a new item
+      lands on that floor; on edit, leaving it blank ships null and the
+      backend's MapStruct `IGNORE` strategy keeps the existing value.
+    -->
+    <mat-form-field appearance="fill" class="sm:col-span-2">
+      <mat-label>Umbral de stock bajo</mat-label>
+      <input
+        matInput
+        type="number"
+        formControlName="lowStockThreshold"
+        autocomplete="off"
+        inputmode="numeric"
+        min="0"
+        step="1"
+        placeholder="10"
+      />
+      <mat-hint>
+        Cantidad a partir de la cual el sistema avisa al admin que el stock está bajo. En blanco
+        respeta el valor actual del item.
+      </mat-hint>
+      @if (classification.controls.lowStockThreshold.hasError('min')) {
+        <mat-error>El umbral debe ser mayor o igual a 0.</mat-error>
+      }
+    </mat-form-field>
   </form>
 </ng-template>
 

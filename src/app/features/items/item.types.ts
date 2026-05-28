@@ -31,6 +31,11 @@ export interface Item {
   readonly updatedAt: string | null;
   readonly updatedBy: string | null;
   /**
+   * Stock floor that drives the (future) low-stock alert (PR5a / PR5b). Always
+   * present on the wire — the backend column carries `NOT NULL DEFAULT 10`.
+   */
+  readonly lowStockThreshold: number;
+  /**
    * UTC instant the item was soft-deleted. Only populated by the admin papelera
    * endpoint (`GET /api/v1/items/deleted`); backend strips the field from active
    * responses via `@JsonInclude(NON_DEFAULT)`.
@@ -52,6 +57,12 @@ export interface ItemRequest {
   readonly itemWidth: number | null;
   readonly brand: Brand | null;
   readonly category: Category | null;
+  /**
+   * Optional on the wire — leave undefined when the form does not want to touch
+   * the threshold (PUT semantics: backend's MapStruct skips null source on
+   * update; POST falls back to the default 10).
+   */
+  readonly lowStockThreshold?: number | null;
 }
 
 /** Server-side paginated response — Spring Data `Page<ItemResponseDto>`. */
