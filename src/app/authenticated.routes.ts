@@ -93,6 +93,14 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/plans/pages/plan-list.page').then((m) => m.PlanListPage),
       },
       {
+        // Admin-only papelera surface for soft-deleted plans. Backend gates
+        // the endpoint with `ROLE_ADMIN`; the sibling "Papelera" header
+        // button on `/planes` is hidden for non-admins.
+        path: 'planes/eliminados',
+        loadComponent: () =>
+          import('./features/plans/pages/plan-bin.page').then((m) => m.PlanBinPage),
+      },
+      {
         path: 'planes/nuevo',
         loadComponent: () =>
           import('./features/plans/pages/plan-form.page').then((m) => m.PlanFormPage),

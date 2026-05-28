@@ -54,4 +54,41 @@ export interface Plan {
   readonly price: number;
   readonly profitPercentage: number;
   readonly itemsPlan: readonly ItemPlanResponse[];
+  /**
+   * UTC instant the plan was soft-deleted. Only populated by the admin papelera
+   * endpoint (`GET /api/v1/plans/deleted`) — backend strips the field from active
+   * plans via `@JsonInclude(NON_NULL)`.
+   */
+  readonly deletedAt?: string;
+  /** Email of the admin that requested the soft-delete. Same scope as `deletedAt`. */
+  readonly deletedBy?: string;
+}
+
+/** Spring Data `Page<PlanResponseDto>` wire shape — papelera response. */
+export interface PlanPage {
+  readonly content: readonly Plan[];
+  readonly totalElements: number;
+  readonly totalPages: number;
+  readonly size: number;
+  readonly number: number;
+  readonly first: boolean;
+  readonly last: boolean;
+}
+
+/**
+ * Query parameters accepted by `GET /api/v1/plans/deleted` — the admin papelera
+ * surface. Empty / undefined fields are dropped from the URL by the service so the
+ * backend sees the "no filter" sentinel for each absent param.
+ */
+export interface PlanBinPageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  /** Case-insensitive substring against the plan's name. */
+  readonly name?: string;
+  /** Case-insensitive substring against the admin email captured at delete time. */
+  readonly deletedBy?: string;
+  /** Inclusive lower bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedFrom?: string;
+  /** Inclusive upper bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedTo?: string;
 }
