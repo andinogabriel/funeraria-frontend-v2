@@ -1,12 +1,15 @@
 <div class="flex flex-col gap-6">
   <header class="flex flex-wrap items-center gap-3">
+    <a mat-icon-button routerLink="/items" aria-label="Volver al listado">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
     <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
-      inventory_2
+      delete_outline
     </mat-icon>
-    <div class="flex flex-col">
-      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Items</h1>
+    <div class="flex flex-col min-w-0">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Papelera</h1>
       <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
-        Catálogo de items disponibles para armar planes funerarios.
+        Items eliminados. Solo consulta — sin restaurar ni purgar.
       </p>
     </div>
     <span class="flex-1"></span>
@@ -17,26 +20,6 @@
       <mat-icon class="material-symbols-outlined">refresh</mat-icon>
       Actualizar
     </button>
-    @if (isAdmin()) {
-      <!--
-        Admin-only access to the soft-delete papelera. Sibling action on the
-        parent surface, not a peer destination in the sidebar — same pattern
-        used on `/afiliados`, `/servicios`, and `/planes`.
-      -->
-      <a
-        mat-stroked-button
-        routerLink="/items/eliminados"
-        matTooltip="Ver items eliminados"
-        aria-label="Papelera"
-      >
-        <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-        Papelera
-      </a>
-    }
-    <a mat-flat-button color="primary" routerLink="/items/nuevo">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nuevo item
-    </a>
   </header>
 
   @if (error(); as message) {
@@ -79,37 +62,17 @@
         >
           <mat-icon class="material-symbols-outlined">visibility</mat-icon>
         </button>
-        <button
-          mat-icon-button
-          [disabled]="!hasSelection()"
-          (click)="onEdit()"
-          matTooltip="Editar"
-          aria-label="Editar item seleccionado"
-        >
-          <mat-icon class="material-symbols-outlined">edit</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          color="warn"
-          [disabled]="!hasSelection()"
-          (click)="onDelete()"
-          matTooltip="Eliminar"
-          aria-label="Eliminar item seleccionado"
-        >
-          <mat-icon class="material-symbols-outlined">delete</mat-icon>
-        </button>
       </div>
     </div>
 
     <app-data-table
       [data]="rows()"
-      [columns]="columns"
+      [columns]="columns()"
       [trackBy]="trackByCode"
-      storageKey="items.list"
+      storageKey="items.bin"
       [serverSide]="true"
       [loading]="loading()"
       [totalElements]="totalElements()"
-      [initialSort]="sortState()"
       [initialPageIndex]="pageIndex()"
       [initialPageSize]="pageSize()"
       [columnFilters]="columnFilters()"
@@ -117,7 +80,6 @@
       [selectable]="true"
       [(selectedRow)]="selectedItem"
       (pageChange)="onPageChange($event)"
-      (sortChange)="onSortChange($event)"
       (columnMenuApply)="onColumnMenuApply($event)"
     />
   </mat-card>
