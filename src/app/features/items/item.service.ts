@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { Item, ItemPage, ItemPageQuery, ItemRequest } from './item.types';
+import type { Item, ItemBinPageQuery, ItemPage, ItemPageQuery, ItemRequest } from './item.types';
 
 /**
  * CRUD client for the items catalog. Mirrors the plan/affiliate service shape:
@@ -42,6 +42,20 @@ export class ItemService {
 
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+
+  // Papelera-side cache, completely separate from the active-list cache so a
+  // refresh of one never invalidates the other. Same shape used by the
+  // funeral / plan services.
+  private readonly _binPage = signal<ItemPage | null>(null);
+  private readonly _binLoading = signal(false);
+  private readonly _binError = signal<string | null>(null);
+  private readonly _binFetchedAt = signal<Date | null>(null);
+
+  readonly binRows = computed<readonly Item[]>(() => this._binPage()?.content ?? []);
+  readonly binTotalElements = computed(() => this._binPage()?.totalElements ?? 0);
+  readonly binLoading = this._binLoading.asReadonly();
+  readonly binError = this._binError.asReadonly();
+  readonly binFetchedAt = this._binFetchedAt.asReadonly();
 
   /**
    * Wall-clock moment the cached page snapshot was last refreshed. Drives the
@@ -92,6 +106,58 @@ export class ItemService {
           this._loading.set(false);
           this._error.set(this.mapError(err));
           this._pageFetchedAt.set(null);
+        },
+      }),
+    );
+  }
+
+  /**
+   * Filtered + paginated read of soft-deleted items from
+   * `GET /api/v1/items/deleted` (admin only). Updates the dedicated
+   * {@link binRows} / {@link binTotalElements} signals — separate from the
+   * active-list / active-page caches so the three surfaces never clobber each
+   * other.
+   *
+   * <p>Filter params follow the empty-string sentinel pattern: the backend
+   * treats an absent param as "no filter", so we drop blank values entirely
+   * to keep the URL clean.
+   */
+  loadDeletedPage(query: ItemBinPageQuery = {}): Observable<ItemPage> {
+    this._binLoading.set(true);
+    this._binError.set(null);
+
+    let params = new HttpParams();
+    if (query.page !== undefined) params = params.set('page', String(query.page));
+    if (query.limit !== undefined) params = params.set('limit', String(query.limit));
+    if (query.code && query.code.trim().length > 0) {
+      params = params.set('code', query.code.trim());
+    }
+    if (query.name && query.name.trim().length > 0) {
+      params = params.set('name', query.name.trim());
+    }
+    if (query.categoryName && query.categoryName.length > 0) {
+      params = params.set('categoryName', query.categoryName);
+    }
+    if (query.brandName && query.brandName.length > 0) {
+      params = params.set('brandName', query.brandName);
+    }
+    if (query.deletedBy && query.deletedBy.trim().length > 0) {
+      params = params.set('deletedBy', query.deletedBy.trim());
+    }
+    if (query.deletedFrom) params = params.set('deletedFrom', query.deletedFrom);
+    if (query.deletedTo) params = params.set('deletedTo', query.deletedTo);
+
+    return this.http.get<ItemPage>(`${this.baseUrl}/deleted`, { params }).pipe(
+      tap({
+        next: (data) => {
+          this._binPage.set(data);
+          this._binFetchedAt.set(new Date());
+          this._binLoading.set(false);
+        },
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          this._binLoading.set(false);
+          this._binError.set(this.mapError(err));
+          this._binFetchedAt.set(null);
         },
       }),
     );

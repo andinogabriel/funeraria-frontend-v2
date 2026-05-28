@@ -118,6 +118,14 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/items/pages/item-list.page').then((m) => m.ItemListPage),
       },
       {
+        // Admin-only papelera surface for soft-deleted items. Backend gates
+        // the endpoint with `ROLE_ADMIN`; the sibling "Papelera" header
+        // button on `/items` is hidden for non-admins.
+        path: 'items/eliminados',
+        loadComponent: () =>
+          import('./features/items/pages/item-bin.page').then((m) => m.ItemBinPage),
+      },
+      {
         path: 'items/nuevo',
         loadComponent: () =>
           import('./features/items/pages/item-form.page').then((m) => m.ItemFormPage),

@@ -15,6 +15,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
+import { AuthStore } from '../../../core/auth/auth.store';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import {
   DataTableComponent,
@@ -70,6 +71,14 @@ export class ItemListPage {
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly authStore = inject(AuthStore);
+
+  /**
+   * `true` when the active session has `ROLE_ADMIN`. Gates the "Papelera"
+   * header button — backend endpoint is admin-only. Same pattern used on
+   * `/afiliados`, `/servicios`, and `/planes`.
+   */
+  protected readonly isAdmin = computed(() => this.authStore.authorities().includes('ROLE_ADMIN'));
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
@@ -414,9 +423,19 @@ export class ItemListPage {
             this.onRefresh();
           }
         },
-        error: () => {
+        error: (err: { status?: number; error?: { detail?: string } }) => {
+          // Restore the optimistically-dropped row before showing the toast so
+          // the operator sees the item back where it was.
           this.onRefresh();
-          this.snackBar.open('No se pudo eliminar el item', 'Cerrar');
+          // Backend ships 409 with a localised `detail` message for the two
+          // soft-delete guards (stock > 0 / active plan reference). Surface that
+          // verbatim so the operator knows exactly what to fix — falling back
+          // to a generic line for non-409 failures.
+          const message =
+            err.status === 409
+              ? (err.error?.detail ?? 'No se puede eliminar el item en su estado actual.')
+              : 'No se pudo eliminar el item';
+          this.snackBar.open(message, 'Cerrar', { duration: 7000 });
         },
       });
     });

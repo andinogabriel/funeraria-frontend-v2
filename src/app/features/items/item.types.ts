@@ -30,6 +30,14 @@ export interface Item {
   readonly createdBy: string | null;
   readonly updatedAt: string | null;
   readonly updatedBy: string | null;
+  /**
+   * UTC instant the item was soft-deleted. Only populated by the admin papelera
+   * endpoint (`GET /api/v1/items/deleted`); backend strips the field from active
+   * responses via `@JsonInclude(NON_DEFAULT)`.
+   */
+  readonly deletedAt?: string;
+  /** Email of the admin that requested the soft-delete. Same scope as `deletedAt`. */
+  readonly deletedBy?: string;
 }
 
 /** Request body for `POST /api/v1/items` and `PUT /api/v1/items/{code}`. */
@@ -71,4 +79,28 @@ export interface ItemPageQuery {
   readonly categoryName?: string;
   /** Exact match on the linked brand's name (frontend autocomplete commit). */
   readonly brandName?: string;
+}
+
+/**
+ * Query parameters accepted by `GET /api/v1/items/deleted` — the admin papelera
+ * surface. Empty / undefined fields are dropped from the URL by the service so the
+ * backend sees the "no filter" sentinel for each absent param.
+ */
+export interface ItemBinPageQuery {
+  readonly page?: number;
+  readonly limit?: number;
+  /** Case-insensitive substring against the item code. */
+  readonly code?: string;
+  /** Case-insensitive substring against the item name. */
+  readonly name?: string;
+  /** Exact match on the linked category's name. */
+  readonly categoryName?: string;
+  /** Exact match on the linked brand's name. */
+  readonly brandName?: string;
+  /** Case-insensitive substring against the admin email captured at delete time. */
+  readonly deletedBy?: string;
+  /** Inclusive lower bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedFrom?: string;
+  /** Inclusive upper bound on `deletedAt`, ISO-8601 UTC instant. */
+  readonly deletedTo?: string;
 }
