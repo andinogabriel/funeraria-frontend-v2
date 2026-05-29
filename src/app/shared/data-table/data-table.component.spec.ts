@@ -971,6 +971,61 @@ describe('DataTableComponent', () => {
       expect(t.filteredAutocompleteOptions(col as unknown as DataTableColumn<Row>)).toHaveLength(1);
     });
 
+    it('matches options regardless of diacritics and case', () => {
+      // The Parentesco column in the affiliates list lists labels like "Tío",
+      // "Tía", "Abuelo", "Cuñado" — operators type without accents and expect
+      // it to still match. Same expectation for any other Spanish-locale
+      // autocomplete (proveedores "Acuña", apellidos "Pérez", etc.).
+      const accentedColumn: DataTableColumn<NamedRow> = {
+        key: 'parentesco',
+        label: 'Parentesco',
+        value: (r) => r.tag,
+        filter: 'autocomplete',
+        sortable: false,
+        autocomplete: {
+          options: () => [
+            { value: 't', label: 'Tío' },
+            { value: 'a', label: 'Acuña' },
+            { value: 'p', label: 'Pérez' },
+            { value: 'h', label: 'Hermana' },
+          ],
+          minSearchChars: 3,
+        },
+      };
+      const f = TestBed.createComponent(HostComponent);
+      f.componentInstance.rows = [];
+      f.componentInstance.columns = [accentedColumn as unknown as DataTableColumn<Row>];
+      f.detectChanges();
+
+      const t = f.componentInstance.table as unknown as {
+        onColumnMenuOpen: (col: DataTableColumn<Row>) => void;
+        onAutocompleteSearchInput: (col: DataTableColumn<Row>, raw: string) => void;
+        filteredAutocompleteOptions: (
+          col: DataTableColumn<Row>,
+        ) => readonly { value: string; label: string }[];
+      };
+      t.onColumnMenuOpen(accentedColumn as unknown as DataTableColumn<Row>);
+
+      // ASCII-only search still hits the accented option.
+      t.onAutocompleteSearchInput(accentedColumn as unknown as DataTableColumn<Row>, 'tio');
+      expect(
+        t.filteredAutocompleteOptions(accentedColumn as unknown as DataTableColumn<Row>),
+      ).toEqual([{ value: 't', label: 'Tío' }]);
+
+      // ñ is also stripped — "acuna" matches "Acuña".
+      t.onAutocompleteSearchInput(accentedColumn as unknown as DataTableColumn<Row>, 'acuna');
+      expect(
+        t.filteredAutocompleteOptions(accentedColumn as unknown as DataTableColumn<Row>),
+      ).toEqual([{ value: 'a', label: 'Acuña' }]);
+
+      // Uppercase search hits the accented label too — both sides are
+      // lower-cased after diacritic stripping.
+      t.onAutocompleteSearchInput(accentedColumn as unknown as DataTableColumn<Row>, 'PER');
+      expect(
+        t.filteredAutocompleteOptions(accentedColumn as unknown as DataTableColumn<Row>),
+      ).toEqual([{ value: 'p', label: 'Pérez' }]);
+    });
+
     it('emits the picked option`s value on Aceptar (typing alone does nothing)', () => {
       const col = withAutocomplete();
       const f = TestBed.createComponent(HostComponent);
