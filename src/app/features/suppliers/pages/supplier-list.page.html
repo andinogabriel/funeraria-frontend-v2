@@ -11,14 +11,21 @@
     </div>
     <span class="flex-1"></span>
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
-    <a mat-flat-button color="primary" routerLink="/proveedores/nuevo">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nuevo proveedor
-    </a>
+    <!--
+      Header buttons cluster. Proveedores has no freshness indicator; the
+      wrapper keeps Actualizar / Nuevo proveedor on a single row on mobile
+      under the title block — same shape as marcas / categorias / planes.
+    -->
+    <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+        <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+        Actualizar
+      </button>
+      <a mat-flat-button color="primary" routerLink="/proveedores/nuevo">
+        <mat-icon class="material-symbols-outlined">add</mat-icon>
+        Nuevo proveedor
+      </a>
+    </div>
   </header>
 
   @if (error(); as message) {

@@ -11,14 +11,21 @@
     </div>
     <span class="flex-1"></span>
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
-    <a mat-flat-button color="primary" routerLink="/categorias/nueva">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nueva categoría
-    </a>
+    <!--
+      Header buttons cluster. Categorías has no freshness indicator (catalog
+      rarely changes); the wrapper keeps Actualizar / Nueva categoría on a
+      single row on mobile under the title block.
+    -->
+    <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+        <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+        Actualizar
+      </button>
+      <a mat-flat-button color="primary" routerLink="/categorias/nueva">
+        <mat-icon class="material-symbols-outlined">add</mat-icon>
+        Nueva categoría
+      </a>
+    </div>
   </header>
 
   @if (error(); as message) {

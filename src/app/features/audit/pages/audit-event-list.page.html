@@ -11,12 +11,23 @@
     </div>
     <span class="flex-1"></span>
 
-    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <!--
+      Header controls cluster. Same shape every other list page uses: on mobile
+      the freshness stamp stacks above the buttons row so the layout stays
+      compact; on sm+ everything sits inline.
+    -->
+    <div
+      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
+    >
+      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
+      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+          Actualizar
+        </button>
+      </div>
+    </div>
   </header>
 
   @if (error(); as message) {

@@ -11,30 +11,39 @@
     </div>
     <span class="flex-1"></span>
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
-    @if (isAdmin()) {
-      <!--
-        Admin-only access to the soft-delete papelera. Sibling action on the
-        parent surface, not a peer destination in the sidebar — same pattern
-        used on `/afiliados` and `/servicios`.
-      -->
-      <a
-        mat-stroked-button
-        routerLink="/planes/eliminados"
-        matTooltip="Ver planes eliminados"
-        aria-label="Papelera"
-      >
-        <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-        Papelera
+    <!--
+      Header controls cluster. Plans does not own a freshness indicator (the
+      catalog rarely changes), so the wrapper exists just to apply the same
+      mobile row-aligned shape every other list page uses: Actualizar /
+      Papelera / Nuevo plan sit on a single row instead of each wrapping onto
+      its own line under the title block.
+    -->
+    <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+        <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+        Actualizar
+      </button>
+      @if (isAdmin()) {
+        <!--
+          Admin-only access to the soft-delete papelera. Sibling action on the
+          parent surface, not a peer destination in the sidebar — same pattern
+          used on `/afiliados` and `/servicios`.
+        -->
+        <a
+          mat-stroked-button
+          routerLink="/planes/eliminados"
+          matTooltip="Ver planes eliminados"
+          aria-label="Papelera"
+        >
+          <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+          Papelera
+        </a>
+      }
+      <a mat-flat-button color="primary" routerLink="/planes/nuevo">
+        <mat-icon class="material-symbols-outlined">add</mat-icon>
+        Nuevo plan
       </a>
-    }
-    <a mat-flat-button color="primary" routerLink="/planes/nuevo">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nuevo plan
-    </a>
+    </div>
   </header>
 
   @if (error(); as message) {

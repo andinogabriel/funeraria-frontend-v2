@@ -12,37 +12,46 @@
     <span class="flex-1"></span>
 
     <!--
-      Compact freshness stamp ("Actualizado hace N min") sits to the left of
-      the Refresh button so the operator can see how stale the data is at a
-      glance. The indicator re-renders every 30 s; the visibility-change
-      auto-refresh kicks in when the tab is backgrounded for >60 s.
+      Header controls cluster.
+      - On mobile (default): freshness indicator stacks ABOVE the row of action
+        buttons (right-aligned). Without this layer the wide "Actualizado hace
+        N min" label pushed each button onto its own line under flex-wrap.
+      - On sm+: everything sits inline as before. The compact freshness stamp
+        re-renders every 30 s and the visibility-change auto-refresh kicks in
+        when the tab is backgrounded for >60 s.
     -->
-    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <div
+      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
+    >
+      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
-    @if (isAdmin()) {
-      <!--
-        Admin-only access to the soft-delete papelera. Sibling action on the
-        parent surface, not a peer destination in the sidebar — keeps the nav
-        focused while still giving admins one click to the audit view.
-      -->
-      <a
-        mat-stroked-button
-        routerLink="/afiliados/eliminados"
-        matTooltip="Ver afiliados eliminados"
-        aria-label="Papelera"
-      >
-        <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-        Papelera
-      </a>
-    }
-    <a mat-flat-button color="primary" routerLink="/afiliados/nuevo">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nuevo afiliado
-    </a>
+      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+          Actualizar
+        </button>
+        @if (isAdmin()) {
+          <!--
+            Admin-only access to the soft-delete papelera. Sibling action on the
+            parent surface, not a peer destination in the sidebar — keeps the
+            nav focused while still giving admins one click to the audit view.
+          -->
+          <a
+            mat-stroked-button
+            routerLink="/afiliados/eliminados"
+            matTooltip="Ver afiliados eliminados"
+            aria-label="Papelera"
+          >
+            <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+            Papelera
+          </a>
+        }
+        <a mat-flat-button color="primary" routerLink="/afiliados/nuevo">
+          <mat-icon class="material-symbols-outlined">add</mat-icon>
+          Nuevo afiliado
+        </a>
+      </div>
+    </div>
   </header>
 
   @if (error(); as message) {

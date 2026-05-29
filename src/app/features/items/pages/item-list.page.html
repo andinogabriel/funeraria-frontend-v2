@@ -11,32 +11,44 @@
     </div>
     <span class="flex-1"></span>
 
-    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <!--
+      Header controls cluster. On mobile (default) we stack the freshness
+      indicator ABOVE the row of action buttons so Actualizar / Papelera /
+      Nuevo item sit on a single row instead of each wrapping onto its own
+      line. On sm+ everything sits inline as it always did.
+    -->
+    <div
+      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
+    >
+      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
-    @if (isAdmin()) {
-      <!--
-        Admin-only access to the soft-delete papelera. Sibling action on the
-        parent surface, not a peer destination in the sidebar — same pattern
-        used on `/afiliados`, `/servicios`, and `/planes`.
-      -->
-      <a
-        mat-stroked-button
-        routerLink="/items/eliminados"
-        matTooltip="Ver items eliminados"
-        aria-label="Papelera"
-      >
-        <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-        Papelera
-      </a>
-    }
-    <a mat-flat-button color="primary" routerLink="/items/nuevo">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nuevo item
-    </a>
+      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+          Actualizar
+        </button>
+        @if (isAdmin()) {
+          <!--
+            Admin-only access to the soft-delete papelera. Sibling action on the
+            parent surface, not a peer destination in the sidebar — same pattern
+            used on `/afiliados`, `/servicios`, and `/planes`.
+          -->
+          <a
+            mat-stroked-button
+            routerLink="/items/eliminados"
+            matTooltip="Ver items eliminados"
+            aria-label="Papelera"
+          >
+            <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+            Papelera
+          </a>
+        }
+        <a mat-flat-button color="primary" routerLink="/items/nuevo">
+          <mat-icon class="material-symbols-outlined">add</mat-icon>
+          Nuevo item
+        </a>
+      </div>
+    </div>
   </header>
 
   @if (error(); as message) {

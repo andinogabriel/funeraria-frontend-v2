@@ -14,12 +14,23 @@
     </div>
     <span class="flex-1"></span>
 
-    <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <!--
+      Header controls cluster. On mobile the freshness stamp stacks above the
+      Actualizar button; on sm+ they sit inline. Same shape used across every
+      list page in the app.
+    -->
+    <div
+      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
+    >
+      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
+      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+          Actualizar
+        </button>
+      </div>
+    </div>
   </header>
 
   @if (error(); as message) {

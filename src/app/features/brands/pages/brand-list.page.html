@@ -11,14 +11,22 @@
     </div>
     <span class="flex-1"></span>
 
-    <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-      <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-      Actualizar
-    </button>
-    <a mat-flat-button color="primary" routerLink="/marcas/nueva">
-      <mat-icon class="material-symbols-outlined">add</mat-icon>
-      Nueva marca
-    </a>
+    <!--
+      Header buttons cluster. Brands has no freshness indicator (catalog rarely
+      changes), so the wrapper exists just to keep Actualizar / Nueva marca on
+      a single row on mobile under the title block — same shape as plans /
+      categorias / proveedores.
+    -->
+    <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
+      <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+        <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+        Actualizar
+      </button>
+      <a mat-flat-button color="primary" routerLink="/marcas/nueva">
+        <mat-icon class="material-symbols-outlined">add</mat-icon>
+        Nueva marca
+      </a>
+    </div>
   </header>
 
   @if (error(); as message) {
