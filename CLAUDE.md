@@ -128,4 +128,11 @@ they are plain Markdown describing every convention this repo enforces.
 - Don't run a deep dependency upgrade in a feature PR — gate breaking dep bumps behind their own ADR + PR.
 - Don't expose a writable signal from a service when a `readonly` projection is enough; consumers should not be able to `.set()` from outside.
 - Don't `git push` without running `npm run format:check` (and lint + test) locally first. CI's first job is Prettier — a single mis-formatted attribute red-X'es the whole pipeline. See the pre-push checklist in the Commands section.
-- Don't `git push origin main` directly. Every change goes through a branch named `chore/<slug>` / `feat/<slug>` / `fix/<slug>` and a PR with squash-merge + auto-merge. The remote allows non-FF pushes to main right now (branch protection only blocks force-pushes), so the safety net is YOU running `git checkout -b <slug>` BEFORE the first commit, not the remote rejecting a slip. If you find yourself on `main` with uncommitted changes, branch off first — `git checkout -b fix/<slug>` then commit.
+- Don't try to `git push origin main` directly. The remote rejects it — branch protection on `main` is configured to require:
+  - **A PR** (`required_pull_request_reviews`, `required_approving_review_count: 0` — solo dev, no human approver needed, but the PR path itself is mandatory).
+  - **Green status check**: `Verify` (the single GitHub Actions workflow).
+  - **Linear history** (squash-merge only).
+  - **No force-pushes, no deletions.**
+  - **`enforce_admins: true`** — the rule applies to the repo owner too. Even running with the owner's token (the way this agent does), the push fails.
+
+  If a push to main returns `protected branch hook declined`, that is the protection catching you. Recover with `git checkout -b chore/<slug>` and open a PR via `gh pr create`. Branch names follow `chore/<slug>` / `feat/<slug>` / `fix/<slug>`.
