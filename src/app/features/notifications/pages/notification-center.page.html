@@ -10,18 +10,24 @@
       </p>
     </div>
     <span class="flex-1"></span>
-
-    @if (unreadCount() > 0) {
-      <button mat-stroked-button type="button" (click)="onMarkAllRead()">
-        <mat-icon class="material-symbols-outlined">done_all</mat-icon>
-        Marcar todas
-      </button>
-    }
   </header>
 
-  <mat-card class="!rounded-xl flex flex-col overflow-hidden">
+  <!--
+    Mat-card wrapper + in-card toolbar match the structure used by the other
+    server-side list views (audit, affiliates, incomes, funerals). The toolbar
+    carries the filter toggle on the LEFT and the per-row action icon buttons
+    on the RIGHT — both "Marcar como leída" (gated on unread selection) and
+    "Ir al item" (gated on any selection). The "Marcar todas" affordance lives
+    at the far right and only renders when at least one notification is unread.
+    The shared data-table component handles the 10-row minimum height, the
+    paginator + page-size selector on a single row, and the empty-state
+    illustration that keeps the footprint constant on filter wipes.
+  -->
+  <mat-card
+    class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
+  >
     <div
-      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+      class="flex flex-row flex-wrap items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
     >
       <mat-button-toggle-group
         [value]="filter()"
@@ -32,98 +38,105 @@
         <mat-button-toggle value="all">Todas</mat-button-toggle>
         <mat-button-toggle value="unread">No leidas</mat-button-toggle>
       </mat-button-toggle-group>
+
+      <span class="flex-1"></span>
+
+      <div class="flex items-center gap-1 shrink-0">
+        <button
+          mat-icon-button
+          [disabled]="!selectedIsUnread()"
+          (click)="onMarkSelectedRead()"
+          matTooltip="Marcar como leída"
+          aria-label="Marcar la notificación seleccionada como leída"
+        >
+          <mat-icon class="material-symbols-outlined">mark_email_read</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          [disabled]="!hasSelection()"
+          (click)="onOpenSelected()"
+          matTooltip="Ir al item"
+          aria-label="Abrir el item asociado a la notificación seleccionada"
+        >
+          <mat-icon class="material-symbols-outlined">open_in_new</mat-icon>
+        </button>
+
+        @if (unreadCount() > 0) {
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="onMarkAllRead()"
+            class="!ml-2"
+          >
+            <mat-icon class="material-symbols-outlined">done_all</mat-icon>
+            Marcar todas
+          </button>
+        }
+      </div>
     </div>
 
-    @if (loading()) {
-      <div class="flex justify-center py-12">
-        <mat-spinner diameter="36" />
-      </div>
-    } @else if (rows().length === 0) {
-      <div class="flex flex-col items-center gap-3 py-16 px-6 text-center">
-        <mat-icon
-          class="material-symbols-outlined !text-6xl !w-16 !h-16 text-[var(--mat-sys-on-surface-variant)]"
-        >
-          notifications_none
-        </mat-icon>
-        <h2 class="text-lg font-semibold m-0">Sin notificaciones</h2>
-        <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
-          @if (filter() === 'unread') {
-            No hay notificaciones pendientes. Cambiá el filtro a "Todas" para ver el historial.
-          } @else {
-            No se registraron alertas todavia.
-          }
-        </p>
-      </div>
-    } @else {
-      <ul class="flex flex-col m-0 p-0 list-none">
-        @for (notification of rows(); track notification.id; let last = $last) {
-          <li
-            class="flex flex-col gap-2 px-4 sm:px-6 py-4 cursor-pointer hover:bg-[var(--mat-sys-surface-container-low)]"
-            [class.bg-[var(--mat-sys-surface-container-low)]]="notification.readAt === null"
-            (click)="onSelect(notification)"
-            (keydown.enter)="onSelect(notification)"
-            tabindex="0"
-            role="button"
-          >
-            <div class="flex items-center gap-2 flex-wrap">
-              <span
-                class="text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-semibold"
-              >
-                {{ typeLabel(notification.type) }}
-              </span>
-              @if (notification.readAt === null) {
-                <span class="text-xs text-[var(--mat-sys-primary)] font-semibold">Nuevo</span>
-              }
-              <span class="text-xs text-[var(--mat-sys-on-surface-variant)] ml-auto">
-                {{ notification.createdAt | date: 'medium' }}
-              </span>
-            </div>
-
-            @if (notification.type === 'LOW_STOCK_REACHED') {
-              <div class="flex flex-col gap-1">
-                <span class="text-sm">
-                  {{ lowStockPayload(notification).name }}
-                  <span class="font-mono text-xs text-[var(--mat-sys-on-surface-variant)]">
-                    ({{ lowStockPayload(notification).code }})
-                  </span>
-                </span>
-                <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
-                  Stock bajo de
-                  {{ lowStockPayload(notification).stockBefore }} a
-                  {{ lowStockPayload(notification).stockAfter }} unidades · umbral
-                  {{ lowStockPayload(notification).threshold }}
-                </span>
-              </div>
-            }
-
-            @if (notification.readAt === null) {
-              <div class="flex justify-end">
-                <button
-                  mat-button
-                  type="button"
-                  (click)="onMarkRead(notification, $event)"
-                  matTooltip="Marcar esta notificacion como leida"
-                >
-                  Marcar como leida
-                </button>
-              </div>
-            }
-          </li>
-          @if (!last) {
-            <mat-divider />
-          }
-        }
-      </ul>
-    }
-
-    <mat-paginator
-      class="border-t border-[var(--mat-sys-outline-variant)]"
-      [length]="totalElements()"
-      [pageIndex]="pageIndex()"
-      [pageSize]="pageSize()"
-      [pageSizeOptions]="[10, 20, 50]"
-      (page)="onPageChange($event)"
-      showFirstLastButtons
+    <app-data-table
+      [data]="rows()"
+      [columns]="columns()"
+      [trackBy]="trackById"
+      storageKey="notifications.center"
+      [serverSide]="true"
+      [loading]="loading()"
+      [totalElements]="totalElements()"
+      [initialPageIndex]="pageIndex()"
+      [initialPageSize]="pageSize()"
+      [emptyState]="emptyState()"
+      [selectable]="true"
+      [(selectedRow)]="selectedNotification"
+      (pageChange)="onPageChange($event)"
     />
   </mat-card>
 </div>
+
+<!--
+  Cell renderers. The column's `value` accessor doubles as the default cell
+  text + sort key (sorting is disabled here because the backend orders by
+  created_at desc by contract), so the templates only handle visual decoration
+  (badges, the "Nuevo" pill, the stock arrow) without affecting sort.
+-->
+<ng-template #createdAtCell let-notification>
+  {{ formatDateTime(notification.createdAt) }}
+</ng-template>
+
+<ng-template #typeCell let-notification>
+  <div class="flex items-center gap-2 flex-wrap">
+    <span
+      class="text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-semibold whitespace-nowrap"
+    >
+      {{ typeLabel(notification.type) }}
+    </span>
+    @if (notification.readAt === null) {
+      <span class="text-xs text-[var(--mat-sys-primary)] font-semibold">Nuevo</span>
+    }
+  </div>
+</ng-template>
+
+<ng-template #itemCell let-notification>
+  @if (notification.type === 'LOW_STOCK_REACHED') {
+    <div class="flex flex-col">
+      <span class="text-sm">{{ lowStockPayload(notification).name }}</span>
+      <span class="font-mono text-xs text-[var(--mat-sys-on-surface-variant)]">
+        {{ lowStockPayload(notification).code }}
+      </span>
+    </div>
+  }
+</ng-template>
+
+<ng-template #stockCell let-notification>
+  @if (notification.type === 'LOW_STOCK_REACHED') {
+    <div class="flex flex-col">
+      <span class="text-sm tabular-nums">
+        {{ lowStockPayload(notification).stockBefore }} &rarr;
+        {{ lowStockPayload(notification).stockAfter }}
+      </span>
+      <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+        umbral {{ lowStockPayload(notification).threshold }}
+      </span>
+    </div>
+  }
+</ng-template>
