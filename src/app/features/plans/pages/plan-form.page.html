@@ -135,21 +135,50 @@
             Todavía no agregaste items. Podés guardar el plan vacío y completarlo más tarde.
           </p>
         } @else {
-          <div class="flex flex-col gap-3">
+          <!--
+            Outer grid: 1 column up to lg, 2 columns on lg+. With an
+            autocomplete text input the Item field is narrower than the
+            previous full-width mat-select, so the screen comfortably fits two
+            item rows side by side on desktop and the operator scrolls half as
+            much for the same number of items.
+          -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
             @for (group of itemsPlan.controls; track $index) {
               <div
                 class="grid grid-cols-[minmax(0,1fr)_116px_40px] sm:grid-cols-[minmax(0,1fr)_132px_40px] gap-2 items-start"
                 [formGroupName]="$index"
               >
+                <!--
+                  Autocomplete picker (see CLAUDE.md "Autocomplete pickers in
+                  forms"). Filtered list is hidden until the operator has
+                  typed AUTOCOMPLETE_MIN_CHARS chars; `displayWith` swaps the
+                  stored item code for the human-readable name when an option
+                  has been picked; `itemCodeValidator` rejects half-typed
+                  queries that never resolved to a real code.
+                -->
                 <mat-form-field appearance="fill" subscriptSizing="dynamic">
                   <mat-label>Item</mat-label>
-                  <mat-select formControlName="code">
-                    @for (entry of items() ?? []; track entry.code) {
+                  <input
+                    matInput
+                    type="text"
+                    formControlName="code"
+                    autocomplete="off"
+                    [matAutocomplete]="itemAuto"
+                  />
+                  <mat-autocomplete
+                    #itemAuto="matAutocomplete"
+                    [displayWith]="displayItemName"
+                    autoActiveFirstOption
+                  >
+                    @for (entry of filteredItemsFor($index); track entry.code) {
                       <mat-option [value]="entry.code">{{ entry.name }}</mat-option>
                     }
-                  </mat-select>
+                  </mat-autocomplete>
                   @if (group.controls.code.touched && group.controls.code.hasError('required')) {
                     <mat-error>Seleccioná un item.</mat-error>
+                  }
+                  @if (group.controls.code.touched && group.controls.code.hasError('invalidItem')) {
+                    <mat-error>Elegí un item del listado.</mat-error>
                   }
                 </mat-form-field>
 

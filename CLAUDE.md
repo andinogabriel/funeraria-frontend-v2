@@ -121,6 +121,31 @@ If you are about to push, the answer to "did I run format:check?" should be
   | `suppliers/pages/supplier-form.page.html` (Teléfonos / Direcciones) | single text input + delete (no Cantidad) | **No** — no numeric column to anchor the button to. Top-right "+ Agregar" stays acceptable there. |
 
   When you build a new FormArray sub-form, pick the matching row from this table. If it's a new shape, add it here so the next agent can match it.
+
+  **Two-up rows on desktop**: when each row's "primary" field is a text input (eg. an autocomplete picker — see next rule), the rows can pair up side-by-side on `lg:` by wrapping the `@for` body in `grid grid-cols-1 lg:grid-cols-2 gap-3`. A mat-select dropdown demanded the full row width to preview option text; a text input does not, so two rows fit. plan-form's items section uses this pattern.
+
+- **Autocomplete pickers in forms** (any FormArray row where the operator picks an entity from a catalog — Item, Plan, Proveedor, Categoria, Marca, etc.) ship as `<input matInput [matAutocomplete]>` + `<mat-autocomplete>`, NOT as `<mat-select>`:
+
+  - **Minimum chars before showing suggestions**: `AUTOCOMPLETE_MIN_CHARS = 3` (constant exported from `src/app/shared/search.ts`). A one-letter probe must not dump the full catalog on screen.
+  - **Diacritic + case-insensitive match**: pass both the typed needle and each candidate label through `normaliseForSearch(...)` (same module). "cir" must find "Cirio Pascual", "tio" must find "Tío".
+  - **Backend-driven pickers**: debounce the user's input by `AUTOCOMPLETE_DEBOUNCE_MS = 300` (same module) BEFORE firing the search request, so a fast typer hits the backend once per pause instead of once per keystroke. Pair with `distinctUntilChanged()` and cancel the previous in-flight request when a new one fires.
+  - **Local (in-memory) pickers**: the debounce is a no-op — the filter is synchronous, no backend call to throttle. The 3-char minimum still applies. plan-form's items autocomplete is the canonical local example (catalog loads once via `ItemService.loadAll()` and is held in a signal).
+  - **Storage shape**: the FormControl value holds the catalog code (the natural key), NOT the display name. `mat-autocomplete[displayWith]` resolves the code → name for the input render via an `itemsByCode` Map; a custom validator (`itemCodeValidator` in plan-form is the reference) rejects any value that does not match a real catalog code so a half-typed query cannot pass `Validators.required`.
+  - **Result cap**: limit the visible options to ~8 (`.slice(0, 8)`) so the panel never grows past a comfortable scroll height. Operators that need to see more should type more to narrow it down.
+
+  Both `mat-select` and `mat-autocomplete` are valid Material components — the rule is that pickers over a catalog (where the operator KNOWS what they want) use autocomplete; small closed enums (eg. gender, role, mode) still belong in `mat-select`.
+
+  Reference implementation: `plans/pages/plan-form.page.ts` (search infra) + `plans/pages/plan-form.page.html` (the wiring).
+
+  **Candidates still using `mat-select` over a catalog** (worth converting in follow-up PRs as the catalogs grow):
+
+  | Form / field | Catalog size | Notes |
+  | --- | --- | --- |
+  | `incomes/pages/income-form.page.html` — `itemCode` per row | full items catalog | Same shape as plan-form; convert when the catalog crosses a few dozen entries. |
+  | `funerals/pages/funeral-form.page.html` — `planId` | small (4–10) | Acceptable as a select while the plans stay this few. |
+  | `items/pages/item-form.page.html` — `brandId`, `categoryId` | small (dozens) | Acceptable as selects today; flip when catalogs grow. |
+  | `affiliates/pages/affiliate-form.page.html` — `provinceId`, `cityId` | provinces ~24, cities thousands | Cities should be autocomplete already; province is fine as a select. |
+
 - **No emojis in code or commits** unless explicitly requested.
 
 ## Review agents — run before opening a PR
