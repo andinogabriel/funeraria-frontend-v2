@@ -91,6 +91,36 @@ If you are about to push, the answer to "did I run format:check?" should be
 - **`final` does not exist in TS**, so use `readonly` everywhere it works (signals on services, public class fields). Inputs from `input.required<T>()` or `input<T>()`.
 - **Records don't exist either**, but `interface` for value shapes and `class` only when behavior is involved. Avoid `type` aliases for object shapes when an `interface` would do (better error messages).
 - **Sub-lists inside a form / dialog / detail panel ship in a `mat-expansion-panel [expanded]="true"`** with the item count on `mat-panel-description`. Keeps the surface scannable when the list grows. See `.claude/agents/frontend-architect.md` for the full rule + examples.
+- **Dynamic-add form rows — "select + one numeric input + delete" pattern** (FormArray where each row is one mat-select + one numeric input + a delete icon-button — eg. plan items) follow a fixed CSS-grid template so the visual rhythm is identical across every form:
+
+  ```text
+  grid-cols-[minmax(0,1fr) <NUMBER-COL> 40px]    /* mobile */
+  sm:grid-cols-[minmax(0,1fr) <NUMBER-COL> 40px]
+  ```
+
+  - **Select** (Item, Plan, Categoria, …): `minmax(0, 1fr)` — takes every spare pixel so the operator previews more option text on mobile. NEVER `auto` and NEVER fixed-width on the select side; the whole point is to give option labels room to breathe.
+  - **Numeric input — quantity** (3-digit int, eg. `Cantidad`): `116 px` mobile / `132 px` desktop. Narrow because a quantity is `1..200`, but wide enough to keep the floating `<mat-label>` from truncating and to fit the trailing "+ Agregar" button reused under the same column.
+  - **Numeric input — monetary amount** (currency, eg. `Precio de compra`, `Total`): `132 px` mobile / `160 px` desktop. Wider than quantity because amounts run 6–9 chars (`$ 1.485.000`) AND because they read as money — operators expect them to look like inputs for money, not for counts.
+  - **Per-row delete**: fixed `40 px` (icon-button slot). Never `auto`.
+  - **"+ Agregar X" affordance — desktop**: top-right of the section header, vertically aligned with the subtitle row, AND column-aligned with the Cantidad column of the rows below. Structurally that means laying the section header out on the same grid (`grid-cols-1 sm:grid-cols-[minmax(0,1fr)_<NUMBER-COL>_40px]`) so the button sits in the same X-position as every Cantidad input. The first cell carries the `<h2>` + subtitle; the second cell carries the `<button mat-stroked-button class="hidden sm:inline-flex !w-full">`; the third cell is an `aria-hidden` spacer to keep the grid math honest. The button is invisible on mobile (`hidden`) so the a11y tree only ever exposes the variant that's visible.
+  - **"+ Agregar X" affordance — mobile**: a trailing row UNDER the last item, reusing the rows' grid template. On a 360 px viewport the Cantidad column alone is too narrow for "+ Agregar" + its icon, so the button spans Cantidad + delete via `col-start-2 col-end-[-1]`. Hide on sm+ (`sm:hidden`) so the desktop variant above is the canonical one on desktop. `mt-2` between the last row and this button keeps them visually attached without crowding.
+
+  Both buttons render the same `<button>` element with the same `(click)` handler — Tailwind's `hidden sm:inline-flex` / `sm:hidden` toggles which one is in the DOM accessibility tree per breakpoint, so screen readers only ever see one "Agregar" control.
+
+  Mat-form-field's floating label is the silent killer of "narrow as possible" — labels like `Cantidad` need ~104 px to render at top-left without truncation when not focused. Going narrower than the values above looks clever and then breaks the moment a row blurs.
+
+  Reference implementation: `plans/pages/plan-form.page.html` (items sub-section).
+
+  **Scope of this rule**:
+
+  | Form | Pattern | This rule applies? |
+  | --- | --- | --- |
+  | `plans/pages/plan-form.page.html` (Items del plan) | select + Cantidad + delete | **Yes** — canonical example. |
+  | `funerals/pages/funeral-form.page.html` (Cantidades por item) | name/code + Cantidad (rows derived from chosen plan; no add / delete) | Partial — Cantidad width (`!w-[110px]`) tracks the rule; no "+ Agregar" button to place because the list is plan-driven, not operator-driven. |
+  | `incomes/pages/income-form.page.html` (Items comprados) | select + Cantidad + Precio compra + Precio venta + delete (4-field stacked card) | **No** — different structural pattern (multi-numeric stacked card per row). Top-right "+ Agregar" stays acceptable there. |
+  | `suppliers/pages/supplier-form.page.html` (Teléfonos / Direcciones) | single text input + delete (no Cantidad) | **No** — no numeric column to anchor the button to. Top-right "+ Agregar" stays acceptable there. |
+
+  When you build a new FormArray sub-form, pick the matching row from this table. If it's a new shape, add it here so the next agent can match it.
 - **No emojis in code or commits** unless explicitly requested.
 
 ## Review agents — run before opening a PR
