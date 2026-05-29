@@ -830,6 +830,13 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
    * Filtered list of autocomplete options for a column based on the menu's search
    * input. Returns `[]` until the user has typed at least `minSearchChars` (default 3)
    * so a freshly-opened menu does not dump the entire supplier catalog on screen.
+   *
+   * <p>Both the search text and each option's label are normalised through
+   * {@link normaliseForSearch} before the `includes` check, so the match is
+   * accent-insensitive AND case-insensitive — typing "tio" matches "Tío",
+   * typing "acuna" matches "Acuña", etc. This is how operators expect Spanish
+   * search to behave; without it the column-header filter rejects perfectly
+   * sensible queries just because the user did not type the diacritic.
    */
   protected filteredAutocompleteOptions(
     column: DataTableColumn<T>,
@@ -839,13 +846,13 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
     }
     const minChars = column.autocomplete.minSearchChars ?? 3;
     const search = this.autocompleteSearchValues().get(column.key) ?? '';
-    const normalised = search.trim().toLocaleLowerCase();
-    if (normalised.length < minChars) {
+    const needle = normaliseForSearch(search.trim());
+    if (needle.length < minChars) {
       return [];
     }
     return column.autocomplete
       .options()
-      .filter((opt) => opt.label.toLocaleLowerCase().includes(normalised))
+      .filter((opt) => normaliseForSearch(opt.label).includes(needle))
       .slice(0, 8);
   }
 
@@ -1067,4 +1074,34 @@ function parseIsoDate(value: string | null): Date | null {
 function toIsoDate(date: Date): string {
   const pad = (n: number): string => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * Normalises a string for diacritic + case-insensitive search comparisons.
+ *
+ * <p>Pipeline:
+ * <ol>
+ *   <li>{@code normalize('NFD')} splits each precomposed accented character
+ *       into its base letter + a combining diacritic codepoint (e.g.
+ *       "í" → "i" + U+0301).</li>
+ *   <li>The combining range U+0300..U+036F is stripped, leaving only the
+ *       base letters.</li>
+ *   <li>{@code toLocaleLowerCase()} lower-cases the result.</li>
+ * </ol>
+ *
+ * <p>"Tío" → "tio", "Acuña" → "acuna", "Pérez" → "perez". The caller passes
+ * both the needle and the haystack through this helper so the `includes`
+ * check is symmetric.
+ *
+ * <p>This is shared infra rather than a per-column option because every
+ * Spanish-locale autocomplete in this codebase needs the same behaviour —
+ * making it opt-in would just guarantee future columns ship with the bug.
+ */
+function normaliseForSearch(input: string): string {
+  // The character class `̀-ͯ` is the Unicode "Combining Diacritical
+  // Marks" block — after NFD decomposition every accent becomes one of these
+  // codepoints, so a single regex sweep removes the whole family in one pass.
+  // Written with explicit escapes (not the raw glyphs) so the file stays
+  // ASCII-safe regardless of editor / git encoding settings.
+  return input.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase();
 }
