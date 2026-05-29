@@ -16,14 +16,24 @@
       wrapper keeps Actualizar / Nuevo proveedor on a single row on mobile
       under the title block — same shape as marcas / categorias / planes.
     -->
-    <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
-      <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+    <!--
+      Same mobile-shrink pattern used across every list page: Actualizar
+      collapses to icon-only on mobile; primary CTA keeps "Nuevo" visible.
+    -->
+    <div class="flex flex-row items-center justify-end gap-2 sm:gap-3">
+      <button
+        mat-stroked-button
+        (click)="onRefresh()"
+        [disabled]="loading()"
+        matTooltip="Actualizar"
+        aria-label="Actualizar"
+      >
         <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-        Actualizar
+        <span class="hidden sm:inline">Actualizar</span>
       </button>
       <a mat-flat-button color="primary" routerLink="/proveedores/nuevo">
         <mat-icon class="material-symbols-outlined">add</mat-icon>
-        Nuevo proveedor
+        Nuevo<span class="hidden sm:inline"> proveedor</span>
       </a>
     </div>
   </header>
