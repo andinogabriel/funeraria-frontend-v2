@@ -12,44 +12,60 @@
     <span class="flex-1"></span>
 
     <!--
-      Header controls cluster.
-      - On mobile (default): freshness indicator stacks ABOVE the row of action
-        buttons (right-aligned). Without this layer the wide "Actualizado hace
-        N min" label pushed each button onto its own line under flex-wrap.
-      - On sm+: everything sits inline as before. The compact freshness stamp
-        re-renders every 30 s and the visibility-change auto-refresh kicks in
-        when the tab is backgrounded for >60 s.
+      Header controls cluster. On mobile the freshness stamp sits vertically
+      ABOVE the leftmost button (Actualizar) so the operator's eye goes from
+      "Actualizado hace N min" → Actualizar without crossing the row. The
+      inner `flex-col items-start` column is sized by the buttons row below
+      it; the outer `justify-end` pushes that whole column to the right edge.
+      On sm+ everything flattens back inline as before. The compact freshness
+      stamp re-renders every 30 s and the visibility-change auto-refresh kicks
+      in when the tab is backgrounded for >60 s.
     -->
-    <div
-      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
-    >
-      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <div class="flex w-full justify-end sm:w-auto sm:justify-start">
+      <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
-        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-          Actualizar
-        </button>
-        @if (isAdmin()) {
-          <!--
-            Admin-only access to the soft-delete papelera. Sibling action on the
-            parent surface, not a peer destination in the sidebar — keeps the
-            nav focused while still giving admins one click to the audit view.
-          -->
-          <a
+        <!--
+          Button row. Secondary buttons (Actualizar / Papelera) collapse to
+          icon-only on mobile via `hidden sm:inline` on the label so all three
+          fit on one row at 360 px viewports; matTooltip + aria-label preserve
+          discoverability + accessibility when the visible text disappears.
+          Primary CTA keeps "Nuevo" visible always and appends the entity name
+          on sm+.
+        -->
+        <div class="flex flex-row items-center gap-2 sm:gap-3">
+          <button
             mat-stroked-button
-            routerLink="/afiliados/eliminados"
-            matTooltip="Ver afiliados eliminados"
-            aria-label="Papelera"
+            (click)="onRefresh()"
+            [disabled]="loading()"
+            matTooltip="Actualizar"
+            aria-label="Actualizar"
           >
-            <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-            Papelera
+            <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+            <span class="hidden sm:inline">Actualizar</span>
+          </button>
+          @if (isAdmin()) {
+            <!--
+              Admin-only access to the soft-delete papelera. Sibling action on
+              the parent surface, not a peer destination in the sidebar —
+              keeps the nav focused while still giving admins one click to the
+              audit view.
+            -->
+            <a
+              mat-stroked-button
+              routerLink="/afiliados/eliminados"
+              matTooltip="Ver afiliados eliminados"
+              aria-label="Papelera"
+            >
+              <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+              <span class="hidden sm:inline">Papelera</span>
+            </a>
+          }
+          <a mat-flat-button color="primary" routerLink="/afiliados/nuevo">
+            <mat-icon class="material-symbols-outlined">add</mat-icon>
+            Nuevo<span class="hidden sm:inline"> afiliado</span>
           </a>
-        }
-        <a mat-flat-button color="primary" routerLink="/afiliados/nuevo">
-          <mat-icon class="material-symbols-outlined">add</mat-icon>
-          Nuevo afiliado
-        </a>
+        </div>
       </div>
     </div>
   </header>

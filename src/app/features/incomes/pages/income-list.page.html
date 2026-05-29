@@ -12,26 +12,35 @@
     <span class="flex-1"></span>
 
     <!--
-      Header controls cluster. On mobile (default) we stack the freshness
-      indicator ABOVE the row of action buttons so the buttons sit on one row
-      instead of each wrapping onto its own line — the indicator's wide
-      "Actualizado hace N min" label was the reason the row collapsed before.
-      On sm+ everything sits inline as it always did.
+      Header controls cluster. On mobile the freshness stamp sits vertically
+      ABOVE the leftmost button (Actualizar). On sm+ everything flattens back
+      inline.
     -->
-    <div
-      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
-    >
-      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <div class="flex w-full justify-end sm:w-auto sm:justify-start">
+      <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
-        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-          Actualizar
-        </button>
-        <a mat-flat-button color="primary" routerLink="/ingresos/nuevo">
-          <mat-icon class="material-symbols-outlined">add</mat-icon>
-          Nuevo ingreso
-        </a>
+        <!--
+          Button row. Actualizar collapses to icon-only on mobile (matTooltip
+          + aria-label preserve discoverability); primary CTA keeps "Nuevo"
+          always visible and appends the entity name on sm+.
+        -->
+        <div class="flex flex-row items-center gap-2 sm:gap-3">
+          <button
+            mat-stroked-button
+            (click)="onRefresh()"
+            [disabled]="loading()"
+            matTooltip="Actualizar"
+            aria-label="Actualizar"
+          >
+            <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+            <span class="hidden sm:inline">Actualizar</span>
+          </button>
+          <a mat-flat-button color="primary" routerLink="/ingresos/nuevo">
+            <mat-icon class="material-symbols-outlined">add</mat-icon>
+            Nuevo<span class="hidden sm:inline"> ingreso</span>
+          </a>
+        </div>
       </div>
     </div>
   </header>

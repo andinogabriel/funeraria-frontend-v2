@@ -18,10 +18,21 @@
       Papelera / Nuevo plan sit on a single row instead of each wrapping onto
       its own line under the title block.
     -->
-    <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
-      <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
+    <!--
+      Button row. Mobile: Actualizar / Papelera collapse to icon-only via
+      `hidden sm:inline`; matTooltip + aria-label preserve discoverability
+      and accessibility. Primary CTA keeps "Nuevo" visible always.
+    -->
+    <div class="flex flex-row items-center justify-end gap-2 sm:gap-3">
+      <button
+        mat-stroked-button
+        (click)="onRefresh()"
+        [disabled]="loading()"
+        matTooltip="Actualizar"
+        aria-label="Actualizar"
+      >
         <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-        Actualizar
+        <span class="hidden sm:inline">Actualizar</span>
       </button>
       @if (isAdmin()) {
         <!--
@@ -36,12 +47,12 @@
           aria-label="Papelera"
         >
           <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-          Papelera
+          <span class="hidden sm:inline">Papelera</span>
         </a>
       }
       <a mat-flat-button color="primary" routerLink="/planes/nuevo">
         <mat-icon class="material-symbols-outlined">add</mat-icon>
-        Nuevo plan
+        Nuevo<span class="hidden sm:inline"> plan</span>
       </a>
     </div>
   </header>

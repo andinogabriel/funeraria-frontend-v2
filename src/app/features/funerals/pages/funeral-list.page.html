@@ -12,41 +12,58 @@
     <span class="flex-1"></span>
 
     <!--
-      Header controls cluster. On mobile (default) we stack the freshness
-      indicator ABOVE the row of action buttons so Actualizar / Papelera /
-      Nuevo servicio sit on a single row instead of each wrapping onto its own
-      line. On sm+ everything sits inline as it always did.
+      Header controls cluster. On mobile (default) the freshness stamp sits
+      vertically ABOVE the leftmost button (Actualizar) so the operator's eye
+      goes from "Actualizado hace N min" → Actualizar without crossing the row.
+      The trick is the inner `flex-col items-start` whose width is dictated by
+      the buttons row below it; the outer `justify-end` pushes that whole
+      column to the right edge. On sm+ everything flattens back inline.
     -->
-    <div
-      class="flex w-full flex-col items-end gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3"
-    >
-      <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
+    <div class="flex w-full justify-end sm:w-auto sm:justify-start">
+      <div class="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <app-freshness-indicator [updatedAt]="pageFetchedAt()" />
 
-      <div class="flex flex-row flex-wrap items-center justify-end gap-2 sm:gap-3">
-        <button mat-stroked-button (click)="onRefresh()" [disabled]="loading()">
-          <mat-icon class="material-symbols-outlined">refresh</mat-icon>
-          Actualizar
-        </button>
-        @if (isAdmin()) {
-          <!--
-            Admin-only access to the soft-delete papelera. Sibling action on the
-            parent surface, not a peer destination in the sidebar — same pattern
-            used on `/afiliados`.
-          -->
-          <a
+        <!--
+          Button row. On mobile each secondary button (Actualizar / Papelera)
+          shrinks to icon-only so all three actions fit on a single row at 360
+          px viewports — wrapping the label text in `hidden sm:inline` is what
+          does the work. matTooltip + aria-label are mandatory when the visible
+          text disappears. The primary CTA keeps "Nuevo" visible always and
+          appends the entity name on sm+ so the action is never reduced to a
+          bare "+" icon.
+        -->
+        <div class="flex flex-row items-center gap-2 sm:gap-3">
+          <button
             mat-stroked-button
-            routerLink="/servicios/eliminados"
-            matTooltip="Ver servicios eliminados"
-            aria-label="Papelera"
+            (click)="onRefresh()"
+            [disabled]="loading()"
+            matTooltip="Actualizar"
+            aria-label="Actualizar"
           >
-            <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
-            Papelera
+            <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+            <span class="hidden sm:inline">Actualizar</span>
+          </button>
+          @if (isAdmin()) {
+            <!--
+              Admin-only access to the soft-delete papelera. Sibling action on
+              the parent surface, not a peer destination in the sidebar — same
+              pattern used on `/afiliados`.
+            -->
+            <a
+              mat-stroked-button
+              routerLink="/servicios/eliminados"
+              matTooltip="Ver servicios eliminados"
+              aria-label="Papelera"
+            >
+              <mat-icon class="material-symbols-outlined">delete_outline</mat-icon>
+              <span class="hidden sm:inline">Papelera</span>
+            </a>
+          }
+          <a mat-flat-button color="primary" routerLink="/servicios/nuevo">
+            <mat-icon class="material-symbols-outlined">add</mat-icon>
+            Nuevo<span class="hidden sm:inline"> servicio</span>
           </a>
-        }
-        <a mat-flat-button color="primary" routerLink="/servicios/nuevo">
-          <mat-icon class="material-symbols-outlined">add</mat-icon>
-          Nuevo servicio
-        </a>
+        </div>
       </div>
     </div>
   </header>
