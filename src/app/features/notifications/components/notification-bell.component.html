@@ -22,7 +22,7 @@
 </button>
 
 <mat-menu #bellMenu="matMenu" xPosition="before" class="notification-bell-menu">
-  <div class="flex items-center gap-2 px-4 py-3 min-w-[320px] sm:min-w-[420px]">
+  <div class="flex items-center gap-2 px-4 py-3">
     <span class="font-semibold text-sm">Notificaciones</span>
     <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
       @if (unreadCount() > 0) {
@@ -64,9 +64,7 @@
         (click)="onSelect(notification, bellTrigger)"
         class="!h-auto !py-3"
       >
-        <div
-          class="flex flex-col items-start gap-1 max-w-[360px] sm:max-w-[420px] whitespace-normal"
-        >
+        <div class="flex flex-col items-start gap-1 w-full whitespace-normal">
           <div class="flex items-center gap-2 w-full">
             <span
               class="text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-semibold"
