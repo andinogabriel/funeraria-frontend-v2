@@ -62,6 +62,17 @@ export class ItemDetailDialogComponent {
       this.data.itemHeight !== null ||
       this.data.itemWidth !== null,
   );
+
+  /**
+   * Whether the item's current stock has reached or fallen below its
+   * configured `lowStockThreshold`. Mirrors the helper on the list page so
+   * the red highlight is consistent between the grid and the detail dialog.
+   * Treats a null stock as not-below — catalog entries without inventory
+   * shouldn't surface as alarms.
+   */
+  protected readonly isBelowThreshold = computed(
+    () => this.data.stock !== null && this.data.stock <= this.data.lowStockThreshold,
+  );
 }
 
 function formatCurrency(value: number): string {

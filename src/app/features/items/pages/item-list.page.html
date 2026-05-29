@@ -126,7 +126,7 @@
 
     <app-data-table
       [data]="rows()"
-      [columns]="columns"
+      [columns]="columns()"
       [trackBy]="trackByCode"
       storageKey="items.list"
       [serverSide]="true"
@@ -145,3 +145,20 @@
     />
   </mat-card>
 </div>
+
+<!--
+  Stock column cell renderer. Paints the value red + bold when the item has
+  reached or fallen below its `lowStockThreshold` so the admin sees the
+  shortage without having to open the detail dialog. The wrapper span is
+  always rendered so the table cell width stays stable across rows
+  (regardless of whether the highlight is applied).
+-->
+<ng-template #stockCell let-item>
+  <span
+    class="tabular-nums"
+    [class.text-[var(--mat-sys-error)]]="isStockBelowThreshold(item)"
+    [class.font-semibold]="isStockBelowThreshold(item)"
+  >
+    {{ item.stock ?? 0 }}
+  </span>
+</ng-template>
