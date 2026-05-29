@@ -5,6 +5,8 @@ import {
   effect,
   inject,
   signal,
+  TemplateRef,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
@@ -209,7 +211,25 @@ export class ItemListPage {
       .map((name) => ({ value: name, label: name }));
   };
 
-  protected readonly columns: readonly DataTableColumn<Item>[] = [
+  // Stock column cell renderer — looked up via viewChild so the column
+  // definition below can thread it through `cellTemplate`. The template paints
+  // the value red + bold when the item is at or below its low-stock floor so
+  // the admin spots it without having to open the detail dialog. Same idiom
+  // audit-event-list uses for its formatted date column.
+  private readonly stockCell = viewChild<TemplateRef<{ $implicit: Item }>>('stockCell');
+
+  /**
+   * Whether the item's current stock has reached or fallen below its
+   * configured `lowStockThreshold`. Drives the red highlight on the Stock
+   * column AND the matching highlight inside `item-detail-dialog`. Treats a
+   * null stock as not-below (services / catalog entries without inventory
+   * shouldn't surface as alarms).
+   */
+  protected isStockBelowThreshold(item: Item): boolean {
+    return item.stock !== null && item.stock <= item.lowStockThreshold;
+  }
+
+  protected readonly columns = computed<readonly DataTableColumn<Item>[]>(() => [
     {
       key: 'code',
       label: 'Código',
@@ -252,13 +272,15 @@ export class ItemListPage {
     {
       key: 'stock',
       label: 'Stock',
+      // `value` returns the raw number so sort + the column-chooser preview
+      // stay numeric; the cellTemplate handles the colour.
       value: (item) => item.stock ?? 0,
+      cellTemplate: this.stockCell(),
       cellClass: 'tabular-nums text-right',
       headerClass: 'text-right',
       align: 'end',
-      defaultVisible: false,
     },
-  ] as const;
+  ]);
 
   protected readonly trackByCode = (_: number, row: Item): string => row.code;
 

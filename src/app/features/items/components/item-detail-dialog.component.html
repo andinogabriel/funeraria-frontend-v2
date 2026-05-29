@@ -26,7 +26,23 @@
 
       @if (data.stock !== null) {
         <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Stock</dt>
-        <dd class="text-sm m-0 tabular-nums">{{ data.stock }}</dd>
+        <!--
+          When the current stock has reached or fallen below the configured
+          low-stock floor we paint the value red + bold and append a small
+          "Stock bajo" hint so the admin sees the shortage at a glance from
+          the detail dialog. Same idiom is applied on the list grid's Stock
+          column via `isStockBelowThreshold`.
+        -->
+        <dd
+          class="text-sm m-0 tabular-nums"
+          [class.text-[var(--mat-sys-error)]]="isBelowThreshold()"
+          [class.font-semibold]="isBelowThreshold()"
+        >
+          {{ data.stock }}
+          @if (isBelowThreshold()) {
+            <span class="text-xs font-normal"> · Stock bajo</span>
+          }
+        </dd>
       }
 
       <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Umbral stock bajo</dt>
