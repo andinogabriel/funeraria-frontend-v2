@@ -1,0 +1,129 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      notifications
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Notificaciones</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Alertas in-app para el equipo administrador. Polling cada 60 segundos.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+
+    @if (unreadCount() > 0) {
+      <button mat-stroked-button type="button" (click)="onMarkAllRead()">
+        <mat-icon class="material-symbols-outlined">done_all</mat-icon>
+        Marcar todas
+      </button>
+    }
+  </header>
+
+  <mat-card class="!rounded-xl flex flex-col overflow-hidden">
+    <div
+      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+    >
+      <mat-button-toggle-group
+        [value]="filter()"
+        (change)="onFilterChange($event.value)"
+        hideSingleSelectionIndicator="true"
+        aria-label="Filtrar por estado"
+      >
+        <mat-button-toggle value="all">Todas</mat-button-toggle>
+        <mat-button-toggle value="unread">No leidas</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    @if (loading()) {
+      <div class="flex justify-center py-12">
+        <mat-spinner diameter="36" />
+      </div>
+    } @else if (rows().length === 0) {
+      <div class="flex flex-col items-center gap-3 py-16 px-6 text-center">
+        <mat-icon
+          class="material-symbols-outlined !text-6xl !w-16 !h-16 text-[var(--mat-sys-on-surface-variant)]"
+        >
+          notifications_none
+        </mat-icon>
+        <h2 class="text-lg font-semibold m-0">Sin notificaciones</h2>
+        <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+          @if (filter() === 'unread') {
+            No hay notificaciones pendientes. Cambiá el filtro a "Todas" para ver el historial.
+          } @else {
+            No se registraron alertas todavia.
+          }
+        </p>
+      </div>
+    } @else {
+      <ul class="flex flex-col m-0 p-0 list-none">
+        @for (notification of rows(); track notification.id; let last = $last) {
+          <li
+            class="flex flex-col gap-2 px-4 sm:px-6 py-4 cursor-pointer hover:bg-[var(--mat-sys-surface-container-low)]"
+            [class.bg-[var(--mat-sys-surface-container-low)]]="notification.readAt === null"
+            (click)="onSelect(notification)"
+            (keydown.enter)="onSelect(notification)"
+            tabindex="0"
+            role="button"
+          >
+            <div class="flex items-center gap-2 flex-wrap">
+              <span
+                class="text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-semibold"
+              >
+                {{ typeLabel(notification.type) }}
+              </span>
+              @if (notification.readAt === null) {
+                <span class="text-xs text-[var(--mat-sys-primary)] font-semibold">Nuevo</span>
+              }
+              <span class="text-xs text-[var(--mat-sys-on-surface-variant)] ml-auto">
+                {{ notification.createdAt | date: 'medium' }}
+              </span>
+            </div>
+
+            @if (notification.type === 'LOW_STOCK_REACHED') {
+              <div class="flex flex-col gap-1">
+                <span class="text-sm">
+                  {{ lowStockPayload(notification).name }}
+                  <span class="font-mono text-xs text-[var(--mat-sys-on-surface-variant)]">
+                    ({{ lowStockPayload(notification).code }})
+                  </span>
+                </span>
+                <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+                  Stock bajo de
+                  {{ lowStockPayload(notification).stockBefore }} a
+                  {{ lowStockPayload(notification).stockAfter }} unidades · umbral
+                  {{ lowStockPayload(notification).threshold }}
+                </span>
+              </div>
+            }
+
+            @if (notification.readAt === null) {
+              <div class="flex justify-end">
+                <button
+                  mat-button
+                  type="button"
+                  (click)="onMarkRead(notification, $event)"
+                  matTooltip="Marcar esta notificacion como leida"
+                >
+                  Marcar como leida
+                </button>
+              </div>
+            }
+          </li>
+          @if (!last) {
+            <mat-divider />
+          }
+        }
+      </ul>
+    }
+
+    <mat-paginator
+      class="border-t border-[var(--mat-sys-outline-variant)]"
+      [length]="totalElements()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPageChange($event)"
+      showFirstLastButtons
+    />
+  </mat-card>
+</div>

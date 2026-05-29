@@ -88,6 +88,15 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/audit/pages/audit-event-list.page').then((m) => m.AuditEventListPage),
       },
       {
+        // Admin-only notification center. Backend gates with `ROLE_ADMIN`.
+        // Reached from the bell drop-down's "Ver todas" link in the toolbar.
+        path: 'notificaciones',
+        loadComponent: () =>
+          import('./features/notifications/pages/notification-center.page').then(
+            (m) => m.NotificationCenterPage,
+          ),
+      },
+      {
         path: 'planes',
         loadComponent: () =>
           import('./features/plans/pages/plan-list.page').then((m) => m.PlanListPage),

@@ -1,0 +1,105 @@
+<!--
+  Bell trigger. matBadge only renders when the count is positive (the `*Hidden`
+  directive is unstable in zoneless mode, so we conditionally apply `matBadge`
+  through the `[matBadge]` binding and a `null` fallback that the directive
+  swallows). The button itself stays visible at all times so the operator can
+  still open the menu and see "No tenes notificaciones pendientes" — the
+  affordance has to exist even when the count is zero.
+-->
+<button
+  #bellTrigger="matMenuTrigger"
+  mat-icon-button
+  [matMenuTriggerFor]="bellMenu"
+  (menuOpened)="onMenuOpened()"
+  matTooltip="Notificaciones"
+  aria-label="Abrir notificaciones"
+  [matBadge]="unreadCount() > 0 ? unreadCount() : null"
+  matBadgeColor="warn"
+  matBadgeSize="small"
+  matBadgeOverlap="true"
+>
+  <mat-icon class="material-symbols-outlined">notifications</mat-icon>
+</button>
+
+<mat-menu #bellMenu="matMenu" xPosition="before" class="notification-bell-menu">
+  <div class="flex items-center gap-2 px-4 py-3 min-w-[320px] sm:min-w-[420px]">
+    <span class="font-semibold text-sm">Notificaciones</span>
+    <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+      @if (unreadCount() > 0) {
+        ({{ unreadCount() }} sin leer)
+      }
+    </span>
+    <span class="flex-1"></span>
+    @if (unreadCount() > 0) {
+      <button
+        mat-button
+        type="button"
+        (click)="$event.stopPropagation(); onMarkAllRead(bellTrigger)"
+      >
+        Marcar todas
+      </button>
+    }
+  </div>
+
+  <mat-divider />
+
+  @if (loading()) {
+    <div class="flex justify-center py-6">
+      <mat-spinner diameter="24" />
+    </div>
+  } @else if (recent().length === 0) {
+    <p class="text-sm text-center text-[var(--mat-sys-on-surface-variant)] px-4 py-6 m-0">
+      No tenes notificaciones pendientes.
+    </p>
+  } @else {
+    <!--
+      Each row is a mat-menu-item so the keyboard / focus management Material
+      already wires for menus also covers the notification list. The click
+      handler decides what to do per type (currently only low-stock).
+    -->
+    @for (notification of recent(); track notification.id) {
+      <button
+        mat-menu-item
+        type="button"
+        (click)="onSelect(notification, bellTrigger)"
+        class="!h-auto !py-3"
+      >
+        <div
+          class="flex flex-col items-start gap-1 max-w-[360px] sm:max-w-[420px] whitespace-normal"
+        >
+          <div class="flex items-center gap-2 w-full">
+            <span
+              class="text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-semibold"
+            >
+              {{ typeLabel(notification.type) }}
+            </span>
+            <span class="text-xs text-[var(--mat-sys-on-surface-variant)] ml-auto">
+              {{ notification.createdAt | date: 'short' }}
+            </span>
+          </div>
+          @if (notification.type === 'LOW_STOCK_REACHED') {
+            <span class="text-sm">
+              {{ lowStockPayload(notification).name }}
+              <span class="font-mono text-xs text-[var(--mat-sys-on-surface-variant)]">
+                ({{ lowStockPayload(notification).code }})
+              </span>
+            </span>
+            <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+              Quedan {{ lowStockPayload(notification).stockAfter }} unidades · umbral
+              {{ lowStockPayload(notification).threshold }}
+            </span>
+          }
+        </div>
+      </button>
+    }
+  }
+
+  <mat-divider />
+
+  <div class="px-2 py-1">
+    <a mat-menu-item routerLink="/notificaciones">
+      <mat-icon class="material-symbols-outlined">list</mat-icon>
+      <span>Ver todas</span>
+    </a>
+  </div>
+</mat-menu>

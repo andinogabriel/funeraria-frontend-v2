@@ -71,6 +71,15 @@
       </button>
     </mat-menu>
 
+    @if (isAdmin()) {
+      <!--
+        Notification bell — admin-only. Polls unread-count every 60 s and opens a
+        drop-down with the freshest 10 unread on click. See
+        `NotificationBellComponent` for the routing-on-click + mark-as-read flow.
+      -->
+      <app-notification-bell />
+    }
+
     <button mat-icon-button (click)="onLogout()" aria-label="Cerrar sesión" matTooltip="Salir">
       <mat-icon class="material-symbols-outlined">logout</mat-icon>
     </button>
