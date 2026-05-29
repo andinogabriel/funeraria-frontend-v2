@@ -20,6 +20,8 @@ import { map } from 'rxjs/operators';
 
 import { AuthService } from '../auth/auth.service';
 import { AuthStore } from '../auth/auth.store';
+import { NotificationBellComponent } from '../../features/notifications/components/notification-bell.component';
+import { NotificationService } from '../../features/notifications/notification.service';
 import { ThemeService, type ThemePreference } from '../theme/theme.service';
 
 /**
@@ -61,6 +63,7 @@ import { ThemeService, type ThemePreference } from '../theme/theme.service';
     MatSidenavModule,
     MatToolbarModule,
     MatTooltipModule,
+    NotificationBellComponent,
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
@@ -75,6 +78,14 @@ export class ShellComponent {
 
   protected readonly store = inject(AuthStore);
   protected readonly theme = inject(ThemeService);
+  private readonly notificationService = inject(NotificationService);
+
+  /**
+   * `true` when the active session carries `ROLE_ADMIN`. Gates the bell icon — the
+   * backend would 403 a non-admin's poll anyway, but rendering an affordance that
+   * always errors is bad UX.
+   */
+  protected readonly isAdmin = computed(() => this.store.authorities().includes('ROLE_ADMIN'));
 
   /**
    * Icon for the toolbar theme button. Reflects the currently rendered theme,
@@ -177,6 +188,18 @@ export class ShellComponent {
     // drawer and resized up would see it floating on top of the page.
     effect(() => {
       this.sidenavOpened.set(!this.isHandset());
+    });
+
+    // Boot the notification-count poll for admins. The shell is the only screen
+    // the bell renders in, so this is the right place to own the lifecycle: the
+    // service tears down on injector destroy. Non-admin sessions never start the
+    // poll — backend would 403 each call and the badge has nothing to show.
+    effect(() => {
+      if (this.isAdmin()) {
+        this.notificationService.startPolling();
+      } else {
+        this.notificationService.stopPolling();
+      }
     });
   }
 
