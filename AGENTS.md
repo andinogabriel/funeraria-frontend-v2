@@ -58,7 +58,7 @@ src/app/
 
 Before opening a PR:
 
-1. `npm run format` (Prettier) — repo style is enforced in CI.
+1. `npm run format` then `npm run format:check` — Prettier is the FIRST job in CI; a single mis-formatted line fails the whole pipeline before lint / test / build run. `format` rewrites in place but exits 0 even when it had to fix things, so always follow with `format:check` to confirm.
 2. `npm run lint` — ESLint flat config must pass.
 3. `npm test` — Vitest must pass.
 4. `npm run build` — production bundle must build and stay under budget.

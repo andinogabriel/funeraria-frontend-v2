@@ -1,2 +1,36 @@
-// Local styles intentionally empty — the component leans on Material's mat-menu
-// chrome + Tailwind utility classes already used elsewhere in the app.
+// =============================================================================
+// notification-bell styles.
+//
+// The mat-menu panel is rendered inside the global CDK overlay (sibling of
+// <body>), so it sits OUTSIDE the bell component's view tree. To style it we
+// rely on the `class="notification-bell-menu"` attribute we set on <mat-menu>,
+// which Material forwards onto `.mat-mdc-menu-panel`, combined with `:host
+// ::ng-deep` — `::ng-deep` strips the view-encapsulation attribute so the
+// compiled selector becomes global and matches the overlay element.
+//
+// Why we need this: Material's default panel ships with `max-width: 280px`.
+// The notification rows want to fit ~360 px of content (badge + date row plus
+// a two-line item summary), so without an explicit override the panel caps at
+// 280 px AND the inner div's min-width still pushes the content out, producing
+// a horizontal scrollbar across the panel + cropping the header text from the
+// left. The override sets both a minimum panel width (so the panel sizes to
+// the content) and a viewport-aware maximum (so on a narrow phone the panel
+// shrinks instead of escaping the viewport).
+// =============================================================================
+
+:host ::ng-deep .notification-bell-menu.mat-mdc-menu-panel {
+  // Constant comfortable width on desktop; shrink to fit on narrow phones with
+  // a small breathing margin so the panel never spills past the viewport edge.
+  min-width: min(360px, calc(100vw - 32px));
+  max-width: min(440px, calc(100vw - 16px));
+
+  // Belt-and-suspenders: prevent any future inner element from re-introducing
+  // horizontal scroll on the panel itself.
+  overflow-x: hidden;
+}
+
+// The menu items render in `.mat-mdc-menu-content`; keep their text wrapped
+// inside the panel rather than relying on the inner template's max-width.
+:host ::ng-deep .notification-bell-menu .mat-mdc-menu-content {
+  overflow-x: hidden;
+}

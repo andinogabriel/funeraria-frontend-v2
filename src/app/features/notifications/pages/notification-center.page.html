@@ -62,12 +62,7 @@
         </button>
 
         @if (unreadCount() > 0) {
-          <button
-            mat-stroked-button
-            type="button"
-            (click)="onMarkAllRead()"
-            class="!ml-2"
-          >
+          <button mat-stroked-button type="button" (click)="onMarkAllRead()" class="!ml-2">
             <mat-icon class="material-symbols-outlined">done_all</mat-icon>
             Marcar todas
           </button>

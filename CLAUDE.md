@@ -48,6 +48,32 @@ npm run build                # prod build, esbuild, hashed assets, budgets enfor
 
 CI runs format → lint → test → build, in that order. Local sequence before pushing: same.
 
+**Pre-push checklist (non-negotiable, run in this exact order):**
+
+```bash
+npm run format         # rewrites files in place — does NOT fail on issues
+npm run format:check   # same check CI runs; fails the build on a single mis-formatted file
+npm run lint
+npm test
+npm run build
+```
+
+`npm run format:check` is the first job in CI and a single Prettier mismatch
+(a long Tailwind class line, a stray trailing space inside a `<button>` tag,
+an HTML attribute that ran past the 100-col print width) red-X'es the whole
+pipeline before lint / test / build even run. Running `npm run format` rewrites
+the offending files but does NOT exit non-zero on its own — always follow it
+with `npm run format:check` so you discover the failure locally rather than on
+the CI page after the push.
+
+Common Prettier traps the agent has tripped on:
+- Multi-line `<button>` openings with attributes that fit on one line after Prettier collapses them.
+- `class="..."` attributes longer than 100 chars that need wrapping onto the next line.
+- Inline `@if/@for` block braces (Prettier reformats whitespace around `{` / `}`).
+
+If you are about to push, the answer to "did I run format:check?" should be
+"yes, two seconds ago." If it is "I think so" — run it again.
+
 ## Decisions you'd otherwise have to rediscover
 
 - **Zoneless from day 1.** Don't reintroduce `provideZoneChangeDetection` or `zone.js`. Async work needs to flip a signal or call a `ChangeDetectorRef` API. (See `app.config.ts`, ADR-0001.)
@@ -101,3 +127,4 @@ they are plain Markdown describing every convention this repo enforces.
 - Don't `import 'zone.js'` anywhere; we are zoneless.
 - Don't run a deep dependency upgrade in a feature PR — gate breaking dep bumps behind their own ADR + PR.
 - Don't expose a writable signal from a service when a `readonly` projection is enough; consumers should not be able to `.set()` from outside.
+- Don't `git push` without running `npm run format:check` (and lint + test) locally first. CI's first job is Prettier — a single mis-formatted attribute red-X'es the whole pipeline. See the pre-push checklist in the Commands section.
