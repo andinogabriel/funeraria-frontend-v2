@@ -40,14 +40,15 @@
 }
 
 // Compact the page-size <mat-select> footprint. The default Material outlined
-// form field reserves room for a floating label + 16/8 px vertical padding,
-// which made the control noticeably taller than the paginator buttons next to
-// it — the bottom edge of the dropdown rim was kissing the paginator's chrome
-// and read as a layout glitch. We trim the infix padding, lock a smaller
-// min-height, and shrink the input/value sizing so the control aligns
-// visually with the 40-px tall paginator arrows.
+// form field reserves room for a floating label + 16/8 px vertical padding +
+// generous horizontal padding, which made the control both taller than the
+// paginator buttons next to it AND wide enough that "Filas: [10] 1-10 de 137
+// |< < > >|" overflowed a 360 px viewport. We trim the infix padding, lock a
+// smaller min-height, shrink the value sizing AND clamp the width hard so the
+// whole paginator bar fits on a single mobile row without a horizontal
+// scrollbar. The value is at most 3 chars ("100") so a narrow box is plenty.
 .data-table__page-size-select {
-  width: 96px;
+  width: 56px;
 }
 
 :host ::ng-deep .data-table__page-size-select .mat-mdc-form-field-infix {
@@ -60,6 +61,13 @@
   align-items: center;
 }
 
+// Trim the outlined field's horizontal padding so the compact box hugs the
+// 2-3 digit value + arrow instead of reserving label-sized gutters.
+:host ::ng-deep .data-table__page-size-select .mat-mdc-text-field-wrapper {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
 :host ::ng-deep .data-table__page-size-select .mat-mdc-select-value,
 :host ::ng-deep .data-table__page-size-select .mat-mdc-select-arrow-wrapper {
   font-size: 14px;
@@ -68,13 +76,28 @@
 // Keep the paginator range label ("1 – 4 de 4") on a single line so each
 // space does not become a line break (the operator would otherwise see a
 // vertical "1 / – / 4 / de / 4"). The paginator's outer container stays
-// nowrap so the range label + nav buttons live next to each other; the
-// responsive layout in data-table.component.html (`flex-col sm:flex-row`)
-// owns the "no horizontal scroll on mobile" guarantee by stacking the
-// paginator below the page-size selector on narrow viewports.
+// nowrap so the range label + nav buttons live next to each other. The
+// margins are tight (4 px) on mobile and relax to the Material-standard 8/16
+// px on sm+; combined with the compact page-size select above, this is what
+// lets the full bar (label + select + range + 4 nav buttons) fit on one row
+// without a horizontal scrollbar even at 360 px.
 :host ::ng-deep .mat-mdc-paginator-range-label {
   white-space: nowrap;
-  margin: 0 16px 0 8px;
+  margin: 0 4px;
+}
+
+@media (min-width: 640px) {
+  :host ::ng-deep .mat-mdc-paginator-range-label {
+    margin: 0 16px 0 8px;
+  }
+}
+
+// Strip the paginator's own horizontal padding on mobile so it does not add
+// gutters on top of our bar's `px-2`. Material defaults to 0 8px which, with
+// four 40 px buttons, is enough to tip a 360 px viewport into overflow.
+:host ::ng-deep .mat-mdc-paginator-container {
+  padding: 0;
+  justify-content: flex-end;
 }
 
 :host ::ng-deep .mat-mdc-paginator-container,
