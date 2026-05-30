@@ -469,31 +469,35 @@
       `<mat-select>` so we can grey out 50/100 while the dataset is too small
       to surface anything in those buckets (see `effectivePageSizeOptions`).
 
-      Layout — responsive:
-        - Mobile (default): the "Filas por página" selector + the paginator
-          STACK vertically. Each block sits on its own row right-aligned so
-          the row label, select, range label and nav buttons all read in the
-          same RTL order without overflowing a 360 px viewport.
-        - sm+ (>=640 px): single horizontal row. `sm:ml-auto` on the paginator
-          pushes it to the right whether the size selector is shown or not,
-          so the bar reads as "size selector on the left, paginator on the
-          right" (or "paginator alone on the right" when the selector is
-          hidden).
-
-      The previous revision forced a single row on every viewport AND
-      explicitly allowed horizontal overflow on narrow screens. That dragged a
-      scrollbar across every mobile list page — the operator had to scroll
-      horizontally just to reach the next-page arrow. Stacking on mobile is
-      worth the extra ~40 px of vertical real estate.
+      Layout — single row on EVERY viewport, no horizontal scroll. The trick
+      to fitting label + select + range + 4 nav buttons inside a 360 px
+      viewport without sacrificing any control is to compress the non-touch
+      bits (everything except the 40 px nav buttons) rather than to drop or
+      stack anything:
+        - The page-size label shortens to "Filas:" on mobile and expands to
+          "Filas por página:" on sm+ (`hidden`/`inline` spans). The select
+          keeps a full `aria-labelledby` pointing at the visually-hidden long
+          label so screen readers always hear the complete text.
+        - The page-size select is rendered as a compact, chrome-less inline
+          control (see `.data-table__page-size-select` in the SCSS) so the
+          label + value + arrow read as one tight "Filas: 10 v" unit
+          (~64 px) instead of a full outlined form field (~96 px+).
+        - The paginator's range-label margins are tightened on mobile (SCSS)
+          and `gap-1` keeps the whole bar snug.
+        - `sm:ml-auto` pushes the paginator to the right on desktop; on
+          mobile the natural flow (`flex-row` + `flex-1` spacer) keeps the
+          selector left, paginator right.
+      All four nav buttons (first / prev / next / last) stay on every
+      breakpoint — jumping to the last page of a 100+ row dataset is a real
+      operator need, not a desktop-only luxury.
     -->
     <div
-      class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center !bg-[var(--mat-sys-surface)] px-2 pt-2"
+      class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-row items-center gap-1 !bg-[var(--mat-sys-surface)] px-2 pt-2"
     >
       @if (!hidePageSizeSelector()) {
-        <div
-          class="data-table__page-size-label flex items-center justify-end gap-2 text-sm sm:justify-start"
-        >
-          <span id="data-table-page-size-label">Filas por página:</span>
+        <div class="data-table__page-size-label flex items-center gap-1 text-sm shrink-0">
+          <span id="data-table-page-size-label" class="hidden sm:inline">Filas por página:</span>
+          <span aria-hidden="true" class="sm:hidden">Filas:</span>
           <mat-form-field
             appearance="outline"
             subscriptSizing="dynamic"
@@ -513,8 +517,9 @@
           </mat-form-field>
         </div>
       }
+      <span class="flex-1"></span>
       <mat-paginator
-        class="sm:ml-auto"
+        class="shrink-0"
         [length]="paginatorLength()"
         [pageSize]="pageSize()"
         [pageSizeOptions]="pageSizeOptions()"
