@@ -65,13 +65,13 @@
   font-size: 14px;
 }
 
-// Stop the paginator range label ("1 – 4 de 4") from wrapping when the bar
-// is tight on mobile — without `white-space: nowrap` each space in the label
-// becomes a line break and the operator sees a vertical "1 / – / 4 / de / 4"
-// instead of one readable string. The paginator's outer container also
-// wraps by default; force it to stay on a single row so the label + nav
-// buttons live next to each other, and let horizontal overflow happen on
-// very narrow screens (cheaper than re-laying out the bar conditionally).
+// Keep the paginator range label ("1 – 4 de 4") on a single line so each
+// space does not become a line break (the operator would otherwise see a
+// vertical "1 / – / 4 / de / 4"). The paginator's outer container stays
+// nowrap so the range label + nav buttons live next to each other; the
+// responsive layout in data-table.component.html (`flex-col sm:flex-row`)
+// owns the "no horizontal scroll on mobile" guarantee by stacking the
+// paginator below the page-size selector on narrow viewports.
 :host ::ng-deep .mat-mdc-paginator-range-label {
   white-space: nowrap;
   margin: 0 16px 0 8px;

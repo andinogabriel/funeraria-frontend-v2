@@ -1,5 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { FormArray, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormArray,
+  NonNullableFormBuilder,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
@@ -7,13 +15,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
+import { AUTOCOMPLETE_MIN_CHARS, normaliseForSearch } from '../../../shared/search';
 import { ItemService } from '../../items/item.service';
+import type { Item } from '../../items/item.types';
 import { PlanService } from '../plan.service';
 import type { Plan, PlanRequest } from '../plan.types';
 
@@ -38,6 +47,7 @@ import type { Plan, PlanRequest } from '../plan.types';
   selector: 'app-plan-form-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    MatAutocompleteModule,
     MatButtonModule,
     MatCardModule,
     MatDividerModule,
@@ -45,7 +55,6 @@ import type { Plan, PlanRequest } from '../plan.types';
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatSelectModule,
     MatTooltipModule,
     ReactiveFormsModule,
     RouterLink,
@@ -71,12 +80,105 @@ export class PlanFormPage {
   protected readonly submitting = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
 
-  /** Catalog of items used to populate the picker dropdown inside each item row. */
+  /** Catalog of items used to populate the picker autocomplete inside each item row. */
   protected readonly items = this.itemService.list;
   protected readonly itemsLoading = this.itemService.loading;
 
   /** Convenience for the template — disables the submit while we are still loading. */
   protected readonly itemsReady = computed(() => this.items() !== null);
+
+  /**
+   * Synchronous Map keyed by item code → item, rebuilt whenever the catalog
+   * loads. Used by {@link displayItemName} (called by mat-autocomplete's
+   * `displayWith`) and the item-code validator. A Map lookup is O(1) and is
+   * called on every keystroke + render, so the find-loop the previous
+   * mat-select form used does not scale once the catalog grows past a few
+   * dozen entries.
+   */
+  protected readonly itemsByCode = computed<ReadonlyMap<string, Item>>(() => {
+    const all = this.items() ?? [];
+    return new Map(all.map((entry) => [entry.code, entry]));
+  });
+
+  /**
+   * `displayWith` handler for mat-autocomplete. Resolves a stored item code
+   * back to its display name so the input reads as "Cofre Económico Pino"
+   * after the operator picks it instead of showing the raw code. Falls back
+   * to the value verbatim when the catalog has not loaded yet or while the
+   * operator is typing a partial query that is not (yet) a real code — in
+   * that case the input shows the typed text, the autocomplete panel shows
+   * matching items, and {@link itemCodeValidator} keeps the form invalid
+   * until a real code is picked.
+   */
+  protected readonly displayItemName = (codeOrText: string | null): string => {
+    if (!codeOrText) {
+      return '';
+    }
+    return this.itemsByCode().get(codeOrText)?.name ?? codeOrText;
+  };
+
+  /**
+   * Returns the filtered list of items for the autocomplete panel rendered by
+   * the row at {@code rowIndex}.
+   *
+   * <p>Behaviour follows the "Autocomplete pickers in forms" convention
+   * documented in CLAUDE.md:
+   * <ul>
+   *   <li>Hidden until the operator has typed at least
+   *       {@link AUTOCOMPLETE_MIN_CHARS} characters — keeps an accidental
+   *       focus from dumping the whole catalog on screen.</li>
+   *   <li>Match is diacritic + case-insensitive via
+   *       {@link normaliseForSearch} so "cir" finds "Cirio Pascual", "tio"
+   *       finds "Tío", etc.</li>
+   *   <li>Capped at 8 results so the panel never grows past a comfortable
+   *       scroll height.</li>
+   * </ul>
+   *
+   * <p>The plan-form catalog is loaded once into memory so the filter is
+   * synchronous — no debounce is necessary because no backend call is made
+   * per keystroke. Backend-driven pickers should still debounce by
+   * {@code AUTOCOMPLETE_DEBOUNCE_MS} (see CLAUDE.md).
+   */
+  protected filteredItemsFor(rowIndex: number): readonly Item[] {
+    const all = this.items();
+    if (all === null) {
+      return [];
+    }
+    const group = this.itemsPlan.at(rowIndex) as
+      | ReturnType<PlanFormPage['createItemGroup']>
+      | undefined;
+    if (!group) {
+      return [];
+    }
+    const search = String(group.controls.code.value ?? '');
+    const needle = normaliseForSearch(search.trim());
+    if (needle.length < AUTOCOMPLETE_MIN_CHARS) {
+      return [];
+    }
+    return all.filter((entry) => normaliseForSearch(entry.name).includes(needle)).slice(0, 8);
+  }
+
+  /**
+   * Sync validator wired onto the per-row {@code code} control. Marks the
+   * field invalid when the operator has typed text that does not correspond
+   * to a real catalog entry — without this check, a partial query like
+   * "cir" would happily pass the {@code required} validator and submit.
+   *
+   * <p>Returns {@code null} (valid) while the catalog is still loading so
+   * the edit-mode hydrate path (see {@link patchFrom}) does not flash an
+   * "invalid item" error between the patch and the catalog landing.
+   */
+  private readonly itemCodeValidator = (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value;
+    if (value === null || value === '') {
+      return null;
+    }
+    const map = this.itemsByCode();
+    if (map.size === 0) {
+      return null;
+    }
+    return map.has(String(value)) ? null : { invalidItem: true };
+  };
 
   /**
    * Plan form. `name` and `profitPercentage` are required; `description` is free-text.
@@ -202,7 +304,14 @@ export class PlanFormPage {
    */
   private createItemGroup() {
     return this.fb.group({
-      code: this.fb.control<string | null>(null, { validators: [Validators.required] }),
+      // `code` doubles as the bound value of the mat-autocomplete input — it
+      // carries the catalog code when an option is picked AND the partial
+      // text while the operator is typing. `itemCodeValidator` rejects any
+      // value that is not a real catalog code so a half-typed "cir" cannot
+      // sneak through the required check on submit.
+      code: this.fb.control<string | null>(null, {
+        validators: [Validators.required, this.itemCodeValidator],
+      }),
       quantity: this.fb.control<number | null>(null, {
         validators: [Validators.required, Validators.min(1), Validators.max(200)],
       }),

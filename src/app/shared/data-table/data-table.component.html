@@ -466,21 +466,33 @@
     <!--
       MatPaginator's `pageSizeOptions` is a flat number[] — it has no per-option
       disabled hook. We hide the built-in selector and render our own
-      `<mat-select>` so we can grey out 50/100 while the dataset is too small to
-      surface anything in those buckets (see `effectivePageSizeOptions`).
+      `<mat-select>` so we can grey out 50/100 while the dataset is too small
+      to surface anything in those buckets (see `effectivePageSizeOptions`).
 
-      Layout: single row on every viewport. `ml-auto` on the paginator below
-      pushes it to the right whether the size selector is shown or not, so
-      the bar always reads as "size selector on the left, paginator on the
-      right" (or "paginator alone on the right" when the selector is hidden).
-      `pt-2` carries breathing room between the last data row and the bar so
-      the two read as separate blocks.
+      Layout — responsive:
+        - Mobile (default): the "Filas por página" selector + the paginator
+          STACK vertically. Each block sits on its own row right-aligned so
+          the row label, select, range label and nav buttons all read in the
+          same RTL order without overflowing a 360 px viewport.
+        - sm+ (>=640 px): single horizontal row. `sm:ml-auto` on the paginator
+          pushes it to the right whether the size selector is shown or not,
+          so the bar reads as "size selector on the left, paginator on the
+          right" (or "paginator alone on the right" when the selector is
+          hidden).
+
+      The previous revision forced a single row on every viewport AND
+      explicitly allowed horizontal overflow on narrow screens. That dragged a
+      scrollbar across every mobile list page — the operator had to scroll
+      horizontally just to reach the next-page arrow. Stacking on mobile is
+      worth the extra ~40 px of vertical real estate.
     -->
     <div
-      class="data-table__paginator-bar sticky bottom-0 z-10 flex items-center gap-2 !bg-[var(--mat-sys-surface)] px-2 pt-2"
+      class="data-table__paginator-bar sticky bottom-0 z-10 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center !bg-[var(--mat-sys-surface)] px-2 pt-2"
     >
       @if (!hidePageSizeSelector()) {
-        <div class="data-table__page-size-label flex items-center gap-2 text-sm">
+        <div
+          class="data-table__page-size-label flex items-center justify-end gap-2 text-sm sm:justify-start"
+        >
           <span id="data-table-page-size-label">Filas por página:</span>
           <mat-form-field
             appearance="outline"
@@ -502,7 +514,7 @@
         </div>
       }
       <mat-paginator
-        class="ml-auto"
+        class="sm:ml-auto"
         [length]="paginatorLength()"
         [pageSize]="pageSize()"
         [pageSizeOptions]="pageSizeOptions()"
