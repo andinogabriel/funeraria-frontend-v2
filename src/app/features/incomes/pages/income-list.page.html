@@ -66,8 +66,16 @@
   <mat-card
     class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
   >
+    <!--
+      Toolbar. On mobile the status filter (Activos / Anulados / Todos) takes a
+      full row of its own and the secondary controls (Limpiar filtros + the
+      icon-only row actions) wrap onto the row below — cramming all of it onto
+      one flex-row overflowed a 360 px viewport. On sm+ everything sits inline
+      again: filter left, Limpiar filtros centred between two spacers, actions
+      right.
+    -->
     <div
-      class="flex flex-row items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
+      class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-4 sm:px-6 py-4 border-b border-[var(--mat-sys-outline-variant)] shrink-0"
     >
       <!--
         Lifecycle filter chips on the toolbar's left edge. ACTIVE is the
@@ -77,6 +85,7 @@
         the page-0 reset rides through `onStatusChange`.
       -->
       <mat-button-toggle-group
+        class="self-start sm:self-auto"
         [value]="statusFilter()"
         (change)="onStatusChange($event.value)"
         hideSingleSelectionIndicator="true"
@@ -87,50 +96,61 @@
         <mat-button-toggle value="">Todos</mat-button-toggle>
       </mat-button-toggle-group>
 
-      @if (hasActiveFilters()) {
-        <button
-          mat-stroked-button
-          type="button"
-          (click)="onClearFilters()"
-          matTooltip="Limpiar todos los filtros aplicados"
-          aria-label="Limpiar filtros"
-        >
-          <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
-          Limpiar filtros
-        </button>
-      }
+      <!--
+        Secondary controls. On mobile this is its own flex row below the filter
+        toggle (Limpiar filtros left, row actions right). On sm+ it dissolves
+        into the parent flex-row via `sm:contents` so the original inline
+        layout is preserved: a leading desktop-only spacer + a trailing spacer
+        keep "Limpiar filtros" centred between the toggle and the row actions.
+      -->
+      <div class="flex flex-row items-center gap-2 sm:contents">
+        <span class="hidden sm:block flex-1"></span>
 
-      <span class="flex-1"></span>
+        @if (hasActiveFilters()) {
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="onClearFilters()"
+            matTooltip="Limpiar todos los filtros aplicados"
+            aria-label="Limpiar filtros"
+          >
+            <mat-icon class="material-symbols-outlined">filter_alt_off</mat-icon>
+            <span class="hidden sm:inline">Limpiar filtros</span>
+          </button>
+        }
 
-      <div class="flex items-center gap-1 shrink-0">
-        <button
-          mat-icon-button
-          [disabled]="!hasSelection()"
-          (click)="onShowDetail()"
-          matTooltip="Ver detalle"
-          aria-label="Ver detalle del ingreso seleccionado"
-        >
-          <mat-icon class="material-symbols-outlined">visibility</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          [disabled]="!hasSelection()"
-          (click)="onEdit()"
-          matTooltip="Editar"
-          aria-label="Editar ingreso seleccionado"
-        >
-          <mat-icon class="material-symbols-outlined">edit</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          color="warn"
-          [disabled]="!canAnnul()"
-          (click)="onAnnul()"
-          matTooltip="Anular ingreso"
-          aria-label="Anular ingreso seleccionado"
-        >
-          <mat-icon class="material-symbols-outlined">block</mat-icon>
-        </button>
+        <span class="flex-1"></span>
+
+        <div class="flex items-center gap-1 shrink-0">
+          <button
+            mat-icon-button
+            [disabled]="!hasSelection()"
+            (click)="onShowDetail()"
+            matTooltip="Ver detalle"
+            aria-label="Ver detalle del ingreso seleccionado"
+          >
+            <mat-icon class="material-symbols-outlined">visibility</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            [disabled]="!hasSelection()"
+            (click)="onEdit()"
+            matTooltip="Editar"
+            aria-label="Editar ingreso seleccionado"
+          >
+            <mat-icon class="material-symbols-outlined">edit</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            color="warn"
+            [disabled]="!canAnnul()"
+            (click)="onAnnul()"
+            matTooltip="Anular ingreso"
+            aria-label="Anular ingreso seleccionado"
+          >
+            <mat-icon class="material-symbols-outlined">block</mat-icon>
+          </button>
+        </div>
       </div>
     </div>
 
