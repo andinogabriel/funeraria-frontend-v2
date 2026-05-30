@@ -49,10 +49,21 @@
 
     @if (data.incomeDetails.length > 0) {
       <mat-divider class="!my-4" />
-      <section>
-        <h3 class="text-sm font-semibold m-0 mb-2 text-[var(--mat-sys-on-surface-variant)]">
-          Detalle de items
-        </h3>
+      <!--
+        Line-item sub-list lives in an expansion panel per the frontend-architect
+        rule ("Sub-lists inside a form / dialog / detail panel ship in a
+        mat-expansion-panel [expanded]=true with the item count on
+        mat-panel-description"). Starts expanded so the breakdown is visible
+        without a click, but the operator can collapse it to scan the supplier +
+        audit blocks on a small screen. Same idiom the affiliate detail dialog
+        uses for its Domicilios sub-list.
+      -->
+      <mat-expansion-panel [expanded]="true" class="!shadow-none !rounded-lg">
+        <mat-expansion-panel-header>
+          <mat-panel-title class="text-sm font-semibold">Detalle de items</mat-panel-title>
+          <mat-panel-description>{{ data.incomeDetails.length }} ítems</mat-panel-description>
+        </mat-expansion-panel-header>
+
         <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
           @for (line of data.incomeDetails; track line.item.code) {
             <li class="grid grid-cols-[1fr_auto] gap-2 py-2">
@@ -76,7 +87,7 @@
             </li>
           }
         </ul>
-      </section>
+      </mat-expansion-panel>
     }
 
     <mat-divider class="!my-4" />

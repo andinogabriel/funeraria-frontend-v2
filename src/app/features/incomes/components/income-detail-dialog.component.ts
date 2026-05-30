@@ -7,6 +7,7 @@ import {
   MatDialogContent,
 } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 
 import { DialogHeaderComponent, DraggableDialogDirective } from '../../../shared/dialog-header';
@@ -29,6 +30,7 @@ import type { Income } from '../income.types';
     MatDialogClose,
     MatDialogContent,
     MatDividerModule,
+    MatExpansionModule,
     MatIconModule,
   ],
   templateUrl: './income-detail-dialog.component.html',
