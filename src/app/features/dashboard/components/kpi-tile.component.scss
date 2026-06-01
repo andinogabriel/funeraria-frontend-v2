@@ -153,28 +153,35 @@
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  // A hairline border carries the colour cue so the fill can stay whisper-soft
+  // (≈10%) and sit calmly on the glass surface instead of shouting.
+  border: 1px solid transparent;
 
-  // Deeper fill + darker ink than the v1 pastels so the delta reads clearly on
-  // the glass surface (operator feedback: the light red/green washed out).
+  // Muted, desaturated palette that harmonises with the pastel glassmorphism:
+  // emerald for up, rose for down (softer / more refined than fire-engine red).
   &--positive {
-    background: color-mix(in srgb, #059669 26%, transparent);
-    color: #065f46;
+    background: color-mix(in srgb, #10b981 12%, transparent);
+    border-color: color-mix(in srgb, #10b981 28%, transparent);
+    color: #047857;
   }
 
   &--negative {
-    background: color-mix(in srgb, #dc2626 24%, transparent);
-    color: #991b1b;
+    background: color-mix(in srgb, #f43f5e 10%, transparent);
+    border-color: color-mix(in srgb, #f43f5e 26%, transparent);
+    color: #be123c;
   }
 }
 
 @media (prefers-color-scheme: dark) {
   .kpi-tile__trend--positive {
-    background: color-mix(in srgb, #10b981 30%, transparent);
-    color: #a7f3d0;
+    background: color-mix(in srgb, #10b981 20%, transparent);
+    border-color: color-mix(in srgb, #34d399 34%, transparent);
+    color: #6ee7b7;
   }
   .kpi-tile__trend--negative {
-    background: color-mix(in srgb, #ef4444 30%, transparent);
-    color: #fecaca;
+    background: color-mix(in srgb, #f43f5e 20%, transparent);
+    border-color: color-mix(in srgb, #fb7185 34%, transparent);
+    color: #fda4af;
   }
 }
 
