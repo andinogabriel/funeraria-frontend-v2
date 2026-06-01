@@ -3,7 +3,14 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { ActivityFeedEntry, ActivityFeedResponse, DashboardMetrics } from './metrics.types';
+import type {
+  ActivityFeedEntry,
+  ActivityFeedResponse,
+  DashboardMetrics,
+  KpiMetric,
+  MetricKind,
+  MetricRange,
+} from './metrics.types';
 
 /**
  * Read-only client for the dashboard's two metrics endpoints:
@@ -23,6 +30,7 @@ export class MetricsService {
 
   private readonly http = inject(HttpClient);
   private readonly dashboardEndpoint = `${environment.apiBaseUrl}/v1/metrics/dashboard`;
+  private readonly seriesEndpoint = `${environment.apiBaseUrl}/v1/metrics/dashboard/series`;
   private readonly activityFeedEndpoint = `${environment.apiBaseUrl}/v1/metrics/activity-feed`;
 
   private readonly _snapshot = signal<DashboardMetrics | null>(null);
@@ -94,6 +102,16 @@ export class MetricsService {
         },
       }),
     );
+  }
+
+  /**
+   * Recomputes a single time-windowed KPI for an operator-selected range. Stateless — the
+   * dashboard page owns the per-card override signal — so this just returns the one-shot
+   * observable. Backs the per-card range dropdown.
+   */
+  loadSeries(metric: MetricKind, range: MetricRange): Observable<KpiMetric> {
+    const params = new HttpParams().set('metric', metric).set('range', range);
+    return this.http.get<KpiMetric>(this.seriesEndpoint, { params });
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

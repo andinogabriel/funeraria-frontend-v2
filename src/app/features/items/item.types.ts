@@ -90,6 +90,12 @@ export interface ItemPageQuery {
   readonly categoryName?: string;
   /** Exact match on the linked brand's name (frontend autocomplete commit). */
   readonly brandName?: string;
+  /**
+   * When `true`, restricts the page to items at or below their low-stock threshold.
+   * Backs the dashboard "Stock crítico" tile's deep-link. Omitted (falsy) means no
+   * restriction.
+   */
+  readonly lowStock?: boolean;
 }
 
 /**

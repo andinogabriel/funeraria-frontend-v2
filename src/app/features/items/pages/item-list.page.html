@@ -71,6 +71,16 @@
     </div>
   }
 
+  @if (filterState().lowStock) {
+    <div
+      class="flex items-center gap-2 rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      <mat-icon class="material-symbols-outlined">warning</mat-icon>
+      <span class="flex-1">Mostrando solo items con stock en o por debajo de su umbral.</span>
+      <button mat-button type="button" (click)="onClearFilters()">Ver todos</button>
+    </div>
+  }
+
   <mat-card
     class="!rounded-xl flex flex-col overflow-y-auto sm:!overflow-hidden max-h-[calc(100dvh-200px)] sm:max-h-none"
   >
@@ -138,6 +148,7 @@
       [columnFilters]="columnFilters()"
       [emptyState]="emptyState()"
       [selectable]="true"
+      [rowClass]="lowStockRowClass"
       [(selectedRow)]="selectedItem"
       (pageChange)="onPageChange($event)"
       (sortChange)="onSortChange($event)"

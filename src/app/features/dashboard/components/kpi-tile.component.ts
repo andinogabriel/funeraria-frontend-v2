@@ -1,5 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
+
+/** One selectable rolling window offered by a tile's range menu. */
+export interface KpiRangeOption {
+  readonly value: string;
+  readonly label: string;
+}
 
 /**
  * Stat tile for the dashboard bento grid. Renders the standard "icon + eyebrow
@@ -28,7 +36,7 @@ import { MatIconModule } from '@angular/material/icon';
 @Component({
   selector: 'app-kpi-tile',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatButtonModule, MatIconModule, MatMenuModule],
   templateUrl: './kpi-tile.component.html',
   styleUrl: './kpi-tile.component.scss',
 })
@@ -59,6 +67,56 @@ export class KpiTileComponent {
 
   /** Optional normalised sparkline; 8–12 entries between 0 and 1 work best. */
   readonly sparkline = input<readonly number[] | null>(null);
+
+  /**
+   * When `true`, the whole tile becomes an actionable button (cursor, focus ring,
+   * trailing arrow) that emits {@link tileClick}. Used by the dashboard to drill into
+   * the filtered list view behind the KPI.
+   */
+  readonly interactive = input(false);
+
+  /** Emitted when an {@link interactive} tile is activated (click / Enter / Space). */
+  readonly tileClick = output<void>();
+
+  /**
+   * Optional rolling-window options shown in a compact range menu in the tile header.
+   * When empty, no menu renders. The menu button stops propagation so picking a range
+   * never triggers {@link tileClick}.
+   */
+  readonly ranges = input<readonly KpiRangeOption[]>([]);
+
+  /** Currently selected range value (matches one {@link KpiRangeOption.value}). */
+  readonly selectedRange = input<string | null>(null);
+
+  /** Emitted with the new range value when the operator picks one from the menu. */
+  readonly rangeChange = output<string>();
+
+  /** Label of the active range, shown on the menu trigger; falls back to the first option. */
+  protected readonly selectedRangeLabel = computed(() => {
+    const opts = this.ranges();
+    if (opts.length === 0) {
+      return null;
+    }
+    const active = opts.find((o) => o.value === this.selectedRange());
+    return (active ?? opts[0]).label;
+  });
+
+  protected onActivate(): void {
+    if (this.interactive()) {
+      this.tileClick.emit();
+    }
+  }
+
+  protected onKeydown(event: KeyboardEvent): void {
+    if (this.interactive() && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      this.tileClick.emit();
+    }
+  }
+
+  protected onRangePick(value: string): void {
+    this.rangeChange.emit(value);
+  }
 
   protected readonly chipClass = computed(() => {
     switch (this.tone()) {

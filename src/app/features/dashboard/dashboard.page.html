@@ -59,39 +59,56 @@
           />
           <app-kpi-tile
             icon="church"
-            label="Servicios del mes"
+            label="Servicios"
             tone="tertiary"
-            hint="vs. mes anterior"
+            hint="vs. período anterior"
+            [interactive]="true"
+            [ranges]="flowRanges"
+            [selectedRange]="servicesRange()"
             [value]="funeralsTile().value"
             [trend]="funeralsTile().trend"
             [sparkline]="funeralsTile().sparkline"
+            (tileClick)="openServices()"
+            (rangeChange)="onServicesRange($event)"
           />
           <app-kpi-tile
             icon="shopping_cart"
-            label="Compras del mes"
+            label="Compras"
             tone="primary"
-            hint="vs. mes anterior"
+            hint="vs. período anterior"
+            [interactive]="true"
+            [ranges]="flowRanges"
+            [selectedRange]="purchasesRange()"
             [value]="purchasesTile().value"
             [trend]="purchasesTile().trend"
             [sparkline]="purchasesTile().sparkline"
+            (tileClick)="openPurchases()"
+            (rangeChange)="onPurchasesRange($event)"
           />
           <app-kpi-tile
             icon="inventory_2"
             label="Stock crítico"
             tone="secondary"
             hint="items bajo su umbral"
+            [interactive]="true"
             [value]="criticalStockTile().value"
             [trend]="criticalStockTile().trend"
             [sparkline]="criticalStockTile().sparkline"
+            (tileClick)="openCriticalStock()"
           />
           <app-kpi-tile
             icon="policy"
-            label="Eventos auditados (24 h)"
+            label="Eventos auditados"
             tone="neutral"
-            hint="vs. 24 h anteriores"
+            hint="vs. período anterior"
+            [interactive]="true"
+            [ranges]="auditRanges"
+            [selectedRange]="auditRange()"
             [value]="auditTile().value"
             [trend]="auditTile().trend"
             [sparkline]="auditTile().sparkline"
+            (tileClick)="openAudit()"
+            (rangeChange)="onAuditRange($event)"
           />
         </div>
       </div>
