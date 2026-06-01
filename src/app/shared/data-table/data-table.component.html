@@ -507,6 +507,7 @@
               [value]="pageSize()"
               (selectionChange)="onPageSizeSelect($event.value)"
               aria-labelledby="data-table-page-size-label"
+              [panelWidth]="null"
             >
               @for (option of effectivePageSizeOptions(); track option.value) {
                 <mat-option [value]="option.value" [disabled]="option.disabled">
