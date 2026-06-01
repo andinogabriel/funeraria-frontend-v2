@@ -1,0 +1,142 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      account_balance_wallet
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Arqueo diario</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Cierre de caja del día: ingresos por servicios, compras a proveedores y neto.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+
+    <!--
+      Header controls. On mobile the date picker stacks above the refresh button so neither
+      overflows a 360 px viewport; on sm+ they sit inline, picker then button.
+    -->
+    <div class="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
+      <mat-form-field appearance="fill" subscriptSizing="dynamic" class="w-full sm:w-48">
+        <mat-label>Día</mat-label>
+        <input
+          matInput
+          [matDatepicker]="dayPicker"
+          [formControl]="dateControl"
+          [max]="today"
+          (dateChange)="load()"
+        />
+        <mat-datepicker-toggle matIconSuffix [for]="dayPicker" />
+        <mat-datepicker #dayPicker />
+      </mat-form-field>
+
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="load()"
+        [disabled]="loading()"
+        matTooltip="Actualizar"
+        aria-label="Actualizar arqueo"
+      >
+        <mat-icon class="material-symbols-outlined">refresh</mat-icon>
+        <span class="hidden sm:inline">Actualizar</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  @if (loading() && report() === null) {
+    <div class="flex justify-center py-16">
+      <mat-spinner diameter="36" />
+    </div>
+  } @else if (report(); as r) {
+    <!--
+      Three summary cards. Servicios (money in) and Compras (money out) carry their count +
+      total; Compras also surfaces how many originals were annulled that day (the reversal
+      counter-entries already net out of its total, so the count is informational). The Neto
+      card tints red when negative — more spent on stock than taken in.
+    -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <mat-card class="!rounded-xl">
+        <mat-card-content class="!p-6 flex flex-col gap-2">
+          <div class="flex items-center gap-2 text-[var(--mat-sys-on-surface-variant)]">
+            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">church</mat-icon>
+            <span class="text-sm font-medium">Servicios</span>
+          </div>
+          <span class="text-2xl font-semibold tabular-nums">
+            {{ r.services.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+          </span>
+          <span class="text-sm text-[var(--mat-sys-on-surface-variant)]">
+            {{ r.services.count }} {{ r.services.count === 1 ? 'servicio' : 'servicios' }}
+          </span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="!rounded-xl">
+        <mat-card-content class="!p-6 flex flex-col gap-2">
+          <div class="flex items-center gap-2 text-[var(--mat-sys-on-surface-variant)]">
+            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">receipt_long</mat-icon>
+            <span class="text-sm font-medium">Compras</span>
+          </div>
+          <span class="text-2xl font-semibold tabular-nums">
+            {{ r.purchases.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+          </span>
+          <span class="text-sm text-[var(--mat-sys-on-surface-variant)]">
+            {{ r.purchases.count }} {{ r.purchases.count === 1 ? 'ingreso' : 'ingresos' }}
+            @if (r.purchases.annulledCount > 0) {
+              · {{ r.purchases.annulledCount }}
+              {{ r.purchases.annulledCount === 1 ? 'anulado' : 'anulados' }}
+            }
+          </span>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="!rounded-xl" [class.!bg-[var(--mat-sys-error-container)]]="netIsNegative()">
+        <mat-card-content class="!p-6 flex flex-col gap-2">
+          <div
+            class="flex items-center gap-2"
+            [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
+            [class.text-[var(--mat-sys-on-surface-variant)]]="!netIsNegative()"
+          >
+            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">
+              account_balance
+            </mat-icon>
+            <span class="text-sm font-medium">Neto del día</span>
+          </div>
+          <span
+            class="text-2xl font-semibold tabular-nums"
+            [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
+          >
+            {{ r.net | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+          </span>
+          <span
+            class="text-sm"
+            [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
+            [class.text-[var(--mat-sys-on-surface-variant)]]="!netIsNegative()"
+          >
+            Servicios − Compras
+          </span>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  } @else {
+    <div class="flex flex-col items-center gap-3 py-16 px-6 text-center">
+      <mat-icon
+        class="material-symbols-outlined !text-6xl !w-16 !h-16 text-[var(--mat-sys-on-surface-variant)]"
+      >
+        account_balance_wallet
+      </mat-icon>
+      <h2 class="text-lg font-semibold m-0">Sin datos</h2>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Elegí un día para ver el arqueo de caja.
+      </p>
+    </div>
+  }
+</div>

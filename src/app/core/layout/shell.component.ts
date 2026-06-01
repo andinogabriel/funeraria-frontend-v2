@@ -135,6 +135,12 @@ export class ShellComponent {
     { path: '/categorias', label: 'Categorías', icon: 'category' },
     { path: '/proveedores', label: 'Proveedores', icon: 'local_shipping', requiresAdmin: true },
     { path: '/ingresos', label: 'Ingresos', icon: 'receipt_long', requiresAdmin: true },
+    {
+      path: '/arqueo',
+      label: 'Arqueo diario',
+      icon: 'account_balance_wallet',
+      requiresAdmin: true,
+    },
     { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
   ];
 

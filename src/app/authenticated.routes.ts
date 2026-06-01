@@ -88,6 +88,15 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/audit/pages/audit-event-list.page').then((m) => m.AuditEventListPage),
       },
       {
+        // Admin-only daily cash reconciliation (arqueo diario). Backend gates
+        // `GET /api/v1/reports/daily` with `ROLE_ADMIN` and the sidenav hides
+        // the entry for non-admins; no route guard — the service surfaces the
+        // friendly 403 on a deep-link, same pattern as /auditoria.
+        path: 'arqueo',
+        loadComponent: () =>
+          import('./features/reports/pages/daily-report.page').then((m) => m.DailyReportPage),
+      },
+      {
         // Admin-only notification center. Backend gates with `ROLE_ADMIN`.
         // Reached from the bell drop-down's "Ver todas" link in the toolbar.
         path: 'notificaciones',
