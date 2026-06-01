@@ -46,6 +46,19 @@ export class IncomeDetailDialogComponent {
   protected readonly totalLabel = formatCurrency(this.data.totalAmount);
   protected readonly taxLabel = `${this.data.tax} %`;
 
+  /**
+   * Lifecycle classification used to render the status badge in the Recibo section. Mirrors the
+   * mutually-exclusive cases the income list cell renders: a `reversalOfId` marks this row as a
+   * reversal counter-entry; otherwise `ANNULLED` status marks a cancelled original; everything
+   * else is a live receipt.
+   */
+  protected readonly lifecycle = computed<'reversal' | 'annulled' | 'active'>(() => {
+    if (this.data.reversalOfId !== null) {
+      return 'reversal';
+    }
+    return this.data.status === 'ANNULLED' ? 'annulled' : 'active';
+  });
+
   protected formatCurrency = formatCurrency;
 }
 
