@@ -46,12 +46,14 @@
 // |< < > >|" overflowed a 360 px viewport. We trim the infix padding, lock a
 // smaller min-height, shrink the value sizing AND clamp the width so the whole
 // paginator bar fits on a single mobile row without a horizontal scrollbar.
-// 64px holds the widest 3-digit value ("100") plus the dropdown arrow without
-// truncating to an ellipsis; the dropdown panel itself opts out of the
-// trigger-width inheritance via `[panelWidth]="null"` in the template so its
-// options ("25", "50", "100") render in full regardless of the narrow trigger.
+// 76px holds the widest 3-digit value ("100") plus the dropdown arrow without
+// truncating to an ellipsis. The math: ~24px arrow + 16px trimmed h-padding
+// leaves ~36px for the value, enough for "100" at 14px with breathing room
+// (64px was borderline and clipped it). The dropdown panel itself opts out of
+// the trigger-width inheritance via `[panelWidth]="null"` in the template so
+// its options ("25", "50", "100") render in full regardless of the trigger.
 .data-table__page-size-select {
-  width: 64px;
+  width: 76px;
 }
 
 :host ::ng-deep .data-table__page-size-select .mat-mdc-form-field-infix {
@@ -74,6 +76,15 @@
 :host ::ng-deep .data-table__page-size-select .mat-mdc-select-value,
 :host ::ng-deep .data-table__page-size-select .mat-mdc-select-arrow-wrapper {
   font-size: 14px;
+}
+
+// Belt-and-suspenders against the "1…" clip: the selected value must never
+// ellipsis-truncate. MDC sets `text-overflow: ellipsis` + `overflow: hidden`
+// on the value text; with the value being at most 3 digits we'd rather it
+// show in full (the trigger is sized to fit it) than ever clip.
+:host ::ng-deep .data-table__page-size-select .mat-mdc-select-value-text {
+  overflow: visible;
+  text-overflow: clip;
 }
 
 // Keep the paginator range label ("1 – 4 de 4") on a single line so each
