@@ -24,6 +24,8 @@ describe('MetricsService', () => {
       affiliatesActive: { value: 42, trendPercent: null, sparkline: [1, 2, 3, 4, 5, 6, 7, 8] },
       plansActive: { value: 5, trendPercent: null, sparkline: [] },
       funeralsThisMonth: { value: 12, trendPercent: 25.0, sparkline: [0, 0, 1, 2, 0, 3, 4, 2] },
+      purchasesThisMonth: { value: 9, trendPercent: 12.5, sparkline: [0, 1, 0, 2, 1, 3, 1, 1] },
+      criticalStock: { value: 3, trendPercent: null, sparkline: [] },
       auditedEvents24h: {
         value: 87,
         trendPercent: -10.5,

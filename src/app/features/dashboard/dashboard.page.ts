@@ -87,6 +87,12 @@ export class DashboardPage implements OnInit {
   protected readonly funeralsTile = computed(() =>
     this.tile(this.metricsService.snapshot()?.funeralsThisMonth),
   );
+  protected readonly purchasesTile = computed(() =>
+    this.tile(this.metricsService.snapshot()?.purchasesThisMonth),
+  );
+  protected readonly criticalStockTile = computed(() =>
+    this.tile(this.metricsService.snapshot()?.criticalStock),
+  );
   protected readonly auditTile = computed(() =>
     this.tile(this.metricsService.snapshot()?.auditedEvents24h),
   );
