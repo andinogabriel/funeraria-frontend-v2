@@ -5,6 +5,8 @@
 
 /** One funeral service in the day's detail. */
 export interface DailyReportServiceLine {
+  /** The funeral's database id — deep-link target for `/servicios/:id`. */
+  readonly funeralId: number;
   /** The funeral's receipt number (e.g. `F-99121`). */
   readonly receiptNumber: string;
   /** Full name of the deceased the service was for. */
