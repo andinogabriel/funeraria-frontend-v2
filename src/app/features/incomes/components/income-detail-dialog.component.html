@@ -25,6 +25,41 @@
 
         <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Total</dt>
         <dd class="text-sm m-0 tabular-nums font-medium">{{ totalLabel }}</dd>
+
+        <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Estado</dt>
+        <dd class="text-sm m-0">
+          @switch (lifecycle()) {
+            @case ('reversal') {
+              <span
+                class="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-tertiary-container)] text-[var(--mat-sys-on-tertiary-container)] font-medium"
+              >
+                Reversión
+              </span>
+              @if (data.reversalOfId !== null) {
+                <span class="text-xs text-[var(--mat-sys-on-surface-variant)] ml-2">
+                  Asiento de reversión que anula un ingreso original.
+                </span>
+              }
+            }
+            @case ('annulled') {
+              <span
+                class="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] font-medium"
+              >
+                Anulado
+              </span>
+              <span class="text-xs text-[var(--mat-sys-on-surface-variant)] ml-2">
+                Ingreso anulado; su importe fue revertido con un asiento de reversión.
+              </span>
+            }
+            @default {
+              <span
+                class="inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-[var(--mat-sys-surface-variant)] text-[var(--mat-sys-on-surface-variant)] font-medium"
+              >
+                Activo
+              </span>
+            }
+          }
+        </dd>
       </dl>
     </section>
 
