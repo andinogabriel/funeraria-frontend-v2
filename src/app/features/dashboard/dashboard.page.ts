@@ -1,17 +1,25 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { Router } from '@angular/router';
 
 import { AuthStore } from '../../core/auth/auth.store';
 import { HeroCarouselComponent, type HeroSlide } from '../../shared/hero-carousel';
 import { ActivityFeedComponent, type ActivityItem } from './components/activity-feed.component';
-import { KpiTileComponent } from './components/kpi-tile.component';
+import { KpiTileComponent, type KpiRangeOption } from './components/kpi-tile.component';
 import {
   QuickActionsBarComponent,
   type QuickAction,
 } from './components/quick-actions-bar.component';
 import { MetricsService } from './metrics.service';
-import type { ActivityFeedEntry, KpiMetric } from './metrics.types';
+import type { ActivityFeedEntry, KpiMetric, MetricKind, MetricRange } from './metrics.types';
 
 /**
  * Operator dashboard. Composes the hero carousel, the bento KPI grid, the
@@ -52,7 +60,36 @@ import type { ActivityFeedEntry, KpiMetric } from './metrics.types';
 })
 export class DashboardPage implements OnInit {
   private readonly store = inject(AuthStore);
+  private readonly router = inject(Router);
   protected readonly metricsService = inject(MetricsService);
+
+  /** Range options for the money-flow cards (servicios / compras). */
+  protected readonly flowRanges: readonly KpiRangeOption[] = [
+    { value: 'DAY', label: 'Hoy' },
+    { value: 'WEEK', label: 'Semana' },
+    { value: 'MONTH', label: 'Mes' },
+    { value: 'YEAR', label: 'Año' },
+  ];
+
+  /** Range options for the audit card — the smallest window is "24 h", not a calendar day. */
+  protected readonly auditRanges: readonly KpiRangeOption[] = [
+    { value: 'DAY', label: '24 h' },
+    { value: 'WEEK', label: 'Semana' },
+    { value: 'MONTH', label: 'Mes' },
+    { value: 'YEAR', label: 'Año' },
+  ];
+
+  // Per-card selected range. Servicios / Compras default to the monthly window the snapshot
+  // already ships; Auditoría defaults to the 24 h window.
+  protected readonly servicesRange = signal<MetricRange>('MONTH');
+  protected readonly purchasesRange = signal<MetricRange>('MONTH');
+  protected readonly auditRange = signal<MetricRange>('DAY');
+
+  // Range-fetched overrides. `null` means "show the snapshot's default-window value"; set once
+  // the operator picks a range and the series endpoint responds.
+  private readonly servicesOverride = signal<KpiMetric | null>(null);
+  private readonly purchasesOverride = signal<KpiMetric | null>(null);
+  private readonly auditOverride = signal<KpiMetric | null>(null);
 
   protected readonly isAdmin = computed(() => this.store.authorities().includes('ROLE_ADMIN'));
 
@@ -85,17 +122,73 @@ export class DashboardPage implements OnInit {
     this.tile(this.metricsService.snapshot()?.plansActive),
   );
   protected readonly funeralsTile = computed(() =>
-    this.tile(this.metricsService.snapshot()?.funeralsThisMonth),
+    this.tile(this.servicesOverride() ?? this.metricsService.snapshot()?.funeralsThisMonth),
   );
   protected readonly purchasesTile = computed(() =>
-    this.tile(this.metricsService.snapshot()?.purchasesThisMonth),
+    this.tile(this.purchasesOverride() ?? this.metricsService.snapshot()?.purchasesThisMonth),
   );
   protected readonly criticalStockTile = computed(() =>
     this.tile(this.metricsService.snapshot()?.criticalStock),
   );
   protected readonly auditTile = computed(() =>
-    this.tile(this.metricsService.snapshot()?.auditedEvents24h),
+    this.tile(this.auditOverride() ?? this.metricsService.snapshot()?.auditedEvents24h),
   );
+
+  // --- Range selection: refetch a single metric for the chosen rolling window ---------------
+
+  protected onServicesRange(range: string): void {
+    this.servicesRange.set(range as MetricRange);
+    this.fetchSeries('SERVICES', range as MetricRange, this.servicesOverride);
+  }
+
+  protected onPurchasesRange(range: string): void {
+    this.purchasesRange.set(range as MetricRange);
+    this.fetchSeries('PURCHASES', range as MetricRange, this.purchasesOverride);
+  }
+
+  protected onAuditRange(range: string): void {
+    this.auditRange.set(range as MetricRange);
+    this.fetchSeries('AUDIT', range as MetricRange, this.auditOverride);
+  }
+
+  private fetchSeries(
+    metric: MetricKind,
+    range: MetricRange,
+    target: { set: (value: KpiMetric) => void },
+  ): void {
+    this.metricsService.loadSeries(metric, range).subscribe({
+      next: (value) => target.set(value),
+      error: () => undefined,
+    });
+  }
+
+  // --- Drill-down: open the filtered list view behind each KPI ------------------------------
+
+  protected openServices(): void {
+    this.navigateRange('/servicios', this.servicesRange());
+  }
+
+  protected openPurchases(): void {
+    this.navigateRange('/ingresos', this.purchasesRange());
+  }
+
+  protected openAudit(): void {
+    this.navigateRange('/auditoria', this.auditRange());
+  }
+
+  protected openCriticalStock(): void {
+    void this.router.navigate(['/items'], { queryParams: { lowStock: 'true', page: 0 } });
+  }
+
+  /**
+   * Navigates to a list view pre-filtered to the same rolling window the card shows, so the
+   * table the operator lands on agrees with the headline they clicked. The {@code from}/{@code to}
+   * bounds are local calendar dates ({@code yyyy-MM-dd}) the list pages already understand.
+   */
+  private navigateRange(path: string, range: MetricRange): void {
+    const { from, to } = rangeToDateBounds(range);
+    void this.router.navigate([path], { queryParams: { from, to, page: 0 } });
+  }
 
   /**
    * Hero carousel slides — five themed messages cycle every 6 s. CTAs are intentionally
@@ -236,6 +329,36 @@ function normalizeSparkline(series: readonly number[]): readonly number[] {
     return series.map(() => 0);
   }
   return series.map((v) => v / max);
+}
+
+/** Day-span per rolling range; mirrors the backend `MetricRange` day counts exactly. */
+const RANGE_DAYS: Readonly<Record<MetricRange, number>> = {
+  DAY: 1,
+  WEEK: 7,
+  MONTH: 30,
+  YEAR: 365,
+};
+
+/**
+ * Maps a rolling range to the inclusive {@code [from, to]} local-date bounds the list pages
+ * filter on. {@code to} is today; {@code from} is {@code days - 1} days earlier so the window
+ * spans exactly {@code days} calendar days ending today — matching the backend window the card
+ * headline was computed over.
+ */
+function rangeToDateBounds(range: MetricRange): { from: string; to: string } {
+  const days = RANGE_DAYS[range];
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  return { from: toIsoDate(from), to: toIsoDate(to) };
+}
+
+/** Formats a Date as a local-calendar {@code yyyy-MM-dd} string (no timezone shift). */
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /** Visual configuration per known backend `eventType`. Catalog-style, easy to extend. */

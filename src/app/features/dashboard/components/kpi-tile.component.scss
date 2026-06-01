@@ -30,11 +30,83 @@
   }
 }
 
+.kpi-tile--interactive {
+  cursor: pointer;
+
+  &:hover {
+    box-shadow: 0 10px 26px -10px rgba(0, 0, 0, 0.28);
+    border-color: color-mix(in srgb, var(--mat-sys-primary) 45%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+
+  &:hover .kpi-tile__arrow {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+}
+
 .kpi-tile__head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+}
+
+.kpi-tile__head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kpi-tile__range {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 70%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mat-sys-surface-container-high) 70%, transparent);
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 160ms ease-out,
+    border-color 160ms ease-out;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+    border-color: var(--mat-sys-outline);
+  }
+}
+
+.kpi-tile__range-caret {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+}
+
+.kpi-tile__range-active {
+  font-weight: 700;
+  color: var(--mat-sys-primary);
+}
+
+.kpi-tile__arrow {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin-left: 6px;
+  color: var(--mat-sys-primary);
+  opacity: 0.55;
+  transition:
+    opacity 180ms ease-out,
+    transform 180ms ease-out;
 }
 
 .tile-chip {
@@ -82,24 +154,26 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 
+  // Deeper fill + darker ink than the v1 pastels so the delta reads clearly on
+  // the glass surface (operator feedback: the light red/green washed out).
   &--positive {
-    background: color-mix(in srgb, #10b981 18%, transparent);
-    color: #047857;
+    background: color-mix(in srgb, #059669 26%, transparent);
+    color: #065f46;
   }
 
   &--negative {
-    background: color-mix(in srgb, #ef4444 16%, transparent);
-    color: #b91c1c;
+    background: color-mix(in srgb, #dc2626 24%, transparent);
+    color: #991b1b;
   }
 }
 
 @media (prefers-color-scheme: dark) {
   .kpi-tile__trend--positive {
-    background: color-mix(in srgb, #34d399 22%, transparent);
-    color: #6ee7b7;
+    background: color-mix(in srgb, #10b981 30%, transparent);
+    color: #a7f3d0;
   }
   .kpi-tile__trend--negative {
-    background: color-mix(in srgb, #fca5a5 20%, transparent);
+    background: color-mix(in srgb, #ef4444 30%, transparent);
     color: #fecaca;
   }
 }

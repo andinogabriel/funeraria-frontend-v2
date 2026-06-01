@@ -94,6 +94,9 @@ export class ItemService {
     if (query.brandName && query.brandName.length > 0) {
       params = params.set('brandName', query.brandName);
     }
+    if (query.lowStock) {
+      params = params.set('lowStock', 'true');
+    }
 
     return this.http.get<ItemPage>(`${this.baseUrl}/paginated`, { params }).pipe(
       tap({

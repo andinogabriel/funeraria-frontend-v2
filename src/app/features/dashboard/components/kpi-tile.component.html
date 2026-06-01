@@ -1,24 +1,63 @@
-<article class="kpi-tile">
+<article
+  class="kpi-tile"
+  [class.kpi-tile--interactive]="interactive()"
+  [attr.role]="interactive() ? 'button' : null"
+  [attr.tabindex]="interactive() ? 0 : null"
+  (click)="onActivate()"
+  (keydown)="onKeydown($event)"
+>
   <div class="kpi-tile__head">
     <div [class]="chipClass()">
       <mat-icon class="material-symbols-outlined">{{ icon() }}</mat-icon>
     </div>
 
-    @if (trendPill(); as pill) {
-      <span
-        class="kpi-tile__trend"
-        [class.kpi-tile__trend--positive]="pill.positive"
-        [class.kpi-tile__trend--negative]="!pill.positive"
-        aria-hidden="true"
-      >
-        <span aria-hidden="true">{{ pill.sign }}</span>
-        {{ pill.label }}
-      </span>
-    }
+    <div class="kpi-tile__head-actions">
+      @if (trendPill(); as pill) {
+        <span
+          class="kpi-tile__trend"
+          [class.kpi-tile__trend--positive]="pill.positive"
+          [class.kpi-tile__trend--negative]="!pill.positive"
+          aria-hidden="true"
+        >
+          <span aria-hidden="true">{{ pill.sign }}</span>
+          {{ pill.label }}
+        </span>
+      }
+
+      @if (ranges().length > 0) {
+        <button
+          type="button"
+          class="kpi-tile__range"
+          [matMenuTriggerFor]="rangeMenu"
+          (click)="$event.stopPropagation()"
+          (keydown)="$event.stopPropagation()"
+          [attr.aria-label]="'Cambiar rango de ' + label()"
+        >
+          {{ selectedRangeLabel() }}
+          <mat-icon class="material-symbols-outlined kpi-tile__range-caret">expand_more</mat-icon>
+        </button>
+        <mat-menu #rangeMenu="matMenu">
+          @for (opt of ranges(); track opt.value) {
+            <button type="button" mat-menu-item (click)="onRangePick(opt.value)">
+              <span [class.kpi-tile__range-active]="opt.value === selectedRange()">{{
+                opt.label
+              }}</span>
+            </button>
+          }
+        </mat-menu>
+      }
+    </div>
   </div>
 
   <p class="kpi-tile__label">{{ label() }}</p>
-  <p class="kpi-tile__value">{{ displayValue() }}</p>
+  <p class="kpi-tile__value">
+    {{ displayValue() }}
+    @if (interactive()) {
+      <mat-icon class="material-symbols-outlined kpi-tile__arrow" aria-hidden="true"
+        >arrow_forward</mat-icon
+      >
+    }
+  </p>
 
   @if (hint(); as text) {
     <p class="kpi-tile__hint">{{ text }}</p>

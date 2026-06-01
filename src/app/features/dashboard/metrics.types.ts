@@ -13,6 +13,12 @@ export interface KpiMetric {
   readonly sparkline: readonly number[];
 }
 
+/** Time-windowed KPIs that support an operator-selectable range. Mirrors backend `MetricKind`. */
+export type MetricKind = 'SERVICES' | 'PURCHASES' | 'AUDIT';
+
+/** Rolling window selectable per card. Mirrors backend `MetricRange` (1 / 7 / 30 / 365 days). */
+export type MetricRange = 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+
 /** Aggregated snapshot rendered by the dashboard bento. */
 export interface DashboardMetrics {
   readonly affiliatesActive: KpiMetric;

@@ -45,6 +45,22 @@ describe('MetricsService', () => {
     expect(service.error()).toBeNull();
   });
 
+  it('GETs the series endpoint with metric + range params and returns the recomputed KPI', () => {
+    const metric = { value: 30, trendPercent: 50, sparkline: [1, 2, 3, 4, 5, 6, 7, 8] };
+    let received: typeof metric | undefined;
+    service.loadSeries('SERVICES', 'YEAR').subscribe((m) => (received = m));
+
+    const req = http.expectOne(
+      (r) =>
+        r.url === '/api/v1/metrics/dashboard/series' &&
+        r.params.get('metric') === 'SERVICES' &&
+        r.params.get('range') === 'YEAR',
+    );
+    req.flush(metric);
+
+    expect(received).toEqual(metric);
+  });
+
   it('reports a friendly Spanish error and clears loading on 403', () => {
     service.load().subscribe({ error: () => undefined });
     http

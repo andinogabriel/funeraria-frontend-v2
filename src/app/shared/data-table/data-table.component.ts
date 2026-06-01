@@ -223,6 +223,14 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   readonly trackBy = input<(index: number, row: T) => unknown>((_, row) => row);
 
   /**
+   * Optional per-row CSS class hook. Returns extra class names appended to a data row's
+   * class list (skeleton placeholders are never passed). Lets a host flag rows visually —
+   * e.g. a red ring on items below their low-stock threshold — without the data-table
+   * having to know the domain rule.
+   */
+  readonly rowClass = input<((row: T) => string) | null>(null);
+
+  /**
    * Internal trackBy that tolerates the `null` placeholder rows the padding logic
    * appends to short pages. The wrapper short-circuits to a stable
    * `__placeholder_<index>` id for nulls so MatTable can dedupe them across
@@ -922,12 +930,23 @@ export class DataTableComponent<T> implements OnInit, AfterViewInit {
   }
 
   protected rowClasses(row: T | null): string {
-    if (!this.selectable() || row === null || this.isSkeletonRow(row)) {
+    if (row === null || this.isSkeletonRow(row)) {
       return '';
     }
-    return this.selectedRow() === row
-      ? 'cursor-pointer !bg-[var(--mat-sys-primary-container)] !text-[var(--mat-sys-on-primary-container)] font-medium'
-      : 'cursor-pointer hover:!bg-[var(--mat-sys-surface-container-high)]';
+    // Domain-driven per-row decoration (e.g. low-stock ring) applies regardless of
+    // whether the table is selectable.
+    const custom = this.rowClass()?.(row) ?? '';
+    if (!this.selectable()) {
+      return custom;
+    }
+    // The selected row owns its background entirely, so the custom decoration (which
+    // may set its own `!bg`) only applies while the row is unselected — avoids two
+    // competing `!important` background rules on the same element.
+    if (this.selectedRow() === row) {
+      return 'cursor-pointer !bg-[var(--mat-sys-primary-container)] !text-[var(--mat-sys-on-primary-container)] font-medium';
+    }
+    const base = 'cursor-pointer hover:!bg-[var(--mat-sys-surface-container-high)]';
+    return custom ? `${base} ${custom}` : base;
   }
 
   // --------------------------------------------------------------------------

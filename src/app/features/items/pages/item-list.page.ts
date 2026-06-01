@@ -119,6 +119,7 @@ export class ItemListPage {
     name: this.query().get('name') ?? '',
     categoryName: this.query().get('categoryName') ?? '',
     brandName: this.query().get('brandName') ?? '',
+    lowStock: this.query().get('lowStock') === 'true',
   }));
 
   protected readonly columnFilters = computed<ReadonlyMap<string, DataTableColumnFilterValue>>(
@@ -148,7 +149,11 @@ export class ItemListPage {
   protected readonly hasActiveFilters = computed(() => {
     const f = this.filterState();
     return (
-      f.code.length > 0 || f.name.length > 0 || f.categoryName.length > 0 || f.brandName.length > 0
+      f.code.length > 0 ||
+      f.name.length > 0 ||
+      f.categoryName.length > 0 ||
+      f.brandName.length > 0 ||
+      f.lowStock
     );
   });
 
@@ -296,6 +301,7 @@ export class ItemListPage {
         name: f.name || undefined,
         categoryName: f.categoryName || undefined,
         brandName: f.brandName || undefined,
+        lowStock: f.lowStock || undefined,
       };
       this.service.loadPage(params).subscribe({ error: () => undefined });
     });
@@ -358,9 +364,20 @@ export class ItemListPage {
       name: null,
       categoryName: null,
       brandName: null,
+      lowStock: null,
       page: 0,
     });
   }
+
+  /**
+   * Per-row decoration passed to the data-table: rings rows whose stock is at or below
+   * threshold in error red so the shortage is unmissable in the grid — not just in the
+   * Stock cell. Arrow function so the template reference stays stable across renders.
+   */
+  protected readonly lowStockRowClass = (item: Item): string =>
+    this.isStockBelowThreshold(item)
+      ? '!bg-[color-mix(in_srgb,var(--mat-sys-error)_12%,transparent)] !shadow-[inset_3px_0_0_0_var(--mat-sys-error)]'
+      : '';
 
   private pushToUrl(patch: Record<string, string | number | null>): void {
     const next: Record<string, string | undefined> = {};
