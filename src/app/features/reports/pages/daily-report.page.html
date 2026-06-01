@@ -58,203 +58,192 @@
     </div>
   } @else if (report(); as r) {
     <!--
-      Three compact summary cards up top (Servicios / Compras / Neto). These are the at-a-glance
-      figures; the per-row detail lives in the two always-expanded panels below, so the cards stay
-      non-interactive (the Neto card has no rows of its own anyway). The Neto card tints red when
-      negative — more spent on stock than taken in.
+      Neto del día — the headline figure, full width across the top. Tints red when negative
+      (more spent on stock than taken in). No rows of its own, so it stays a plain card.
     -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <mat-card class="!rounded-xl">
-        <mat-card-content class="!p-5 flex flex-col gap-1">
-          <div class="flex items-center gap-2 text-[var(--mat-sys-on-surface-variant)]">
-            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">church</mat-icon>
-            <span class="text-sm font-medium">Servicios</span>
-          </div>
-          <span class="text-2xl font-semibold tabular-nums">
-            {{ r.services.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
-          </span>
-          <span class="text-sm text-[var(--mat-sys-on-surface-variant)]">
-            {{ r.services.count }} {{ r.services.count === 1 ? 'servicio' : 'servicios' }}
-          </span>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="!rounded-xl">
-        <mat-card-content class="!p-5 flex flex-col gap-1">
-          <div class="flex items-center gap-2 text-[var(--mat-sys-on-surface-variant)]">
-            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">receipt_long</mat-icon>
-            <span class="text-sm font-medium">Compras</span>
-          </div>
-          <span class="text-2xl font-semibold tabular-nums">
-            {{ r.purchases.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
-          </span>
-          <span class="text-sm text-[var(--mat-sys-on-surface-variant)]">
-            {{ r.purchases.count }} {{ r.purchases.count === 1 ? 'ingreso' : 'ingresos' }}
-            @if (r.purchases.annulledCount > 0) {
-              · {{ r.purchases.annulledCount }}
-              {{ r.purchases.annulledCount === 1 ? 'anulado' : 'anulados' }}
-            }
-          </span>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="!rounded-xl" [class.!bg-[var(--mat-sys-error-container)]]="netIsNegative()">
-        <mat-card-content class="!p-5 flex flex-col gap-1">
-          <div
-            class="flex items-center gap-2"
-            [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
-            [class.text-[var(--mat-sys-on-surface-variant)]]="!netIsNegative()"
-          >
-            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">
-              account_balance
-            </mat-icon>
-            <span class="text-sm font-medium">Neto del día</span>
-          </div>
-          <span
-            class="text-2xl font-semibold tabular-nums"
-            [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
-          >
-            {{ r.net | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
-          </span>
-          <span
-            class="text-sm"
-            [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
-            [class.text-[var(--mat-sys-on-surface-variant)]]="!netIsNegative()"
-          >
-            Servicios − Compras
-          </span>
-        </mat-card-content>
-      </mat-card>
-    </div>
+    <mat-card class="!rounded-xl" [class.!bg-[var(--mat-sys-error-container)]]="netIsNegative()">
+      <mat-card-content class="!p-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div
+          class="flex items-center gap-2"
+          [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
+          [class.text-[var(--mat-sys-on-surface-variant)]]="!netIsNegative()"
+        >
+          <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">account_balance</mat-icon>
+          <span class="text-sm font-medium">Neto del día</span>
+        </div>
+        <span
+          class="text-2xl font-semibold tabular-nums"
+          [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
+        >
+          {{ r.net | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+        </span>
+        <span
+          class="text-sm"
+          [class.text-[var(--mat-sys-on-error-container)]]="netIsNegative()"
+          [class.text-[var(--mat-sys-on-surface-variant)]]="!netIsNegative()"
+        >
+          Servicios − Compras
+        </span>
+      </mat-card-content>
+    </mat-card>
 
     <!--
-      Detail panels. Both ship expanded so the operator sees the day's full movement without a
-      click and the long vertical space below the cards is used. Each row drills into the canonical
-      detail surface: a service row navigates to /servicios/:id, a purchase row opens the same
-      income detail dialog the /ingresos grid uses (fetched by receipt number on click). Rows are
-      real keyboard controls (role=button + tabindex + enter/space) with a hover tint + chevron.
+      Servicios + Compras cards. Each card IS the container for its own detail: a summary header
+      (total + count) on top, then the per-row list embedded below. Side by side on lg+, stacked on
+      mobile. Each row drills into the canonical detail surface — a service row navigates to
+      /servicios/:id; a purchase row opens the same income detail dialog the /ingresos grid uses
+      (fetched by receipt number on click). Rows are real keyboard controls (role=button + tabindex
+      + enter/space) with a hover tint + trailing chevron.
     -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <mat-expansion-panel [expanded]="true" class="!rounded-xl !shadow-none">
-        <mat-expansion-panel-header>
-          <mat-panel-title class="flex items-center gap-2">
-            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">church</mat-icon>
-            Servicios del día
-          </mat-panel-title>
-          <mat-panel-description>
-            {{ r.services.count }} {{ r.services.count === 1 ? 'servicio' : 'servicios' }}
-          </mat-panel-description>
-        </mat-expansion-panel-header>
+      <mat-card class="!rounded-xl">
+        <mat-card-content class="!p-5 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <mat-icon
+              class="material-symbols-outlined !text-xl !w-5 !h-5 text-[var(--mat-sys-on-surface-variant)]"
+            >
+              church
+            </mat-icon>
+            <div class="flex flex-col">
+              <span class="text-sm font-medium text-[var(--mat-sys-on-surface-variant)]">
+                Servicios
+              </span>
+              <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+                {{ r.services.count }} {{ r.services.count === 1 ? 'servicio' : 'servicios' }}
+              </span>
+            </div>
+            <span class="flex-1"></span>
+            <span class="text-xl font-semibold tabular-nums">
+              {{ r.services.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+            </span>
+          </div>
 
-        @if (r.services.lines.length === 0) {
-          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0 py-2">
-            No hubo servicios registrados este día.
-          </p>
-        } @else {
-          <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
-            @for (line of r.services.lines; track line.funeralId) {
-              <li
-                class="grid grid-cols-[1fr_auto_auto] gap-2 py-2 px-1 items-center cursor-pointer rounded-md hover:bg-[var(--mat-sys-surface-container-high)]"
-                role="button"
-                tabindex="0"
-                [attr.aria-label]="'Ver detalle del servicio ' + line.receiptNumber"
-                (click)="openService(line)"
-                (keydown.enter)="openService(line)"
-                (keydown.space)="openService(line)"
-              >
-                <div class="flex flex-col min-w-0">
-                  <span class="text-sm font-medium truncate">{{ line.deceasedName }}</span>
-                  <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
-                    <span class="font-mono">{{ line.receiptNumber }}</span>
-                    @if (line.planName) {
-                      · {{ line.planName }}
-                    }
-                  </span>
-                </div>
-                <span class="text-sm tabular-nums whitespace-nowrap">
-                  {{ line.amount | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
-                </span>
-                <mat-icon
-                  class="material-symbols-outlined !text-base !w-4 !h-4 text-[var(--mat-sys-on-surface-variant)]"
+          <mat-divider />
+
+          @if (r.services.lines.length === 0) {
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0 py-2">
+              No hubo servicios registrados este día.
+            </p>
+          } @else {
+            <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
+              @for (line of r.services.lines; track line.funeralId) {
+                <li
+                  class="grid grid-cols-[1fr_auto_auto] gap-2 py-2 px-1 items-center cursor-pointer rounded-md hover:bg-[var(--mat-sys-surface-container-high)]"
+                  role="button"
+                  tabindex="0"
+                  [attr.aria-label]="'Ver detalle del servicio ' + line.receiptNumber"
+                  (click)="openService(line)"
+                  (keydown.enter)="openService(line)"
+                  (keydown.space)="openService(line)"
                 >
-                  chevron_right
-                </mat-icon>
-              </li>
-            }
-          </ul>
-        }
-      </mat-expansion-panel>
-
-      <mat-expansion-panel [expanded]="true" class="!rounded-xl !shadow-none">
-        <mat-expansion-panel-header>
-          <mat-panel-title class="flex items-center gap-2">
-            <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">receipt_long</mat-icon>
-            Compras del día
-          </mat-panel-title>
-          <mat-panel-description>
-            {{ r.purchases.count }} {{ r.purchases.count === 1 ? 'ingreso' : 'ingresos' }}
-            @if (r.purchases.annulledCount > 0) {
-              · {{ r.purchases.annulledCount }}
-              {{ r.purchases.annulledCount === 1 ? 'anulado' : 'anulados' }}
-            }
-          </mat-panel-description>
-        </mat-expansion-panel-header>
-
-        @if (r.purchases.lines.length === 0) {
-          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0 py-2">
-            No hubo compras registradas este día.
-          </p>
-        } @else {
-          <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
-            @for (line of r.purchases.lines; track line.receiptNumber) {
-              <li
-                class="grid grid-cols-[1fr_auto_auto] gap-2 py-2 px-1 items-center cursor-pointer rounded-md hover:bg-[var(--mat-sys-surface-container-high)]"
-                role="button"
-                tabindex="0"
-                [attr.aria-label]="'Ver detalle del ingreso ' + line.receiptNumber"
-                (click)="openPurchase(line)"
-                (keydown.enter)="openPurchase(line)"
-                (keydown.space)="openPurchase(line)"
-              >
-                <div class="flex flex-col min-w-0">
-                  <span class="text-sm font-medium truncate">
-                    {{ line.supplierName ?? 'Sin proveedor' }}
+                  <div class="flex flex-col min-w-0">
+                    <span class="text-sm font-medium truncate">{{ line.deceasedName }}</span>
+                    <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+                      <span class="font-mono">{{ line.receiptNumber }}</span>
+                      @if (line.planName) {
+                        · {{ line.planName }}
+                      }
+                    </span>
+                  </div>
+                  <span class="text-sm tabular-nums whitespace-nowrap">
+                    {{ line.amount | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
                   </span>
-                  <span
-                    class="flex items-center gap-2 text-xs text-[var(--mat-sys-on-surface-variant)]"
+                  <mat-icon
+                    class="material-symbols-outlined !text-base !w-4 !h-4 text-[var(--mat-sys-on-surface-variant)]"
                   >
-                    <span class="font-mono">{{ line.receiptNumber }}</span>
-                    @if (line.reversal) {
-                      <span
-                        class="px-2 py-0.5 rounded-full bg-[var(--mat-sys-tertiary-container)] text-[var(--mat-sys-on-tertiary-container)] whitespace-nowrap"
-                      >
-                        Reversión
-                      </span>
-                    } @else if (line.status === 'ANNULLED') {
-                      <span
-                        class="px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] whitespace-nowrap"
-                      >
-                        Anulado
-                      </span>
-                    }
+                    chevron_right
+                  </mat-icon>
+                </li>
+              }
+            </ul>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="!rounded-xl">
+        <mat-card-content class="!p-5 flex flex-col gap-3">
+          <div class="flex items-center gap-2">
+            <mat-icon
+              class="material-symbols-outlined !text-xl !w-5 !h-5 text-[var(--mat-sys-on-surface-variant)]"
+            >
+              receipt_long
+            </mat-icon>
+            <div class="flex flex-col">
+              <span class="text-sm font-medium text-[var(--mat-sys-on-surface-variant)]">
+                Compras
+              </span>
+              <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+                {{ r.purchases.count }} {{ r.purchases.count === 1 ? 'ingreso' : 'ingresos' }}
+                @if (r.purchases.annulledCount > 0) {
+                  · {{ r.purchases.annulledCount }}
+                  {{ r.purchases.annulledCount === 1 ? 'anulado' : 'anulados' }}
+                }
+              </span>
+            </div>
+            <span class="flex-1"></span>
+            <span class="text-xl font-semibold tabular-nums">
+              {{ r.purchases.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
+            </span>
+          </div>
+
+          <mat-divider />
+
+          @if (r.purchases.lines.length === 0) {
+            <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0 py-2">
+              No hubo compras registradas este día.
+            </p>
+          } @else {
+            <ul class="m-0 p-0 list-none divide-y divide-[var(--mat-sys-outline-variant)]">
+              @for (line of r.purchases.lines; track line.receiptNumber) {
+                <li
+                  class="grid grid-cols-[1fr_auto_auto] gap-2 py-2 px-1 items-center cursor-pointer rounded-md hover:bg-[var(--mat-sys-surface-container-high)]"
+                  role="button"
+                  tabindex="0"
+                  [attr.aria-label]="'Ver detalle del ingreso ' + line.receiptNumber"
+                  (click)="openPurchase(line)"
+                  (keydown.enter)="openPurchase(line)"
+                  (keydown.space)="openPurchase(line)"
+                >
+                  <div class="flex flex-col min-w-0">
+                    <span class="text-sm font-medium truncate">
+                      {{ line.supplierName ?? 'Sin proveedor' }}
+                    </span>
+                    <span
+                      class="flex items-center gap-2 text-xs text-[var(--mat-sys-on-surface-variant)]"
+                    >
+                      <span class="font-mono">{{ line.receiptNumber }}</span>
+                      @if (line.reversal) {
+                        <span
+                          class="px-2 py-0.5 rounded-full bg-[var(--mat-sys-tertiary-container)] text-[var(--mat-sys-on-tertiary-container)] whitespace-nowrap"
+                        >
+                          Reversión
+                        </span>
+                      } @else if (line.status === 'ANNULLED') {
+                        <span
+                          class="px-2 py-0.5 rounded-full bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] whitespace-nowrap"
+                        >
+                          Anulado
+                        </span>
+                      }
+                    </span>
+                  </div>
+                  <span
+                    class="text-sm tabular-nums whitespace-nowrap"
+                    [class.text-[var(--mat-sys-error)]]="line.amount < 0"
+                  >
+                    {{ line.amount | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
                   </span>
-                </div>
-                <span
-                  class="text-sm tabular-nums whitespace-nowrap"
-                  [class.text-[var(--mat-sys-error)]]="line.amount < 0"
-                >
-                  {{ line.amount | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
-                </span>
-                <mat-icon
-                  class="material-symbols-outlined !text-base !w-4 !h-4 text-[var(--mat-sys-on-surface-variant)]"
-                >
-                  chevron_right
-                </mat-icon>
-              </li>
-            }
-          </ul>
-        }
-      </mat-expansion-panel>
+                  <mat-icon
+                    class="material-symbols-outlined !text-base !w-4 !h-4 text-[var(--mat-sys-on-surface-variant)]"
+                  >
+                    chevron_right
+                  </mat-icon>
+                </li>
+              }
+            </ul>
+          }
+        </mat-card-content>
+      </mat-card>
     </div>
   } @else {
     <div class="flex flex-col items-center gap-3 py-16 px-6 text-center">
