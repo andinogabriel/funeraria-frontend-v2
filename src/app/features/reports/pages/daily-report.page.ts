@@ -4,11 +4,16 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+import {
+  DailyReportDetailDialogComponent,
+  type DailyReportDetailDialogData,
+} from '../components/daily-report-detail-dialog.component';
 import { ReportService } from '../report.service';
 import type { DailyReport } from '../report.types';
 
@@ -40,6 +45,7 @@ import type { DailyReport } from '../report.types';
 })
 export class DailyReportPage {
   private readonly service = inject(ReportService);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly loading = this.service.loading;
   protected readonly error = this.service.error;
@@ -70,6 +76,36 @@ export class DailyReportPage {
   /** Narrowing helper for the template so `report()` is non-null inside the result block. */
   protected asReport(value: DailyReport | null): DailyReport | null {
     return value;
+  }
+
+  /**
+   * Opens the detail dialog for one of the two summary cards. No-op when the card has no rows so a
+   * click on an empty day does nothing (the template also drops the button affordance in that
+   * case). The same component renders both kinds — the `kind` discriminator picks the layout.
+   */
+  protected openDetail(kind: DailyReportDetailDialogData['kind']): void {
+    const report = this.report();
+    if (report === null) {
+      return;
+    }
+    const data: DailyReportDetailDialogData =
+      kind === 'services'
+        ? {
+            kind,
+            date: report.date,
+            total: report.services.total,
+            lines: report.services.lines,
+          }
+        : {
+            kind,
+            date: report.date,
+            total: report.purchases.total,
+            lines: report.purchases.lines,
+          };
+    if (data.lines.length === 0) {
+      return;
+    }
+    this.dialog.open(DailyReportDetailDialogComponent, { data, autoFocus: false });
   }
 }
 

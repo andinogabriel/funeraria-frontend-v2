@@ -22,8 +22,32 @@ describe('ReportService', () => {
   function payload(): DailyReport {
     return {
       date: '2026-05-30',
-      services: { count: 3, total: 1500000 },
-      purchases: { count: 2, total: 420000, annulledCount: 1 },
+      services: {
+        count: 3,
+        total: 1500000,
+        lines: [
+          {
+            receiptNumber: 'F-99121',
+            deceasedName: 'Carlos Gómez',
+            planName: '[TEST] Plan Premium',
+            amount: 1500000,
+          },
+        ],
+      },
+      purchases: {
+        count: 2,
+        total: 420000,
+        annulledCount: 1,
+        lines: [
+          {
+            receiptNumber: '99301',
+            supplierName: 'Florestanía Mayorista',
+            amount: 420000,
+            status: 'ACTIVE',
+            reversal: false,
+          },
+        ],
+      },
       net: 1080000,
     };
   }
