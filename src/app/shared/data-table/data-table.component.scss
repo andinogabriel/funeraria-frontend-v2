@@ -44,11 +44,14 @@
 // generous horizontal padding, which made the control both taller than the
 // paginator buttons next to it AND wide enough that "Filas: [10] 1-10 de 137
 // |< < > >|" overflowed a 360 px viewport. We trim the infix padding, lock a
-// smaller min-height, shrink the value sizing AND clamp the width hard so the
-// whole paginator bar fits on a single mobile row without a horizontal
-// scrollbar. The value is at most 3 chars ("100") so a narrow box is plenty.
+// smaller min-height, shrink the value sizing AND clamp the width so the whole
+// paginator bar fits on a single mobile row without a horizontal scrollbar.
+// 64px holds the widest 3-digit value ("100") plus the dropdown arrow without
+// truncating to an ellipsis; the dropdown panel itself opts out of the
+// trigger-width inheritance via `[panelWidth]="null"` in the template so its
+// options ("25", "50", "100") render in full regardless of the narrow trigger.
 .data-table__page-size-select {
-  width: 56px;
+  width: 64px;
 }
 
 :host ::ng-deep .data-table__page-size-select .mat-mdc-form-field-infix {
