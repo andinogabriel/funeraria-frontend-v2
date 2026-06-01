@@ -67,6 +67,24 @@
             [sparkline]="funeralsTile().sparkline"
           />
           <app-kpi-tile
+            icon="shopping_cart"
+            label="Compras del mes"
+            tone="primary"
+            hint="vs. mes anterior"
+            [value]="purchasesTile().value"
+            [trend]="purchasesTile().trend"
+            [sparkline]="purchasesTile().sparkline"
+          />
+          <app-kpi-tile
+            icon="inventory_2"
+            label="Stock crítico"
+            tone="secondary"
+            hint="items bajo su umbral"
+            [value]="criticalStockTile().value"
+            [trend]="criticalStockTile().trend"
+            [sparkline]="criticalStockTile().sparkline"
+          />
+          <app-kpi-tile
             icon="policy"
             label="Eventos auditados (24 h)"
             tone="neutral"

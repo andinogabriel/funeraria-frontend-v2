@@ -18,6 +18,8 @@ export interface DashboardMetrics {
   readonly affiliatesActive: KpiMetric;
   readonly plansActive: KpiMetric;
   readonly funeralsThisMonth: KpiMetric;
+  readonly purchasesThisMonth: KpiMetric;
+  readonly criticalStock: KpiMetric;
   readonly auditedEvents24h: KpiMetric;
 }
 
