@@ -64,11 +64,36 @@
       card tints red when negative — more spent on stock than taken in.
     -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <mat-card class="!rounded-xl">
+      <!--
+        Servicios + Compras cards are clickable when the day has rows: they open a detail dialog
+        listing the funerals / incomes behind the total. `role="button"` + tabindex + keydown make
+        the whole card a real keyboard-operable control; the hover ring + chevron signal the
+        affordance. An empty day drops the interactivity (no tabindex, no handler) so there is
+        nothing to click into. The Neto card stays non-interactive — it is a derived figure with no
+        rows of its own.
+      -->
+      <mat-card
+        class="!rounded-xl"
+        [class.cursor-pointer]="r.services.count > 0"
+        [class.hover:ring-2]="r.services.count > 0"
+        [class.hover:ring-[var(--mat-sys-primary)]]="r.services.count > 0"
+        [attr.role]="r.services.count > 0 ? 'button' : null"
+        [attr.tabindex]="r.services.count > 0 ? 0 : null"
+        [attr.aria-label]="r.services.count > 0 ? 'Ver detalle de servicios del día' : null"
+        (click)="r.services.count > 0 && openDetail('services')"
+        (keydown.enter)="r.services.count > 0 && openDetail('services')"
+        (keydown.space)="r.services.count > 0 && openDetail('services')"
+      >
         <mat-card-content class="!p-6 flex flex-col gap-2">
           <div class="flex items-center gap-2 text-[var(--mat-sys-on-surface-variant)]">
             <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">church</mat-icon>
             <span class="text-sm font-medium">Servicios</span>
+            @if (r.services.count > 0) {
+              <span class="flex-1"></span>
+              <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
+                >chevron_right</mat-icon
+              >
+            }
           </div>
           <span class="text-2xl font-semibold tabular-nums">
             {{ r.services.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
@@ -79,11 +104,28 @@
         </mat-card-content>
       </mat-card>
 
-      <mat-card class="!rounded-xl">
+      <mat-card
+        class="!rounded-xl"
+        [class.cursor-pointer]="r.purchases.lines.length > 0"
+        [class.hover:ring-2]="r.purchases.lines.length > 0"
+        [class.hover:ring-[var(--mat-sys-primary)]]="r.purchases.lines.length > 0"
+        [attr.role]="r.purchases.lines.length > 0 ? 'button' : null"
+        [attr.tabindex]="r.purchases.lines.length > 0 ? 0 : null"
+        [attr.aria-label]="r.purchases.lines.length > 0 ? 'Ver detalle de compras del día' : null"
+        (click)="r.purchases.lines.length > 0 && openDetail('purchases')"
+        (keydown.enter)="r.purchases.lines.length > 0 && openDetail('purchases')"
+        (keydown.space)="r.purchases.lines.length > 0 && openDetail('purchases')"
+      >
         <mat-card-content class="!p-6 flex flex-col gap-2">
           <div class="flex items-center gap-2 text-[var(--mat-sys-on-surface-variant)]">
             <mat-icon class="material-symbols-outlined !text-xl !w-5 !h-5">receipt_long</mat-icon>
             <span class="text-sm font-medium">Compras</span>
+            @if (r.purchases.lines.length > 0) {
+              <span class="flex-1"></span>
+              <mat-icon class="material-symbols-outlined !text-base !w-4 !h-4"
+                >chevron_right</mat-icon
+              >
+            }
           </div>
           <span class="text-2xl font-semibold tabular-nums">
             {{ r.purchases.total | currency: 'ARS' : 'symbol-narrow' : '1.0-2' : 'es-AR' }}
