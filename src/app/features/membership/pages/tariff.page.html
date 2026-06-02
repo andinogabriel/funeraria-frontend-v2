@@ -1,0 +1,183 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      payments
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Tarifario de cuotas</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Cuota = monto base × multiplicador de edad × multiplicador de salud. Todos los valores son
+        editables.
+      </p>
+    </div>
+  </header>
+
+  @if (error(); as message) {
+    <div
+      role="alert"
+      class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </div>
+  }
+
+  @if (loading() && config() === null) {
+    <div class="flex justify-center p-10"><mat-spinner diameter="40" /></div>
+  } @else if (config(); as cfg) {
+    <form [formGroup]="form" (ngSubmit)="onSave()" class="flex flex-col gap-6">
+      <!-- Global settings -->
+      <mat-card class="!rounded-xl">
+        <div class="p-4 sm:p-6 flex flex-col gap-4">
+          <h2 class="text-lg font-semibold m-0">Parámetros generales</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <mat-form-field appearance="outline">
+              <mat-label>Monto base</mat-label>
+              <input matInput type="number" formControlName="baseAmount" min="0" />
+              <span matTextPrefix>$&nbsp;</span>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Edad máxima de ingreso</mat-label>
+              <input matInput type="number" formControlName="maxIssueAge" min="0" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Cuotas en mora toleradas</mat-label>
+              <input matInput type="number" formControlName="overdueGraceCount" min="0" />
+            </mat-form-field>
+          </div>
+        </div>
+      </mat-card>
+
+      <!-- Health tiers -->
+      <mat-card class="!rounded-xl">
+        <div class="p-4 sm:p-6 flex flex-col gap-4">
+          <h2 class="text-lg font-semibold m-0">Niveles de salud</h2>
+          <div class="flex flex-col gap-4" formArrayName="healthTiers">
+            @for (tier of tiers.controls; track tier.value.id; let i = $index) {
+              <div
+                [formGroupName]="i"
+                class="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:items-baseline border-b border-[var(--mat-sys-outline-variant)] pb-3 last:border-0 last:pb-0"
+              >
+                <mat-form-field appearance="outline">
+                  <mat-label>Código</mat-label>
+                  <input matInput formControlName="code" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Nombre</mat-label>
+                  <input matInput formControlName="name" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Multiplicador</mat-label>
+                  <input matInput type="number" step="0.01" formControlName="healthMultiplier" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Carencia (meses)</mat-label>
+                  <input matInput type="number" formControlName="waitingPeriodMonths" />
+                </mat-form-field>
+              </div>
+            }
+          </div>
+        </div>
+      </mat-card>
+
+      <!-- Age bands -->
+      <mat-card class="!rounded-xl">
+        <div class="p-4 sm:p-6 flex flex-col gap-4">
+          <h2 class="text-lg font-semibold m-0">Franjas etarias</h2>
+          <div class="flex flex-col gap-4" formArrayName="ageBands">
+            @for (band of bands.controls; track band.value.id; let i = $index) {
+              <div
+                [formGroupName]="i"
+                class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:items-baseline border-b border-[var(--mat-sys-outline-variant)] pb-3 last:border-0 last:pb-0"
+              >
+                <mat-form-field appearance="outline">
+                  <mat-label>Rango de edad</mat-label>
+                  <input matInput formControlName="range" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Etiqueta</mat-label>
+                  <input matInput formControlName="label" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Multiplicador</mat-label>
+                  <input matInput type="number" step="0.01" formControlName="ageMultiplier" />
+                </mat-form-field>
+              </div>
+            }
+          </div>
+        </div>
+      </mat-card>
+
+      @if (isAdmin()) {
+        <div class="flex justify-end">
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+            <mat-icon class="material-symbols-outlined">save</mat-icon>
+            Guardar cambios
+          </button>
+        </div>
+      }
+    </form>
+
+    <!-- Fee calculator -->
+    <mat-card class="!rounded-xl">
+      <div class="p-4 sm:p-6 flex flex-col gap-4">
+        <h2 class="text-lg font-semibold m-0">Cotizador de cuota</h2>
+        <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+          Probá el cálculo con la configuración guardada.
+        </p>
+        <form
+          [formGroup]="quoteForm"
+          (ngSubmit)="onQuote()"
+          class="flex flex-wrap items-baseline gap-3"
+        >
+          <mat-form-field appearance="outline" class="w-28">
+            <mat-label>Edad</mat-label>
+            <input matInput type="number" formControlName="age" min="0" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="min-w-52">
+            <mat-label>Nivel de salud</mat-label>
+            <mat-select formControlName="healthTier">
+              @for (tier of cfg.healthTiers; track tier.id) {
+                <mat-option [value]="tier.code">{{ tier.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-stroked-button type="submit" [disabled]="quoting()">
+            <mat-icon class="material-symbols-outlined">calculate</mat-icon>
+            Cotizar
+          </button>
+        </form>
+
+        @if (quoteError(); as qErr) {
+          <div
+            role="alert"
+            class="rounded-md p-3 text-sm bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+          >
+            {{ qErr }}
+          </div>
+        }
+
+        @if (quoteResult(); as q) {
+          @if (q.insurable) {
+            <div
+              class="rounded-md p-4 bg-[var(--mat-sys-surface-container-high)] flex flex-col gap-1"
+            >
+              <span class="text-2xl font-semibold">{{ formatCurrency(q.monthlyFee ?? 0) }}</span>
+              <span class="text-sm text-[var(--mat-sys-on-surface-variant)]">
+                {{ q.healthTierName }} · franja {{ q.ageBandLabel }} · carencia
+                {{ q.waitingPeriodMonths }} meses
+              </span>
+            </div>
+          } @else {
+            <div
+              role="status"
+              class="rounded-md p-4 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)] flex items-center gap-2"
+            >
+              <mat-icon class="material-symbols-outlined">block</mat-icon>
+              <span>{{ quoteReasonLabel(q.reason) }}</span>
+            </div>
+          }
+        }
+      </div>
+    </mat-card>
+  }
+</div>

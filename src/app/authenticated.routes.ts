@@ -106,6 +106,15 @@ export const AUTHENTICATED_ROUTES: Routes = [
           ),
       },
       {
+        // Admin-only membership-fee tariff editor (PR A). Backend gates the PUT
+        // with `ROLE_ADMIN`; the GET (config + quote) is open to any session so
+        // the future alta flow can quote. The sidenav hides the entry for
+        // non-admins — no route guard, the 403 on save is the canonical signal.
+        path: 'tarifario',
+        loadComponent: () =>
+          import('./features/membership/pages/tariff.page').then((m) => m.TariffPage),
+      },
+      {
         path: 'planes',
         loadComponent: () =>
           import('./features/plans/pages/plan-list.page').then((m) => m.PlanListPage),
