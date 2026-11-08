@@ -50,6 +50,13 @@ RUN npm run build
 # nginx-unprivileged runs as uid 101 (not root) and listens on 8080.
 FROM nginxinc/nginx-unprivileged:alpine AS runtime
 
+# Pull the latest Alpine security fixes on top of the base image (the published tag lags behind
+# fixed packages such as musl, zlib and expat; Trivy fails CI on fixable HIGH/CRITICAL CVEs).
+# The base image runs as uid 101, so switch to root only for the upgrade.
+USER root
+RUN apk upgrade --no-cache
+USER 101
+
 # nginx.conf carries the SPA history fallback + the /api and /actuator reverse
 # proxy targets (resolved through the `backend` service name when composed,
 # overridable via env).
