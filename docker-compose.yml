@@ -46,12 +46,8 @@ services:
     networks:
       - funeraria-net
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Health is checked by the image HEALTHCHECK (nginx-unprivileged on 8080). A compose-level
+    # override probing port 80 would mark the container unhealthy.
 
 networks:
   # The backend repo declares the same network as `external: true` so both
