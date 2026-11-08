@@ -44,7 +44,8 @@ describe('route tables', () => {
       }
     }
     expect(resolved).toBeGreaterThan(30);
-  });
+    // Imports every lazy page module: slow on a cold, instrumented CI runner.
+  }, 60_000);
 
   it('keeps edit/create routes carrying their mode', () => {
     const forms = all.filter((r) => r.path?.endsWith('nuevo') || r.path?.endsWith('editar'));

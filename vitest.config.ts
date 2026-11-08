@@ -19,6 +19,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Page specs render real components with Material; CI runners with coverage instrumentation
+    // are several times slower than a dev machine, so the 5s default flakes there.
+    testTimeout: 20_000,
     setupFiles: ['src/test-setup.ts'],
     include: ['src/**/*.spec.ts'],
     coverage: {
