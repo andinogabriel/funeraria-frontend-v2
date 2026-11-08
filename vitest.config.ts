@@ -26,6 +26,14 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       include: ['src/app/**/*.ts'],
       exclude: ['**/*.spec.ts', '**/*.config.ts', 'src/main.ts'],
+      // Ratchet: floors sit just below the measured coverage (2026-11-08: lines 29.2%, branches
+      // 21%, functions 26.8%) so CI fails if coverage drops. Raise them as tests are added.
+      thresholds: {
+        lines: 29,
+        statements: 28.5,
+        branches: 20.5,
+        functions: 26.5,
+      },
     },
   },
   define: {

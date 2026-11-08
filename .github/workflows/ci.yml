@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-      - master
-      - "chore/**"
-      - "feat/**"
   pull_request:
   workflow_dispatch:
 
@@ -22,21 +19,17 @@ jobs:
     name: Verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Set up Node 22
-        uses: actions/setup-node@v4
+      - name: Set up Node
+        uses: actions/setup-node@v7
         with:
           node-version-file: ".nvmrc"
           cache: npm
 
       - name: Install dependencies
-        # `npm ci` enforces lockfile parity. The legacy peer-deps flag mirrors the install
-        # convention chosen at bootstrap time to absorb peer-range mismatches that surface
-        # only on the first install of an Angular major; revisit when those settle.
         run: npm ci --legacy-peer-deps
 
       - name: Format check
@@ -45,27 +38,67 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
+      # Fails when coverage drops below the floors in vitest.config.ts.
+      - name: Unit tests with coverage gate
         run: npm test -- --coverage
 
       - name: Build
-        # Production build also exercises the bundle budgets defined in angular.json
-        # (initial 500kB warning, 1MB error). Failure here means a feature added more
-        # weight than the project allows without a deliberate budget bump.
         run: npm run build
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage
           if-no-files-found: ignore
 
-      - name: Upload dist
-        if: always()
-        uses: actions/upload-artifact@v4
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: verify
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
         with:
-          name: dist
-          path: dist
-          if-no-files-found: ignore
+          context: .
+          file: ./Dockerfile
+          tags: funeraria-frontend-v2:ci
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run container smoke test
+        env:
+          IMAGE_TAG: funeraria-frontend-v2:ci
+        run: bash .github/scripts/container-smoke-test.sh
+
+      # Scans the image on every PR, not only at release time, so a vulnerable base image is
+      # caught when it is introduced.
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: funeraria-frontend-v2:ci
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
