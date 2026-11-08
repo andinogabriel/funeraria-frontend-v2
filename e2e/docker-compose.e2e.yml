@@ -1,0 +1,56 @@
+# Full stack for the Playwright suite: Postgres + backend (built from its repository) + this
+# frontend image. Usage (from the frontend repo root):
+#
+#   BACKEND_DIR=../backend-funeraria-app docker compose -f e2e/docker-compose.e2e.yml up -d --build --wait
+#   npm run e2e
+#   docker compose -f e2e/docker-compose.e2e.yml down -v
+#
+# The nginx config proxies /api to `backend:8081`, so the backend service MUST be named
+# `backend`. Host ports are offset (4280, 55432) so the suite can run next to a dev stack.
+name: funeraria-e2e
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: funerariadb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d funerariadb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ${BACKEND_DIR:-../backend-funeraria-app}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,json-logs
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/funerariadb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      JWT_TOKEN_SECRET: e2e-jwt-secret-that-is-long-enough-for-hs512-signing-0123456789abcdef
+      SECURITY_PASSWORD_PEPPER: e2e-pepper
+      SECURITY_REQUEST_FINGERPRINT_SECRET: e2e-fingerprint-secret
+      APP_STORAGE_LOCAL_ROOT_PATH: /tmp/storage
+      APP_BOOTSTRAP_ADMIN_ENABLED: "true"
+      APP_BOOTSTRAP_ADMIN_EMAIL: admin@funeraria.local
+      APP_BOOTSTRAP_ADMIN_PASSWORD: Admin123!
+      APP_BOOTSTRAP_ADMIN_FIRST_NAME: Admin
+      APP_BOOTSTRAP_ADMIN_LAST_NAME: E2E
+
+  frontend:
+    build:
+      context: ..
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "4280:8080"
