@@ -14,6 +14,7 @@ import { MAT_SNACK_BAR_DEFAULT_OPTIONS } from '@angular/material/snack-bar';
 import { authInterceptor } from './core/http/auth.interceptor';
 import { correlationIdInterceptor } from './core/http/correlation-id.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
+import { idempotencyInterceptor } from './core/http/idempotency.interceptor';
 import { routes } from './app.routes';
 
 // Register the `es-AR` ICU data globally so any pipe / formatter that takes the locale
@@ -47,7 +48,14 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding(), withViewTransitions()),
     provideHttpClient(
       withFetch(),
-      withInterceptors([correlationIdInterceptor, authInterceptor, errorInterceptor]),
+      // idempotency sits before auth/error so its retries re-run them (fresh token, 401 refresh)
+      // while keeping one Idempotency-Key per logical operation.
+      withInterceptors([
+        correlationIdInterceptor,
+        idempotencyInterceptor,
+        authInterceptor,
+        errorInterceptor,
+      ]),
     ),
     provideAnimationsAsync(),
     // Angular's default LOCALE_ID is `en-US`. Setting it to `es-AR` aligns the implicit
