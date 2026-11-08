@@ -138,7 +138,8 @@ export class MyFuneralsPage {
   ]);
 
   constructor() {
-    this.service.loadByUser().subscribe();
+    // Errors land in service.byUserError; swallow them here so they do not reach ErrorHandler.
+    this.service.loadByUser().subscribe({ error: () => undefined });
     // Selection drop-out on filter change is handled by the wrapper.
   }
 
@@ -153,6 +154,7 @@ export class MyFuneralsPage {
 
   protected onRefresh(): void {
     this.selectedFuneral.set(null);
-    this.service.loadByUser().subscribe();
+    // Errors land in service.byUserError; swallow them here so they do not reach ErrorHandler.
+    this.service.loadByUser().subscribe({ error: () => undefined });
   }
 }

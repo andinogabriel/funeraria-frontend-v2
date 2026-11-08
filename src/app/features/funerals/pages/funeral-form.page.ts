@@ -7,6 +7,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -251,6 +252,9 @@ export class FuneralFormPage {
   /** Cities for the currently-selected province. `null` until the lazy load resolves. */
   protected readonly cities = signal<readonly { id: number; name: string }[] | null>(null);
 
+  /** City of the edited record, restored by the city cascade once its province's cities load. */
+  private pendingCityId: number | null = null;
+
   /* ----------------------------- Step 3: Plan + items ------------------------- */
 
   protected readonly planSelection = this.fb.group({
@@ -422,11 +426,22 @@ export class FuneralFormPage {
         cityCtrl.disable({ emitEvent: false });
         return;
       }
+      // A city loaded from the edited record must survive the cascade: changing the province
+      // clears the city, so the value patched by patchFrom() is restored once the province's
+      // cities arrive (only if it belongs to that province).
+      const restoreCityId = this.pendingCityId;
+      this.pendingCityId = null;
       cityCtrl.setValue(null, { emitEvent: false });
       cityCtrl.disable({ emitEvent: false });
-      this.catalogs.loadCities(provinceId).subscribe((list) => {
+      // untracked: loadCities reads the catalog cache signal. Tracking it made this effect
+      // re-run when the response landed in the cache, wiping the city again (the edited
+      // record's city was lost and the form could not be saved without re-picking it).
+      untracked(() => this.catalogs.loadCities(provinceId)).subscribe((list) => {
         this.cities.set(list);
         cityCtrl.enable({ emitEvent: false });
+        if (restoreCityId !== null && list.some((city) => city.id === restoreCityId)) {
+          cityCtrl.setValue(restoreCityId, { emitEvent: false });
+        }
       });
     });
 
@@ -702,6 +717,9 @@ export class FuneralFormPage {
         // The backend ships `city.province?.id` on the address; fall back to a
         // looser lookup if it ever stops carrying the relation.
         ((place.city as { province?: { id?: number } }).province?.id ?? null) as number | null;
+      // The province change below triggers the city cascade effect, which clears the city and
+      // reloads the province's cities; it restores this one when they arrive.
+      this.pendingCityId = place.city.id;
       this.placeOfDeath.patchValue({
         include: true,
         streetName: place.streetName ?? '',
@@ -711,14 +729,6 @@ export class FuneralFormPage {
         provinceId,
         cityId: place.city.id,
       });
-      if (provinceId !== null) {
-        this.catalogs.loadCities(provinceId).subscribe((list) => {
-          this.cities.set(list);
-          // Re-enable cityId now that the dropdown has data — the form was built with it
-          // disabled so the operator cannot pick before a province resolves.
-          this.placeOfDeath.controls.cityId.enable({ emitEvent: false });
-        });
-      }
     }
 
     this.planSelection.patchValue({ planId: funeral.plan.id });
