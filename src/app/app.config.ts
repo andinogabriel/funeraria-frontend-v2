@@ -2,6 +2,7 @@ import { registerLocaleData } from '@angular/common';
 import localeEsAr from '@angular/common/locales/es-AR';
 import {
   ApplicationConfig,
+  ErrorHandler,
   LOCALE_ID,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
@@ -15,6 +16,8 @@ import { authInterceptor } from './core/http/auth.interceptor';
 import { correlationIdInterceptor } from './core/http/correlation-id.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
 import { idempotencyInterceptor } from './core/http/idempotency.interceptor';
+import { TelemetryErrorHandler } from './core/telemetry/telemetry-error-handler';
+import { provideWebVitalsReporting } from './core/telemetry/web-vitals';
 import { routes } from './app.routes';
 
 // Register the `es-AR` ICU data globally so any pipe / formatter that takes the locale
@@ -44,6 +47,11 @@ registerLocaleData(localeEsAr);
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    // Uncaught errors keep their console output and are also reported to the backend
+    // (client_errors_total); Core Web Vitals feed client_web_vitals. Both only for signed-in
+    // sessions (see ClientTelemetryService).
+    { provide: ErrorHandler, useClass: TelemetryErrorHandler },
+    provideWebVitalsReporting(),
     provideZonelessChangeDetection(),
     provideRouter(routes, withComponentInputBinding(), withViewTransitions()),
     provideHttpClient(
