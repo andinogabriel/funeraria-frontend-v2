@@ -19,6 +19,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Page specs render real components with Material; CI runners with coverage instrumentation
+    // are several times slower than a dev machine, so the 5s default flakes there.
+    testTimeout: 20_000,
     setupFiles: ['src/test-setup.ts'],
     include: ['src/**/*.spec.ts'],
     coverage: {
@@ -26,13 +29,14 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       include: ['src/app/**/*.ts'],
       exclude: ['**/*.spec.ts', '**/*.config.ts', 'src/main.ts'],
-      // Ratchet: floors sit just below the measured coverage (2026-11-08: lines 29.2%, branches
-      // 21%, functions 26.8%) so CI fails if coverage drops. Raise them as tests are added.
+      // Hard gate enforced by CI (npm test -- --coverage). Measured 2026-11-08: lines 86.9%,
+      // statements 87.1%, functions 87.2%, branches 75.5%. Lines/statements/functions must stay
+      // at 85% or above; branches is a ratchet floor at the current level, raise it as tests land.
       thresholds: {
-        lines: 29,
-        statements: 28.5,
-        branches: 20.5,
-        functions: 26.5,
+        lines: 85,
+        statements: 85,
+        functions: 85,
+        branches: 75,
       },
     },
   },
