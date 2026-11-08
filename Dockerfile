@@ -47,20 +47,25 @@ RUN npm run build
 # -----------------------------------------------------------------------------
 # Stage 2 — runtime (nginx)
 # -----------------------------------------------------------------------------
-FROM nginx:alpine AS runtime
+# nginx-unprivileged runs as uid 101 (not root) and listens on 8080.
+FROM nginxinc/nginx-unprivileged:alpine AS runtime
 
 # nginx.conf carries the SPA history fallback + the /api and /actuator reverse
 # proxy targets (resolved through the `backend` service name when composed,
 # overridable via env).
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 
 # The Angular CLI nests the browser bundle under /<project>/browser when the
 # `outputMode` defaults are in effect. Copy only that directory so the image
 # never carries server-side artefacts.
 COPY --from=builder /app/dist/funeraria-frontend-v2/browser /usr/share/nginx/html
 
-# Default nginx port; docker-compose binds it to host 4200 to match the dev
+# Unprivileged nginx port; docker-compose binds it to host 4200 to match the dev
 # `ng serve` port.
-EXPOSE 80
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1
 
 # nginx runs in the foreground in the official image; no CMD override needed.

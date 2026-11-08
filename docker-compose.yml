@@ -34,7 +34,7 @@ services:
     ports:
       # Same port as `ng serve` so the URL stays consistent across
       # dev (npm start) and prod-like (this compose).
-      - "4200:80"
+      - "4200:8080"
     environment:
       # nginx.conf hardcodes the backend hostname to `backend` for the
       # compose-shared-network path. If you need to override (eg. backend on
