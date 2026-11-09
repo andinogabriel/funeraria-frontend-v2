@@ -22,6 +22,35 @@
     <span class="flex-1"></span>
 
     <!--
+      Command palette trigger. Desktop shows a search pill with the shortcut so the feature is
+      discoverable; handset collapses it to an icon button to keep the toolbar uncluttered.
+    -->
+    @if (isHandset()) {
+      <button
+        mat-icon-button
+        (click)="openPalette()"
+        aria-label="Buscar y navegar"
+        matTooltip="Buscar"
+        data-testid="palette-trigger"
+      >
+        <mat-icon class="material-symbols-outlined">search</mat-icon>
+      </button>
+    } @else {
+      <button
+        type="button"
+        class="palette-trigger"
+        (click)="openPalette()"
+        [attr.aria-label]="'Buscar y navegar (' + paletteShortcut + ')'"
+        aria-keyshortcuts="Control+K Meta+K"
+        data-testid="palette-trigger"
+      >
+        <mat-icon class="material-symbols-outlined" aria-hidden="true">search</mat-icon>
+        <span class="palette-trigger-label">Buscar…</span>
+        <kbd class="palette-trigger-kbd">{{ paletteShortcut }}</kbd>
+      </button>
+    }
+
+    <!--
       Theme switcher. Tri-state menu (Auto / Claro / Oscuro) so the user can
       either follow the OS preference or pin a specific palette. The trigger
       icon reflects the effective theme — `dark_mode` when dark tokens are

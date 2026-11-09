@@ -230,3 +230,10 @@ body {
     animation: none;
   }
 }
+
+// Command palette dialog: no Material dialog padding, rounded like a floating sheet. The panel
+// class is set by CommandPaletteService.
+.app-command-palette-panel .mat-mdc-dialog-surface {
+  border-radius: 16px;
+  overflow: hidden;
+}
