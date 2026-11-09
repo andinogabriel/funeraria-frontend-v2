@@ -124,6 +124,67 @@ describe('FuneralFormPage', () => {
     expect(g.fallecido.getRawValue().affiliateDni).toBeNull();
   });
 
+  describe('membership coverage', () => {
+    const verdict = {
+      affiliateDni: 30111222,
+      affiliateName: 'Ana Perez',
+      holder: null,
+      healthTierName: 'Estandar',
+      evaluatedOn: '2026-11-08',
+      accidental: false,
+      eligible: false,
+      reasons: ['WAITING_PERIOD'],
+      waitingPeriodMonths: 3,
+      coveredFrom: '2026-12-01',
+      overdueCount: 0,
+      overdueGraceCount: 2,
+    };
+    const isEligibility = (r: { url: string }) => r.url.endsWith('/membership/eligibility');
+
+    function pickAffiliate(fixture: ReturnType<typeof setup>) {
+      const g = groups(fixture);
+      g.fallecido.patchValue({ isAffiliated: true });
+      settle(fixture);
+      g.fallecido.patchValue({ affiliateDni: 30111222 });
+      settle(fixture);
+      g.fallecido.patchValue({ deathDate: new Date(2026, 10, 8), deathCauseId: 1 });
+      settle(fixture);
+    }
+
+    it('asks the coverage of the picked affiliate and shows the verdict', () => {
+      const fixture = setup('create');
+      pickAffiliate(fixture);
+      const req = h.http.expectOne(isEligibility);
+      expect(req.request.params.get('dni')).toBe('30111222');
+      expect(req.request.params.get('date')).toBe('2026-11-08');
+      expect(req.request.params.get('deathCauseId')).toBe('1');
+      req.flush(verdict);
+      settle(fixture);
+      expect(textOf(fixture)).toContain('No cubierto por la membresía');
+      expect(textOf(fixture)).toContain('período de carencia');
+    });
+
+    it('hides the verdict when the coverage cannot be evaluated', () => {
+      const fixture = setup('create');
+      pickAffiliate(fixture);
+      h.http
+        .expectOne(isEligibility)
+        .flush({ detail: 'not found' }, { status: 404, statusText: 'Not Found' });
+      settle(fixture);
+      expect(textOf(fixture)).not.toContain('cubierto por la membresía');
+    });
+
+    it('does not ask without a death date', () => {
+      const fixture = setup('create');
+      const g = groups(fixture);
+      g.fallecido.patchValue({ isAffiliated: true });
+      settle(fixture);
+      g.fallecido.patchValue({ affiliateDni: 30111222 });
+      settle(fixture);
+      h.http.expectNone(isEligibility);
+    });
+  });
+
   it('shows the backend error when create fails', () => {
     const fixture = setup('create');
     fillValid(fixture);

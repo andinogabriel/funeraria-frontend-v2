@@ -47,6 +47,8 @@ export interface Relationship {
 export interface DeathCause {
   readonly id: number;
   readonly name: string;
+  /** Accidental deaths are covered without the waiting period (backend ADR-0022). */
+  readonly accidental?: boolean;
 }
 
 /** Role granted to a user (ROLE_ADMIN, ROLE_USER, …). */

@@ -32,6 +32,29 @@ describe('FuneralDetailPage', () => {
     expect(textOf(fixture)).toContain('Plan Standard');
   });
 
+  it('shows the coverage recorded when the service was registered', () => {
+    h = configurePage({ params: { id: '5' } });
+    const fixture = render(FuneralDetailPage);
+    const base = funeral();
+    const covered = {
+      ...base,
+      deceased: {
+        ...base.deceased,
+        coverageEligible: false,
+        coverageReasons: ['ACCOUNT_IN_ARREARS'],
+      },
+    };
+    flushAll(h.http, [[/\/funerals$/, [covered]]]);
+    settle(fixture);
+    expect(textOf(fixture)).toContain('No cubierto por la membresía');
+    expect(textOf(fixture)).toContain('cuotas en mora');
+  });
+
+  it('shows no coverage verdict for a deceased that was not an affiliate', () => {
+    const fixture = setup();
+    expect(textOf(fixture)).not.toContain('cubierto por la membresía');
+  });
+
   it('shows the not-found state for an unknown id', () => {
     const fixture = setup('999');
     expect(read(fixture, 'funeral')).toBeNull();

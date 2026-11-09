@@ -22,6 +22,7 @@ import { map } from 'rxjs/operators';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 import { formatDate, formatDateTime } from '../../../shared/format';
 import { readListReturnUrl, withListReturnUrl } from '../../../shared/navigation';
+import { CoverageVerdictComponent } from '../../membership/components/coverage-verdict.component';
 import { FuneralService } from '../funeral.service';
 import type { Funeral } from '../funeral.types';
 
@@ -65,6 +66,7 @@ import type { Funeral } from '../funeral.types';
   selector: 'app-funeral-detail-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CoverageVerdictComponent,
     MatButtonModule,
     MatCardModule,
     MatDividerModule,

@@ -437,6 +437,8 @@ interface DeceasedWire {
   readonly deceasedRelationship: Relationship;
   readonly deathCause: DeathCause;
   readonly deceasedUser?: DeceasedUser | null;
+  readonly coverageEligible?: boolean | null;
+  readonly coverageReasons?: readonly string[] | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -483,6 +485,8 @@ function normalizeDeceased(wire: DeceasedWire): DeceasedResponse {
     deceasedRelationship: wire.deceasedRelationship,
     deathCause: wire.deathCause,
     deceasedUser: wire.deceasedUser ?? null,
+    coverageEligible: wire.coverageEligible ?? null,
+    coverageReasons: wire.coverageReasons ?? [],
   };
 }
 

@@ -85,6 +85,13 @@ export interface DeceasedResponse {
   readonly deceasedRelationship: Relationship;
   readonly deathCause: DeathCause;
   readonly deceasedUser: DeceasedUser | null;
+  /**
+   * Whether the membership covered the service on the death date, recorded when the funeral was
+   * registered (backend ADR-0022). `null` when the deceased was not an affiliate.
+   */
+  readonly coverageEligible: boolean | null;
+  /** Reason codes when not covered; empty when covered or not affiliated. */
+  readonly coverageReasons: readonly string[];
 }
 
 /** Request body for `POST /api/v1/funerals` and `PUT /api/v1/funerals/{id}`. */

@@ -4,7 +4,9 @@ import type { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import type {
+  ClaimEligibility,
   DuesGenerationResult,
+  EligibilityQuery,
   MembershipAccount,
   MembershipHolderSummary,
   MembershipPaymentRequest,
@@ -32,6 +34,15 @@ export class MembershipBillingService {
   /** Registers a payment; the server answers with the updated statement. */
   registerPayment(dni: number, request: MembershipPaymentRequest): Observable<MembershipAccount> {
     return this.http.post<MembershipAccount>(`${this.baseUrl}/holders/${dni}/payments`, request);
+  }
+
+  /** Whether the membership of an affiliate covers the service on a date. 404 = not affiliated. */
+  eligibility(query: EligibilityQuery): Observable<ClaimEligibility> {
+    let params = new HttpParams().set('dni', String(query.dni)).set('date', query.date);
+    if (query.deathCauseId !== null && query.deathCauseId !== undefined) {
+      params = params.set('deathCauseId', String(query.deathCauseId));
+    }
+    return this.http.get<ClaimEligibility>(`${this.baseUrl}/eligibility`, { params });
   }
 
   /** Bills `period` (`yyyy-MM`) for every affiliate not billed yet. Idempotent. */

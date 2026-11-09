@@ -9,7 +9,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -25,7 +25,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { catchError, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 
 import { AuthStore } from '../../../core/auth/auth.store';
 import { readListReturnUrl } from '../../../shared/navigation';
@@ -33,6 +33,9 @@ import { FieldSkeletonDirective } from '../../../shared/skeleton';
 import { AffiliateService } from '../../affiliates/affiliate.service';
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import { ItemService } from '../../items/item.service';
+import type { ClaimEligibility, EligibilityQuery } from '../../membership/billing.types';
+import { CoverageVerdictComponent } from '../../membership/components/coverage-verdict.component';
+import { MembershipBillingService } from '../../membership/membership-billing.service';
 import { PlanService } from '../../plans/plan.service';
 import { UserService } from '../../users/user.service';
 import { FuneralService } from '../funeral.service';
@@ -97,6 +100,7 @@ import type {
   selector: 'app-funeral-form-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
+    CoverageVerdictComponent,
     FieldSkeletonDirective,
     MatButtonModule,
     MatCardModule,
@@ -122,6 +126,7 @@ export class FuneralFormPage {
   private readonly itemService = inject(ItemService);
   private readonly affiliateService = inject(AffiliateService);
   private readonly userService = inject(UserService);
+  private readonly billing = inject(MembershipBillingService);
   private readonly authStore = inject(AuthStore);
   private readonly catalogs = inject(CatalogsService);
   private readonly router = inject(Router);
@@ -284,6 +289,41 @@ export class FuneralFormPage {
   private readonly selectedAffiliateDni = toSignal(
     this.fallecido.controls.affiliateDni.valueChanges,
     { initialValue: this.fallecido.controls.affiliateDni.value },
+  );
+
+  private readonly deathDate = toSignal(this.fallecido.controls.deathDate.valueChanges, {
+    initialValue: this.fallecido.controls.deathDate.value,
+  });
+
+  private readonly deathCauseId = toSignal(this.fallecido.controls.deathCauseId.valueChanges, {
+    initialValue: this.fallecido.controls.deathCauseId.value,
+  });
+
+  /**
+   * What to ask the membership coverage endpoint (backend ADR-0022): only when registering a new
+   * service for a picked affiliate with a death date, and only for admins (the endpoint is
+   * admin-only). The verdict is informational; it never blocks saving.
+   */
+  private readonly eligibilityQuery = computed<EligibilityQuery | null>(() => {
+    const dni = this.selectedAffiliateDni();
+    const date = this.deathDate();
+    if (this.mode !== 'create' || !this.isAdmin() || !this.isAffiliated() || !dni || !date) {
+      return null;
+    }
+    return { dni, date: toIsoDate(date), deathCauseId: this.deathCauseId() };
+  });
+
+  /** Live coverage verdict for the picked affiliate; null while unknown or on error. */
+  protected readonly eligibility = toSignal(
+    toObservable(this.eligibilityQuery).pipe(
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+      switchMap((query) =>
+        query === null
+          ? of(null)
+          : this.billing.eligibility(query).pipe(catchError(() => of(null))),
+      ),
+    ),
+    { initialValue: null as ClaimEligibility | null },
   );
 
   /** Reactive snapshot of the plan picker — feeds the items-rebuild effect. */
