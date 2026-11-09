@@ -48,3 +48,21 @@ export interface ActivityFeedEntry {
 export interface ActivityFeedResponse {
   readonly entries: readonly ActivityFeedEntry[];
 }
+
+/** One calendar month of the dashboard trends (`GET /metrics/trends`). Amounts in pesos. */
+export interface MonthlyTrendPoint {
+  /** `yyyy-MM`. */
+  readonly month: string;
+  readonly funerals: number;
+  readonly funeralRevenue: number;
+  readonly purchases: number;
+  readonly duesBilled: number;
+  /** Payments received during the month, whatever period they settle. */
+  readonly duesCollected: number;
+}
+
+export interface MonthlyTrends {
+  /** ISO date the trends were computed for; the last point is that (partial) month. */
+  readonly asOf: string;
+  readonly points: readonly MonthlyTrendPoint[];
+}

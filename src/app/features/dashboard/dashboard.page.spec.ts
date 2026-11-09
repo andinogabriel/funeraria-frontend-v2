@@ -96,6 +96,7 @@ describe('DashboardPage', () => {
     ['/metrics/dashboard/series', kpi(30, 25)],
     ['/metrics/dashboard', metrics],
     ['/metrics/activity-feed', feed],
+    ['/metrics/trends', { asOf: '2026-11-09', points: [] }],
   ] as const;
 
   function setup(authorities?: readonly string[]) {
@@ -160,5 +161,14 @@ describe('DashboardPage', () => {
   it('shows the items shortcut instead of auditing for regular users', () => {
     const fixture = setup(USER);
     expect(read(fixture, 'isAdmin')).toBe(false);
+  });
+
+  it('shows the monthly trends to an admin', () => {
+    expect(setup().nativeElement.querySelector('app-trends-panel')).not.toBeNull();
+  });
+
+  it('hides the monthly trends from a regular user and never requests them', () => {
+    expect(setup(USER).nativeElement.querySelector('app-trends-panel')).toBeNull();
+    h.http.expectNone((r) => r.url.endsWith('/metrics/trends'));
   });
 });

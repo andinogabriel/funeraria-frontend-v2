@@ -1,0 +1,153 @@
+<div class="trend-chart">
+  <div class="trend-chart__bar">
+    @if (series().length > 1) {
+      <ul class="trend-chart__legend" aria-label="Series">
+        @for (s of series(); track s.name) {
+          <li>
+            <span class="trend-chart__swatch" [attr.data-slot]="s.slot" aria-hidden="true"></span>
+            {{ s.name }}
+          </li>
+        }
+      </ul>
+    } @else {
+      <span></span>
+    }
+    <button
+      type="button"
+      class="trend-chart__toggle"
+      (click)="toggleTable()"
+      [attr.aria-pressed]="showTable()"
+      data-testid="chart-table-toggle"
+    >
+      {{ showTable() ? 'Ver gráfico' : 'Ver tabla' }}
+    </button>
+  </div>
+
+  @if (showTable()) {
+    <div class="trend-chart__table-wrap">
+      <table class="trend-chart__table" data-testid="chart-table">
+        <caption class="sr-only">
+          {{
+            label()
+          }}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Mes</th>
+            @for (s of series(); track s.name) {
+              <th scope="col">{{ s.name }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of tableRows(); track row.month) {
+            <tr>
+              <th scope="row">{{ row.month }}</th>
+              @for (value of row.values; track $index) {
+                <td>{{ value }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    @let index = active();
+    <div class="trend-chart__plot">
+      <svg
+        [attr.width]="width()"
+        [attr.height]="height"
+        role="img"
+        [attr.aria-label]="label() + '. Usá las flechas para recorrer los meses, o Ver tabla.'"
+        tabindex="0"
+        (pointermove)="onPointerMove($event)"
+        (pointerleave)="onPointerLeave()"
+        (keydown)="onKeydown($event)"
+        (blur)="onPointerLeave()"
+        data-testid="chart-plot"
+      >
+        @for (tick of ticks(); track tick.value) {
+          <line
+            class="trend-chart__grid"
+            [attr.x1]="margin.left"
+            [attr.x2]="width() - margin.right"
+            [attr.y1]="tick.y"
+            [attr.y2]="tick.y"
+          />
+          <text class="trend-chart__axis" [attr.x]="margin.left - 8" [attr.y]="tick.y" dy="0.32em">
+            {{ tick.label }}
+          </text>
+        }
+        @for (label of xLabels(); track label.x) {
+          <text
+            class="trend-chart__axis trend-chart__axis--x"
+            [attr.x]="label.x"
+            [attr.y]="baseline + 18"
+          >
+            {{ label.text }}
+          </text>
+        }
+
+        @if (tooltip(); as tip) {
+          <line
+            class="trend-chart__crosshair"
+            [attr.x1]="tip.x"
+            [attr.x2]="tip.x"
+            [attr.y1]="margin.top"
+            [attr.y2]="baseline"
+          />
+        }
+
+        @for (bar of bars(); track bar.index) {
+          <path
+            class="trend-chart__bar-mark"
+            [class.trend-chart__bar-mark--dim]="index !== null && index !== bar.index"
+            [attr.d]="bar.path"
+            data-testid="chart-bar"
+          />
+        }
+
+        @for (line of lines(); track line.name) {
+          <path
+            class="trend-chart__line"
+            [attr.data-slot]="line.slot"
+            [attr.d]="line.path"
+            data-testid="chart-line"
+          />
+          @if (index !== null) {
+            <circle
+              class="trend-chart__dot"
+              [attr.data-slot]="line.slot"
+              [attr.cx]="line.points[index].x"
+              [attr.cy]="line.points[index].y"
+              r="4.5"
+            />
+          }
+        }
+      </svg>
+
+      @if (tooltip(); as tip) {
+        <div
+          class="trend-chart__tooltip"
+          [class.trend-chart__tooltip--left]="tip.alignRight"
+          [style.left.px]="tip.x"
+          role="status"
+          data-testid="chart-tooltip"
+        >
+          <p class="trend-chart__tooltip-title">{{ tip.title }}</p>
+          @for (row of tip.rows; track row.name) {
+            <p class="trend-chart__tooltip-row">
+              <span
+                class="trend-chart__swatch"
+                [attr.data-slot]="row.slot"
+                aria-hidden="true"
+              ></span>
+              <span class="trend-chart__tooltip-name">{{ row.name }}</span>
+              <span class="trend-chart__tooltip-value">{{ row.value }}</span>
+            </p>
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

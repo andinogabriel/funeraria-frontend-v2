@@ -30,6 +30,12 @@ html {
       density: 0,
     )
   );
+
+  // Chart series colors (slots 1-2 of the validated categorical palette, light steps).
+  // Validated for color-blind separation and >= 3:1 contrast against the card surface; the
+  // dark steps live in app-dark-theme. Text never uses these: it stays on Material tokens.
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
 }
 
 // -----------------------------------------------------------------------------
@@ -62,6 +68,10 @@ html {
       density: 0,
     )
   );
+
+  // Dark steps of the same two chart hues, validated against the dark surface.
+  --viz-series-1: #3987e5;
+  --viz-series-2: #d95926;
 }
 
 @mixin app-light-theme {
@@ -78,6 +88,9 @@ html {
       density: 0,
     )
   );
+
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
 }
 
 @media (prefers-color-scheme: dark) {

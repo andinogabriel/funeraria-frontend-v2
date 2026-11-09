@@ -1,0 +1,193 @@
+// Series colors come from the --viz-series-* tokens in styles.scss (validated for color-blind
+// separation and 3:1 contrast in both themes); text and grid use Material's neutral tokens.
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.trend-chart__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.trend-chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.trend-chart__swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--viz-series-1);
+
+  &[data-slot='2'] {
+    background: var(--viz-series-2);
+  }
+}
+
+.trend-chart__toggle {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mat-sys-primary);
+  font-size: 12px;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent);
+  }
+}
+
+.trend-chart__plot {
+  position: relative;
+
+  svg {
+    display: block;
+    overflow: visible;
+    outline: none;
+    touch-action: pan-y;
+  }
+
+  svg:focus-visible {
+    border-radius: 8px;
+    box-shadow: 0 0 0 2px var(--mat-sys-primary);
+  }
+}
+
+.trend-chart__grid {
+  stroke: var(--mat-sys-outline-variant);
+  opacity: 0.6;
+}
+
+.trend-chart__axis {
+  fill: var(--mat-sys-on-surface-variant);
+  font-size: 11px;
+  text-anchor: end;
+}
+
+.trend-chart__axis--x {
+  text-anchor: middle;
+}
+
+.trend-chart__crosshair {
+  stroke: var(--mat-sys-outline);
+  stroke-dasharray: 3 3;
+}
+
+.trend-chart__bar-mark {
+  fill: var(--viz-series-1);
+  transition: opacity 120ms ease;
+}
+
+.trend-chart__bar-mark--dim {
+  opacity: 0.45;
+}
+
+.trend-chart__line {
+  fill: none;
+  stroke: var(--viz-series-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+
+  &[data-slot='2'] {
+    stroke: var(--viz-series-2);
+  }
+}
+
+.trend-chart__dot {
+  fill: var(--viz-series-1);
+  stroke: var(--mat-sys-surface-container);
+  stroke-width: 2;
+
+  &[data-slot='2'] {
+    fill: var(--viz-series-2);
+  }
+}
+
+.trend-chart__tooltip {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  min-width: 160px;
+  margin-left: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--mat-sys-inverse-surface);
+  color: var(--mat-sys-inverse-on-surface);
+  font-size: 12px;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+
+  p {
+    margin: 0;
+  }
+}
+
+.trend-chart__tooltip--left {
+  transform: translateX(calc(-100% - 24px));
+}
+
+.trend-chart__tooltip .trend-chart__tooltip-title {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.trend-chart__tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trend-chart__tooltip-name {
+  flex: 1;
+}
+
+.trend-chart__tooltip-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.trend-chart__table-wrap {
+  max-height: 200px;
+  overflow: auto;
+}
+
+.trend-chart__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+
+  th,
+  td {
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  th:first-child {
+    text-align: left;
+    font-weight: 500;
+  }
+}

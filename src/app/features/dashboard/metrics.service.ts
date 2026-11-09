@@ -10,6 +10,7 @@ import type {
   KpiMetric,
   MetricKind,
   MetricRange,
+  MonthlyTrends,
 } from './metrics.types';
 
 /**
@@ -32,6 +33,7 @@ export class MetricsService {
   private readonly dashboardEndpoint = `${environment.apiBaseUrl}/v1/metrics/dashboard`;
   private readonly seriesEndpoint = `${environment.apiBaseUrl}/v1/metrics/dashboard/series`;
   private readonly activityFeedEndpoint = `${environment.apiBaseUrl}/v1/metrics/activity-feed`;
+  private readonly trendsEndpoint = `${environment.apiBaseUrl}/v1/metrics/trends`;
 
   private readonly _snapshot = signal<DashboardMetrics | null>(null);
   private readonly _loading = signal(false);
@@ -112,6 +114,15 @@ export class MetricsService {
   loadSeries(metric: MetricKind, range: MetricRange): Observable<KpiMetric> {
     const params = new HttpParams().set('metric', metric).set('range', range);
     return this.http.get<KpiMetric>(this.seriesEndpoint, { params });
+  }
+
+  /**
+   * Month-by-month services, revenue, purchases and dues for the dashboard charts. Admin-only
+   * on the backend. Stateless: the trends panel owns what it shows.
+   */
+  loadTrends(months: number): Observable<MonthlyTrends> {
+    const params = new HttpParams().set('months', String(months));
+    return this.http.get<MonthlyTrends>(this.trendsEndpoint, { params });
   }
 
   private mapError(err: { status?: number; error?: { detail?: string } }): string {

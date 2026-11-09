@@ -134,5 +134,12 @@
         }
       </article>
     </section>
+
+    <!-- Monthly trends: admin-only, because every series but the service count is financial
+         and the backend endpoint is gated to ROLE_ADMIN. Not wrapped in @defer: the dashboard
+         chunk is already lazy, and a viewport trigger adds about 8 kB to the initial bundle. -->
+    @if (isAdmin()) {
+      <app-trends-panel />
+    }
   </div>
 </div>
