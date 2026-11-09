@@ -20,7 +20,8 @@ export class CommandPaletteService {
       width: '640px',
       maxWidth: 'calc(100vw - 32px)',
       position: { top: '12vh' },
-      autoFocus: 'first-tabbable',
+      // The palette focuses its own input on first render (see CommandPaletteComponent).
+      autoFocus: false,
       restoreFocus: true,
       panelClass: 'app-command-palette-panel',
       ariaLabel: 'Buscar y navegar',

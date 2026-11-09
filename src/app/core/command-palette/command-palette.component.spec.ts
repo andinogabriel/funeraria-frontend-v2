@@ -79,6 +79,11 @@ describe('CommandPaletteComponent', () => {
     expect(input(fixture).getAttribute('aria-activedescendant')).toBe('palette-option-0');
   });
 
+  it('focuses the search box on the first render', () => {
+    const fixture = setup();
+    expect(document.activeElement).toBe(input(fixture));
+  });
+
   it('hides admin-only commands from a regular user', () => {
     const fixture = setup(USER);
     expect(labels(fixture)).not.toContain('Auditoría');

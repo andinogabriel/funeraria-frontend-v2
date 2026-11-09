@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -6,6 +7,7 @@ import {
   ElementRef,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -121,6 +123,8 @@ export class CommandPaletteComponent {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly input = viewChild.required<ElementRef<HTMLInputElement>>('input');
+
   protected readonly search = new FormControl('', { nonNullable: true });
   protected readonly term = toSignal(this.search.valueChanges.pipe(map((v) => v.trim())), {
     initialValue: '',
@@ -202,6 +206,10 @@ export class CommandPaletteComponent {
   );
 
   constructor() {
+    // Focus on the first render instead of waiting for MatDialog's autoFocus, which runs after
+    // the open animation: an operator who types right after Ctrl+K would lose those keys.
+    afterNextRender(() => this.input().nativeElement.focus());
+
     this.search.valueChanges
       .pipe(
         map((value) => value.trim()),
