@@ -10,6 +10,7 @@ import {
   render,
   settle,
   textOf,
+  USER,
   type Fixture,
   type PageHarness,
 } from '../../../../testing/page-harness';
@@ -237,6 +238,85 @@ describe('FuneralFormPage', () => {
   it('reports a missing record in edit mode', () => {
     const fixture = setup('edit', { id: '999' });
     expect(read(fixture, 'errorMessage')).toBe('No se encontró el servicio solicitado.');
+  });
+
+  it('submits without receipt type, place of death or bound user', () => {
+    const fixture = setup('create');
+    fillValid(fixture);
+    const g = groups(fixture);
+    g.servicio.patchValue({ receiptTypeId: null, receiptNumber: ' ', receiptSeries: '' });
+    g.fallecido.patchValue({ deceasedUserId: null });
+    g.place.patchValue({ include: true, streetName: '' });
+    g.place.patchValue({ include: false });
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    const post = h.http.expectOne((r) => r.method === 'POST');
+    expect(post.request.body.receiptType).toBeNull();
+    expect(post.request.body.receiptNumber).toBeNull();
+    expect(post.request.body.deceased.placeOfDeath).toBeNull();
+    expect(post.request.body.deceased.deceasedUser).toBeNull();
+    post.flush(funeral());
+    flushAll(h.http, catalogs);
+  });
+
+  it('reports a plan that is no longer available', () => {
+    const fixture = setup('create');
+    fillValid(fixture);
+    groups(fixture).plan.patchValue({ planId: 999 });
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'POST').length).toBe(0);
+    expect(read(fixture, 'errorMessage')).toBe('El plan seleccionado ya no está disponible.');
+  });
+
+  it('clears the plan items when the plan is cleared', () => {
+    const fixture = setup('create');
+    fillValid(fixture);
+    groups(fixture).plan.patchValue({ planId: null });
+    settle(fixture);
+    expect(groups(fixture).plan.controls['items'].value).toEqual([]);
+  });
+
+  it('loads an affiliated record without the user list for a non-admin', () => {
+    h = configurePage({ data: { mode: 'edit' }, params: { id: '5' }, authorities: USER });
+    const fixture = render(FuneralFormPage);
+    const base = funeral();
+    flushAll(h.http, [
+      [
+        /\/funerals/,
+        [
+          {
+            ...base,
+            receiptType: null,
+            deceased: {
+              ...base.deceased,
+              affiliated: true,
+              dni: 30111222,
+              placeOfDeath: null,
+              deceasedUser: null,
+            },
+          },
+        ],
+      ],
+      ...catalogs,
+    ]);
+    settle(fixture);
+    const value = groups(fixture).fallecido.getRawValue();
+    expect(value.isAffiliated).toBe(true);
+    expect(value.affiliateDni).toBe(30111222);
+    expect(value.deceasedUserId).toBeNull();
+    expect(groups(fixture).servicio.getRawValue().receiptTypeId).toBeNull();
+    expect(groups(fixture).place.getRawValue().include).toBe(false);
+    h.http.expectNone((r) => r.url.includes('/users'));
+  });
+
+  it('maps every server failure to a message', () => {
+    const fixture = setup('create');
+    expect(call(fixture, 'mapError', 0)).toContain('servidor');
+    expect(call(fixture, 'mapError', 400)).toContain('Datos inválidos');
+    expect(call(fixture, 'mapError', 403)).toContain('permiso');
+    expect(call(fixture, 'mapError', 409)).toContain('Ya existe');
+    expect(call(fixture, 'mapError', 500)).toContain('inesperado');
   });
 
   it('goes back to the list', () => {

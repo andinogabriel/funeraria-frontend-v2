@@ -29,14 +29,14 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov'],
       include: ['src/app/**/*.ts'],
       exclude: ['**/*.spec.ts', '**/*.config.ts', 'src/main.ts'],
-      // Hard gate enforced by CI (npm test -- --coverage). Measured 2026-11-08: lines 86.9%,
-      // statements 87.1%, functions 87.2%, branches 75.5%. Lines/statements/functions must stay
-      // at 85% or above; branches is a ratchet floor at the current level, raise it as tests land.
+      // Hard gate enforced by CI (npm test -- --coverage). Measured 2026-11-09: lines 89.7%,
+      // statements 89.7%, functions 88.5%, branches 80.8%. Lines/statements/functions must stay
+      // at 85% or above; branches is a ratchet floor (75 -> 80), raise it toward 85 as tests land.
       thresholds: {
         lines: 85,
         statements: 85,
         functions: 85,
-        branches: 75,
+        branches: 80,
       },
     },
   },

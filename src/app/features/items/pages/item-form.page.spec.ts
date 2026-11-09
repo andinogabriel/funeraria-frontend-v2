@@ -1,5 +1,6 @@
 import type { FormGroup } from '@angular/forms';
 
+import { category } from '../../../../testing/fixtures';
 import { FORM_CATALOGS } from '../../../../testing/form-catalogs';
 import {
   call,
@@ -86,6 +87,63 @@ describe('ItemFormPage', () => {
     }
     flushAll(h.http, FORM_CATALOGS);
     settle(fixture);
+  });
+
+  it('ships dimensions only for an ataud-like category', () => {
+    h = configurePage({ data: { mode: 'create' } });
+    const fixture = render(ItemFormPage);
+    flushAll(h.http, [
+      [/\/categories/, [category({ id: 1, name: 'Cofres' }), category({ id: 2, name: 'Ataúdes' })]],
+      ...FORM_CATALOGS,
+    ]);
+    settle(fixture);
+    fill(fixture);
+    const g = groups(fixture);
+    g.classification.patchValue({ categoryId: 2, itemLength: 190, itemHeight: 50, itemWidth: 60 });
+    settle(fixture);
+    expect(read(fixture, 'dimensionsApplicable')).toBe(true);
+    g.classification.patchValue({ brandId: null, categoryId: 99 });
+    settle(fixture);
+    expect(read(fixture, 'dimensionsApplicable')).toBe(false);
+    g.classification.patchValue({ categoryId: 2, itemLength: 190, itemHeight: 50, itemWidth: 60 });
+    g.datos.patchValue({ description: '' });
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    const post = h.http.expectOne((r) => r.method === 'POST');
+    expect(post.request.body.itemLength).toBe(190);
+    expect(post.request.body.brand).toBeNull();
+    expect(post.request.body.description).toBeNull();
+    post.flush({});
+    flushAll(h.http, FORM_CATALOGS);
+    expect(h.router.navigateByUrl).toHaveBeenCalled();
+  });
+
+  it('goes back without a PUT when nothing changed in edit mode', () => {
+    const fixture = setup('edit', { code: 'COF-001' });
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'PUT').length).toBe(0);
+    expect(h.router.navigateByUrl).toHaveBeenCalled();
+  });
+
+  it('confirms an optimistic update in edit mode', () => {
+    const fixture = setup('edit', { code: 'COF-001' });
+    const g = groups(fixture);
+    g.datos.patchValue({ price: 170000 });
+    g.datos.markAsDirty();
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    h.http.expectOne((r) => r.method === 'PUT').flush({});
+    flushAll(h.http, FORM_CATALOGS);
+    expect(read(fixture, 'submitting')).toBe(false);
+  });
+
+  it('maps every server failure to a message', () => {
+    const fixture = setup('create');
+    expect(call(fixture, 'mapError', 0)).toContain('servidor');
+    expect(call(fixture, 'mapError', 400)).toContain('Datos inválidos');
+    expect(call(fixture, 'mapError', 403)).toContain('permiso');
+    expect(call(fixture, 'mapError', 409)).toContain('Ya existe');
+    expect(call(fixture, 'mapError', 500)).toContain('inesperado');
   });
 
   it('reports a missing item and goes back', () => {
