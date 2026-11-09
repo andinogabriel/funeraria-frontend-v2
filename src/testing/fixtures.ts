@@ -138,6 +138,25 @@ export const affiliate = (o: Partial<Affiliate> = {}): Affiliate =>
     relationship: { id: 1, name: 'Madre' },
     deletedAt: null,
     deletedBy: null,
+    holder: {
+      id: 7,
+      dni: 20111222,
+      firstName: 'Rosa',
+      lastName: 'Gomez',
+      phone: '221-555-0000',
+      email: null,
+    },
+    healthTier: {
+      id: 1,
+      code: 'STANDARD',
+      name: 'Estándar',
+      healthMultiplier: 1,
+      waitingPeriodMonths: 3,
+      displayOrder: 1,
+    },
+    ageBandLabel: '36-50',
+    monthlyFee: 2600,
+    feeCalculatedOn: '2026-11-08',
     ...o,
   }) as Affiliate;
 
