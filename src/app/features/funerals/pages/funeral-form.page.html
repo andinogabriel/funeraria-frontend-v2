@@ -310,6 +310,14 @@
       }
     </div>
 
+    @if (isAffiliated() && eligibility(); as verdict) {
+      <app-coverage-verdict
+        [eligible]="verdict.eligible"
+        [reasons]="verdict.reasons"
+        [detail]="verdict"
+      />
+    }
+
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <mat-form-field appearance="fill" [appFieldSkeleton]="mode === 'edit' && !recordReady()">
         <mat-label>Nombre</mat-label>

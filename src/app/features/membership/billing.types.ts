@@ -65,6 +65,40 @@ export interface DuesGenerationResult {
   readonly unbillable: number;
 }
 
+/** Whether the membership of an affiliate covers the service on a date (backend ADR-0022). */
+export interface ClaimEligibility {
+  readonly affiliateDni: number;
+  readonly affiliateName: string;
+  readonly holder: MembershipHolder | null;
+  readonly healthTierName: string | null;
+  readonly evaluatedOn: string;
+  readonly accidental: boolean;
+  readonly eligible: boolean;
+  readonly reasons: readonly string[];
+  readonly waitingPeriodMonths: number | null;
+  readonly coveredFrom: string | null;
+  readonly overdueCount: number;
+  readonly overdueGraceCount: number;
+}
+
+export interface EligibilityQuery {
+  readonly dni: number;
+  /** ISO `yyyy-MM-dd`. */
+  readonly date: string;
+  readonly deathCauseId?: number | null;
+}
+
+/** Operator text for each reason the backend can give for a non-covered claim. */
+export const COVERAGE_REASON_LABELS: Readonly<Record<string, string>> = {
+  MISSING_BILLING_DATA: 'El afiliado no tiene titular o nivel de salud cargados.',
+  WAITING_PERIOD: 'Todavía no cumplió el período de carencia.',
+  ACCOUNT_IN_ARREARS: 'El titular supera las cuotas en mora toleradas.',
+};
+
+export function coverageReasonLabel(reason: string): string {
+  return COVERAGE_REASON_LABELS[reason] ?? reason;
+}
+
 export const PAYMENT_METHOD_LABELS: Readonly<Record<PaymentMethod, string>> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',

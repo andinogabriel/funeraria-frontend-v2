@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { formatArs, formatIsoDate, formatPeriod } from './billing.types';
+import { coverageReasonLabel, formatArs, formatIsoDate, formatPeriod } from './billing.types';
 import { MembershipBillingService } from './membership-billing.service';
 
 describe('membership billing helpers', () => {
@@ -10,6 +10,8 @@ describe('membership billing helpers', () => {
     expect(formatArs(2600)).toContain('2.600');
     expect(formatPeriod('2026-11')).toMatch(/noviembre.*2026/);
     expect(formatIsoDate('2026-11-10')).toBe('10/11/2026');
+    expect(coverageReasonLabel('WAITING_PERIOD')).toContain('carencia');
+    expect(coverageReasonLabel('UNKNOWN')).toBe('UNKNOWN');
   });
 });
 
@@ -49,5 +51,17 @@ describe('MembershipBillingService', () => {
     expect(
       http.expectOne((r) => r.url.endsWith('/membership/holders')).request.params.get('search'),
     ).toBe('rosa');
+  });
+
+  it('asks for the eligibility with the cause only when there is one', () => {
+    service.eligibility({ dni: 30111222, date: '2026-11-09', deathCauseId: 4 }).subscribe();
+    const withCause = http.expectOne((r) => r.url.endsWith('/v1/membership/eligibility'));
+    expect(withCause.request.params.get('dni')).toBe('30111222');
+    expect(withCause.request.params.get('date')).toBe('2026-11-09');
+    expect(withCause.request.params.get('deathCauseId')).toBe('4');
+
+    service.eligibility({ dni: 30111222, date: '2026-11-09', deathCauseId: null }).subscribe();
+    const withoutCause = http.expectOne((r) => r.url.endsWith('/v1/membership/eligibility'));
+    expect(withoutCause.request.params.has('deathCauseId')).toBe(false);
   });
 });

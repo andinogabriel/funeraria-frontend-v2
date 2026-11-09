@@ -166,6 +166,15 @@
               </div>
             }
           </dl>
+          @if (f.deceased.coverageEligible !== null) {
+            <!-- Verdict recorded when the service was registered (ADR-0022); never re-evaluated. -->
+            <div class="mt-4">
+              <app-coverage-verdict
+                [eligible]="f.deceased.coverageEligible"
+                [reasons]="f.deceased.coverageReasons"
+              />
+            </div>
+          }
         </section>
 
         <mat-divider />
