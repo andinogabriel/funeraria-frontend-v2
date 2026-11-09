@@ -91,6 +91,74 @@ describe('IncomeFormPage', () => {
     call(fixture, 'onBack');
   });
 
+  function oneRow(fixture: ReturnType<typeof setup>, itemCode: string) {
+    while (details(fixture).length > 0) {
+      call(fixture, 'onRemoveDetail', 0);
+    }
+    call(fixture, 'onAddDetail');
+    details(fixture)
+      .at(0)
+      .patchValue({ itemCode, quantity: 2, purchasePrice: 1000, salePrice: 1500 });
+    settle(fixture);
+  }
+
+  it('previews the total with tax', () => {
+    const fixture = setup('create');
+    fillHeader(fixture);
+    oneRow(fixture, 'COF-001');
+    expect(read(fixture, 'previewTotal')).toBeCloseTo(2420);
+  });
+
+  it('rejects detail rows whose item is not in the catalog', () => {
+    const fixture = setup('create');
+    fillHeader(fixture);
+    oneRow(fixture, 'NOPE-404');
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'POST').length).toBe(0);
+    expect(read(fixture, 'errorMessage')).toBe('Las filas de detalle no son válidas.');
+  });
+
+  it('sends no supplier or receipt type when none is picked and shows a create failure', () => {
+    const fixture = setup('create');
+    fillHeader(fixture);
+    form(fixture).patchValue({ supplierNif: null, receiptTypeId: null });
+    oneRow(fixture, 'COF-001');
+    call(fixture, 'onSubmit');
+    const post = h.http.expectOne((r) => r.method === 'POST');
+    expect(post.request.body.supplier).toBeNull();
+    expect(post.request.body.receiptType).toBeNull();
+    post.flush({ detail: 'Recibo duplicado' }, { status: 409, statusText: 'Conflict' });
+    expect(read(fixture, 'errorMessage')).toBe('Recibo duplicado');
+  });
+
+  it('goes back without a PUT when nothing changed in edit mode', () => {
+    const fixture = setup('edit', { receiptNumber: '9001' });
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'PUT').length).toBe(0);
+    expect(h.router.navigateByUrl).toHaveBeenCalled();
+  });
+
+  it('updates optimistically in edit mode', () => {
+    const fixture = setup('edit', { receiptNumber: '9001' });
+    form(fixture).patchValue({ tax: 10.5 });
+    form(fixture).markAsDirty();
+    call(fixture, 'onSubmit');
+    expect(h.router.navigateByUrl).toHaveBeenCalled();
+    h.http.expectOne((r) => r.method === 'PUT').flush(income());
+    flushAll(h.http, FORM_CATALOGS);
+    expect(read(fixture, 'submitting')).toBe(false);
+  });
+
+  it('maps every server failure to a message', () => {
+    const fixture = setup('create');
+    expect(call(fixture, 'mapError', 0)).toContain('servidor');
+    expect(call(fixture, 'mapError', 400)).toContain('Datos inválidos');
+    expect(call(fixture, 'mapError', 403)).toContain('permiso');
+    expect(call(fixture, 'mapError', 409)).toContain('Ya existe');
+    expect(call(fixture, 'mapError', 500)).toContain('inesperado');
+    expect(call(fixture, 'mapError', 500, 'Detalle')).toBe('Detalle');
+  });
+
   it('reports a missing income', () => {
     h = configurePage({ data: { mode: 'edit' }, params: { receiptNumber: '1' } });
     const fixture = render(IncomeFormPage);

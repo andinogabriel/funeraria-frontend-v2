@@ -96,6 +96,43 @@ describe('SupplierFormPage', () => {
     expect(read(fixture, 'errorMessage')).toBeTruthy();
   });
 
+  it('goes back without a PUT when nothing changed in edit mode', () => {
+    const fixture = setup('edit', { nif: '30-11111111-1' });
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'PUT').length).toBe(0);
+    expect(h.navigate).toHaveBeenCalledWith(['/proveedores']);
+  });
+
+  it('updates a supplier and goes back to the list', () => {
+    const fixture = setup('edit', { nif: '30-11111111-1' });
+    form(fixture).patchValue({ webPage: '' });
+    form(fixture).markAsDirty();
+    call(fixture, 'onSubmit');
+    const put = h.http.expectOne((r) => r.method === 'PUT');
+    expect(put.request.body.webPage).toBeNull();
+    expect(put.request.body.addresses[0].city.id).toBe(10);
+    put.flush({});
+    flushAll(h.http, catalogs);
+    expect(h.navigate).toHaveBeenCalledWith(['/proveedores']);
+  });
+
+  it('clears and locks the city when the province of an address is cleared', () => {
+    const fixture = setup('edit', { nif: '30-11111111-1' });
+    const row = arr(fixture, 'addresses').at(0) as FormGroup;
+    row.controls['provinceId'].setValue(null);
+    expect(row.controls['cityId'].value).toBeNull();
+    expect(row.controls['cityId'].disabled).toBe(true);
+  });
+
+  it('maps every server failure to a message', () => {
+    const fixture = setup('create');
+    expect(call(fixture, 'mapError', 0)).toContain('servidor');
+    expect(call(fixture, 'mapError', 400)).toContain('Datos inválidos');
+    expect(call(fixture, 'mapError', 403)).toContain('permiso');
+    expect(call(fixture, 'mapError', 409)).toContain('Ya existe');
+    expect(call(fixture, 'mapError', 500)).toContain('inesperado');
+  });
+
   it('reports a missing supplier', () => {
     expect(read(setup('edit', { nif: 'nope' }), 'errorMessage')).toBe(
       'No se encontró el proveedor solicitado.',
