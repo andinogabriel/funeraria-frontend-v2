@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { MetricsService } from './metrics.service';
-import type { ActivityFeedResponse, DashboardMetrics } from './metrics.types';
+import type { ActivityFeedResponse, DashboardMetrics, KpiMetric } from './metrics.types';
 
 describe('MetricsService', () => {
   let service: MetricsService;
@@ -46,8 +46,8 @@ describe('MetricsService', () => {
   });
 
   it('GETs the series endpoint with metric + range params and returns the recomputed KPI', () => {
-    const metric = { value: 30, trendPercent: 50, sparkline: [1, 2, 3, 4, 5, 6, 7, 8] };
-    let received: typeof metric | undefined;
+    const metric: KpiMetric = { value: 30, trendPercent: 50, sparkline: [1, 2, 3, 4, 5, 6, 7, 8] };
+    let received: KpiMetric | undefined;
     service.loadSeries('SERVICES', 'YEAR').subscribe((m) => (received = m));
 
     const req = http.expectOne(

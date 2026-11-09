@@ -30,6 +30,7 @@ describe('ItemService', () => {
       itemHeight: null,
       itemWidth: null,
       stock: null,
+      lowStockThreshold: 0,
       itemImageLink: null,
       brand: null,
       category: null,
