@@ -45,6 +45,8 @@ describe('AffiliateService', () => {
       birthDate: '1984-08-10',
       gender: { id: 2, name: 'Masculino' },
       relationship: { id: 1, name: 'Padre' },
+      holder: { dni: 20111222, firstName: 'Rosa', lastName: 'Gomez' },
+      healthTierCode: 'STANDARD',
       ...overrides,
     };
   }

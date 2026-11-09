@@ -27,6 +27,7 @@ describe('ReportService', () => {
         total: 1500000,
         lines: [
           {
+            funeralId: 1,
             receiptNumber: 'F-99121',
             deceasedName: 'Carlos Gómez',
             planName: '[TEST] Plan Premium',
