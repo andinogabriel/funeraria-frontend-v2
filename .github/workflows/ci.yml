@@ -38,6 +38,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Vitest strips types without checking them, so specs are type-checked here.
+      - name: Type check (app + specs)
+        run: npm run typecheck
+
       # Fails when coverage drops below the floors in vitest.config.ts.
       - name: Unit tests with coverage gate
         run: npm test -- --coverage
