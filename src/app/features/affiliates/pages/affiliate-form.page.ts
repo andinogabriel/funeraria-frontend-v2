@@ -194,6 +194,11 @@ export class AffiliateFormPage {
     holderPhone: this.fb.control('', { validators: [Validators.maxLength(30)] }),
     holderEmail: this.fb.control('', { validators: [Validators.email, Validators.maxLength(255)] }),
     healthTierCode: this.fb.control('', { validators: [Validators.required] }),
+    /**
+     * Enrolment date ("fecha de alta"): the claim waiting period counts from it. Today for a new
+     * affiliate; editable so back-dated and legacy enrolments carry their real date.
+     */
+    enrolmentDate: this.fb.control<Date | null>(new Date(), { validators: [Validators.required] }),
   });
 
   /**
@@ -348,7 +353,14 @@ export class AffiliateFormPage {
     const billing = this.billing.getRawValue();
     const gender = this.findGender(classification.genderId);
     const relationship = this.findRelationship(classification.relationshipId);
-    if (!gender || !relationship || !personal.dni || !personal.birthDate || !billing.holderDni) {
+    if (
+      !gender ||
+      !relationship ||
+      !personal.dni ||
+      !personal.birthDate ||
+      !billing.holderDni ||
+      !billing.enrolmentDate
+    ) {
       return;
     }
 
@@ -367,6 +379,7 @@ export class AffiliateFormPage {
         ...(billing.holderEmail.trim() ? { email: billing.holderEmail.trim() } : {}),
       },
       healthTierCode: billing.healthTierCode,
+      enrolmentDate: toIsoDate(billing.enrolmentDate),
     };
 
     this.submitting.set(true);
@@ -449,6 +462,10 @@ export class AffiliateFormPage {
     if (affiliate.healthTier) {
       this.billing.patchValue({ healthTierCode: affiliate.healthTier.code });
     }
+    // Older backends do not send the enrolment date; the record creation day is what they used.
+    this.billing.patchValue({
+      enrolmentDate: parseIsoDate(affiliate.enrolmentDate ?? affiliate.startDate),
+    });
     // DNI is the natural key — once saved we never change it.
     (this.personal.controls.dni as FormControl).disable();
   }

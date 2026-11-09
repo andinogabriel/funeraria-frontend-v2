@@ -157,6 +157,7 @@ export const affiliate = (o: Partial<Affiliate> = {}): Affiliate =>
     ageBandLabel: '36-50',
     monthlyFee: 2600,
     feeCalculatedOn: '2026-11-08',
+    enrolmentDate: '2025-03-01',
     ...o,
   }) as Affiliate;
 

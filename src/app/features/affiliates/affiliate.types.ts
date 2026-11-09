@@ -53,6 +53,11 @@ export interface AffiliateRequest {
   readonly holder: MembershipHolderRequest;
   /** Tariff health tier code (STANDARD, GRADED, SPECIAL...); prices the monthly fee. */
   readonly healthTierCode: string;
+  /**
+   * Enrolment date ("fecha de alta"), ISO `yyyy-MM-dd`; the claim waiting period counts from it.
+   * Optional: the backend uses today on create and keeps the stored date on update when omitted.
+   */
+  readonly enrolmentDate?: string;
 }
 
 /**
@@ -92,6 +97,12 @@ export interface Affiliate {
   readonly monthlyFee: number | null;
   /** ISO-8601 date (`yyyy-MM-dd`) the fee was calculated. `null` for legacy affiliates. */
   readonly feeCalculatedOn: string | null;
+  /**
+   * ISO-8601 enrolment date (`yyyy-MM-dd`) the claim waiting period counts from. Unlike
+   * {@link startDate} (the day the record was created) it can be back-dated. `null` only when
+   * talking to a backend older than the field.
+   */
+  readonly enrolmentDate: string | null;
 }
 
 /** A holder with every affiliate they cover and what they pay per month. */
