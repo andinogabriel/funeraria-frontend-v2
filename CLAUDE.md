@@ -11,7 +11,7 @@ Fast entry point for Claude when working in this repo. Read in this order:
 
 ## What this is
 
-Angular 20 frontend for [`backend-funeraria-app`](https://github.com/andinogabriel/backend-funeraria-app). Greenfield rewrite of the archived `funeraria-frontend` (Angular 14). Modern stack: standalone, signals, zoneless, new control flow, Material 20 (M3) + Tailwind v4, Vitest 4, ESLint flat. POC / personal project — no production users, room to move boldly.
+Angular 22 frontend for [`backend-funeraria-app`](https://github.com/andinogabriel/backend-funeraria-app). Greenfield rewrite of the archived `funeraria-frontend` (Angular 14). Modern stack: standalone, signals, zoneless, new control flow, Material 22 (M3) + Tailwind v4, Vitest 4, TypeScript 6, ESLint flat. POC / personal project — no production users, room to move boldly.
 
 ## Where things live
 
@@ -80,7 +80,7 @@ If you are about to push, the answer to "did I run format:check?" should be
 - **Standalone always.** No `NgModule` at the app level. Components import their own deps; route-level `providers: [...]` for slice-scoped DI. (ADR-0001.)
 - **Signals first.** Reach for `BehaviorSubject` only when an existing RxJS-shaped API forces it; convert with `toSignal` at the boundary.
 - **Material + Tailwind division.** Material owns components (form fields, tables, dialogs, snackbars). Tailwind owns layout, spacing, colors *outside* components. Don't override Material internals with Tailwind utility classes.
-- **`legacy-peer-deps` install flag.** npm 10 + brand-new Angular 20 + Tailwind 4 surface peer-range mismatches that resolve without it. Bootstrap PR locked the convention; revisit when those settle. (See `.github/workflows/ci.yml`.)
+- **`legacy-peer-deps` install flag.** npm 10 + Angular 22 + Tailwind 4 + analogjs surface peer-range mismatches that resolve without it. Bootstrap PR locked the convention; revisit when those settle. (See `.github/workflows/ci.yml`.)
 - **Vitest test setup is zoneless.** `src/test-setup.ts` calls `setupTestBed({ zoneless: true })` from `@analogjs/vitest-angular/setup-testbed`. Don't import `setup-zone` (that's for Zone.js projects).
 - **ESLint disable for empty stubs.** `src/test-setup.ts` declares `ResizeObserver` and `matchMedia` no-op stubs jsdom needs; the file-level `@typescript-eslint/no-empty-function` disable is intentional.
 
