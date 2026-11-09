@@ -141,6 +141,12 @@ export class ShellComponent {
       icon: 'account_balance_wallet',
       requiresAdmin: true,
     },
+    {
+      path: '/titulares',
+      label: 'Titulares y cuotas',
+      icon: 'family_restroom',
+      requiresAdmin: true,
+    },
     { path: '/tarifario', label: 'Tarifario', icon: 'payments', requiresAdmin: true },
     { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
   ];

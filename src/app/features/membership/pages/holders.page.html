@@ -1,0 +1,123 @@
+<div class="flex flex-col gap-6">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      family_restroom
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Titulares y cuotas</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Buscá un titular para ver su estado de cuenta y registrar pagos.
+      </p>
+    </div>
+  </header>
+
+  <mat-card class="!rounded-xl">
+    <div class="p-4 sm:p-6 flex flex-col gap-4">
+      <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+        <mat-label>Buscar por DNI, nombre o apellido</mat-label>
+        <mat-icon matIconPrefix class="material-symbols-outlined">search</mat-icon>
+        <input matInput [formControl]="search" autocomplete="off" data-testid="holder-search" />
+      </mat-form-field>
+
+      @if (searchError(); as message) {
+        <p
+          role="alert"
+          class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+        >
+          {{ message }}
+        </p>
+      }
+
+      @if (searching()) {
+        <div class="flex justify-center p-4"><mat-spinner diameter="28" /></div>
+      } @else if (results(); as list) {
+        @if (list.length === 0) {
+          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+            No hay titulares que coincidan.
+          </p>
+        } @else {
+          <ul
+            class="list-none m-0 p-0 flex flex-col divide-y divide-[var(--mat-sys-outline-variant)]"
+          >
+            @for (item of list; track item.holder.dni) {
+              <li>
+                <a
+                  [routerLink]="['/titulares', item.holder.dni]"
+                  class="flex flex-wrap items-center justify-between gap-2 py-3 no-underline text-inherit hover:bg-[var(--mat-sys-surface-container)] rounded-md px-2"
+                  data-testid="holder-result"
+                >
+                  <span class="flex flex-col">
+                    <span class="font-medium">
+                      {{ item.holder.lastName }}, {{ item.holder.firstName }}
+                    </span>
+                    <span class="text-xs text-[var(--mat-sys-on-surface-variant)] font-mono">
+                      DNI {{ item.holder.dni }}
+                    </span>
+                  </span>
+                  <span class="text-sm text-right">
+                    {{ item.activeAffiliates }} afiliado(s) ·
+                    <strong class="tabular-nums">{{ formatArs(item.monthlyTotal) }}</strong> / mes
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      }
+    </div>
+  </mat-card>
+
+  <mat-card class="!rounded-xl">
+    <div class="p-4 sm:p-6 flex flex-col gap-4">
+      <div class="flex flex-col gap-1">
+        <h2 class="text-lg font-semibold m-0">Generar cuotas</h2>
+        <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+          El sistema genera las cuotas del mes todos los días a la madrugada. Usá esto para facturar
+          un mes anterior o para incluir altas recientes ya mismo. Nunca factura dos veces.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Mes</mat-label>
+          <input matInput type="month" [formControl]="period" [max]="maxPeriod" />
+        </mat-form-field>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          class="!h-11"
+          (click)="onGenerate()"
+          [disabled]="period.invalid || generating()"
+        >
+          @if (generating()) {
+            <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+          }
+          Generar cuotas
+        </button>
+      </div>
+
+      @if (generation(); as result) {
+        <p
+          role="status"
+          class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-secondary-container)] text-[var(--mat-sys-on-secondary-container)]"
+          data-testid="generation-result"
+        >
+          {{ result.created }} cuota(s) nueva(s) · {{ result.alreadyBilled }} ya facturada(s) ·
+          {{ result.repriced }} recalculada(s) por edad o tarifario.
+          @if (result.unbillable > 0) {
+            {{ result.unbillable }} afiliado(s) sin titular o nivel de salud no se facturan:
+            completalos editándolos.
+          }
+        </p>
+      }
+      @if (generationError(); as message) {
+        <p
+          role="alert"
+          class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+        >
+          {{ message }}
+        </p>
+      }
+    </div>
+  </mat-card>
+</div>

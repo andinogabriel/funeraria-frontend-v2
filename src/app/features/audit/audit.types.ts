@@ -17,7 +17,9 @@ export type AuditAction =
   | 'AFFILIATE_DELETED'
   | 'FUNERAL_CREATED'
   | 'FUNERAL_DELETED'
-  | 'FUNERAL_STATE_CHANGED';
+  | 'FUNERAL_STATE_CHANGED'
+  | 'MEMBERSHIP_PAYMENT_REGISTERED'
+  | 'MEMBERSHIP_DUES_GENERATED';
 
 /** A single audit entry returned by `GET /api/v1/audit-events`. */
 export interface AuditEvent {

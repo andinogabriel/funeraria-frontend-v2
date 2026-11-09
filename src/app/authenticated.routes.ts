@@ -115,6 +115,21 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/membership/pages/tariff.page').then((m) => m.TariffPage),
       },
       {
+        // Admin-only membership billing (backend ADR-0021): holder search + dues generation,
+        // and the account statement of one holder. Backend gates every endpoint with
+        // `ROLE_ADMIN`; the sidenav hides the entry for non-admins.
+        path: 'titulares',
+        loadComponent: () =>
+          import('./features/membership/pages/holders.page').then((m) => m.HoldersPage),
+      },
+      {
+        path: 'titulares/:dni',
+        loadComponent: () =>
+          import('./features/membership/pages/holder-account.page').then(
+            (m) => m.HolderAccountPage,
+          ),
+      },
+      {
         path: 'planes',
         loadComponent: () =>
           import('./features/plans/pages/plan-list.page').then((m) => m.PlanListPage),

@@ -1,0 +1,215 @@
+<div class="flex flex-col gap-6">
+  <header class="flex items-center gap-3">
+    <a mat-icon-button routerLink="/titulares" aria-label="Volver a titulares">
+      <mat-icon class="material-symbols-outlined">arrow_back</mat-icon>
+    </a>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">
+        @if (account(); as acc) {
+          {{ acc.holder.firstName }} {{ acc.holder.lastName }}
+        } @else {
+          Estado de cuenta
+        }
+      </h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Titular · DNI <span class="font-mono">{{ dni }}</span>
+        @if (account()?.holder?.phone; as phone) {
+          · {{ phone }}
+        }
+        @if (account()?.holder?.email; as email) {
+          · {{ email }}
+        }
+      </p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <div class="flex justify-center p-10"><mat-spinner diameter="40" /></div>
+  } @else if (error(); as message) {
+    <p
+      role="alert"
+      class="text-sm m-0 rounded-md p-3 bg-[var(--mat-sys-error-container)] text-[var(--mat-sys-on-error-container)]"
+    >
+      {{ message }}
+    </p>
+  } @else if (account(); as acc) {
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Resumen">
+      <mat-card class="!rounded-xl p-4 flex flex-col gap-1">
+        <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">Cuota mensual</span>
+        <span class="text-xl font-semibold tabular-nums">{{ formatArs(acc.monthlyTotal) }}</span>
+        <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+          {{ acc.activeAffiliates }} afiliado(s)
+        </span>
+      </mat-card>
+      <mat-card class="!rounded-xl p-4 flex flex-col gap-1" data-testid="balance-tile">
+        <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+          {{ acc.balance < 0 ? 'Saldo a favor' : 'Deuda' }}
+        </span>
+        <span
+          class="text-xl font-semibold tabular-nums"
+          [class.text-[var(--mat-sys-error)]]="acc.balance > 0"
+        >
+          {{ formatArs(acc.balance < 0 ? -acc.balance : acc.balance) }}
+        </span>
+      </mat-card>
+      <mat-card class="!rounded-xl p-4 flex flex-col gap-1">
+        <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">Cuotas vencidas</span>
+        <span class="text-xl font-semibold tabular-nums" data-testid="overdue-count">
+          {{ acc.overdueCount }}
+        </span>
+      </mat-card>
+      <mat-card class="!rounded-xl p-4 flex flex-col gap-1">
+        <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">Pagado en total</span>
+        <span class="text-xl font-semibold tabular-nums">{{ formatArs(acc.totalPaid) }}</span>
+        <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+          de {{ formatArs(acc.totalBilled) }} facturado
+        </span>
+      </mat-card>
+    </section>
+
+    <mat-card class="!rounded-xl">
+      <form
+        class="p-4 sm:p-6 flex flex-col gap-4"
+        [formGroup]="paymentForm"
+        (ngSubmit)="onRegisterPayment()"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold m-0">Registrar pago</h2>
+          @if (acc.balance > 0) {
+            <button mat-stroked-button type="button" (click)="onPayBalance()">
+              Pagar deuda ({{ formatArs(acc.balance) }})
+            </button>
+          }
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <mat-form-field appearance="outline">
+            <mat-label>Importe</mat-label>
+            <span matTextPrefix>$&nbsp;</span>
+            <input matInput type="number" formControlName="amount" min="0.01" step="0.01" />
+            @if (paymentForm.controls.amount.touched && paymentForm.controls.amount.invalid) {
+              <mat-error>Ingresá un importe mayor a cero.</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Fecha</mat-label>
+            <input matInput type="date" formControlName="paidOn" [max]="today" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Medio de pago</mat-label>
+            <mat-select formControlName="method">
+              @for (method of methods; track method[0]) {
+                <mat-option [value]="method[0]">{{ method[1] }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Comprobante (opcional)</mat-label>
+            <input matInput formControlName="reference" maxlength="100" />
+          </mat-form-field>
+        </div>
+        <p class="text-xs text-[var(--mat-sys-on-surface-variant)] m-0">
+          El pago se aplica a las cuotas impagas más antiguas; si sobra, queda como saldo a favor
+          para las próximas.
+        </p>
+        <div class="flex justify-end">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            class="!h-11"
+            [disabled]="paymentForm.invalid || saving()"
+          >
+            @if (saving()) {
+              <mat-spinner diameter="18" class="!inline-block !mr-2 align-middle" />
+            }
+            Registrar pago
+          </button>
+        </div>
+      </form>
+    </mat-card>
+
+    <mat-card class="!rounded-xl">
+      <div class="p-4 sm:p-6 flex flex-col gap-3">
+        <h2 class="text-lg font-semibold m-0">Cuotas</h2>
+        @if (dues().length === 0) {
+          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+            Todavía no se generaron cuotas para este titular.
+          </p>
+        } @else {
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm border-collapse" data-testid="dues-table">
+              <thead>
+                <tr class="text-left text-[var(--mat-sys-on-surface-variant)]">
+                  <th class="py-2 pr-3 font-medium">Mes</th>
+                  <th class="py-2 pr-3 font-medium">Afiliado</th>
+                  <th class="py-2 pr-3 font-medium">Vence</th>
+                  <th class="py-2 pr-3 font-medium text-right">Importe</th>
+                  <th class="py-2 pr-3 font-medium text-right">Pagado</th>
+                  <th class="py-2 font-medium">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (due of dues(); track due.id) {
+                  <tr class="border-t border-[var(--mat-sys-outline-variant)]">
+                    <td class="py-2 pr-3 capitalize">{{ formatPeriod(due.period) }}</td>
+                    <td class="py-2 pr-3">{{ due.affiliateName }}</td>
+                    <td class="py-2 pr-3 tabular-nums">{{ formatIsoDate(due.dueDate) }}</td>
+                    <td class="py-2 pr-3 text-right tabular-nums">{{ formatArs(due.amount) }}</td>
+                    <td class="py-2 pr-3 text-right tabular-nums">
+                      {{ formatArs(due.paidAmount) }}
+                    </td>
+                    <td class="py-2">
+                      <span
+                        class="inline-flex rounded-full px-2 py-0.5 text-xs"
+                        [class]="statusClass(due.status)"
+                      >
+                        {{ statusLabel(due.status) }}
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </mat-card>
+
+    <mat-card class="!rounded-xl">
+      <div class="p-4 sm:p-6 flex flex-col gap-3">
+        <h2 class="text-lg font-semibold m-0">Pagos</h2>
+        @if (payments().length === 0) {
+          <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">Sin pagos registrados.</p>
+        } @else {
+          <ul
+            class="list-none m-0 p-0 flex flex-col divide-y divide-[var(--mat-sys-outline-variant)]"
+          >
+            @for (payment of payments(); track payment.id) {
+              <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                <span class="flex flex-col">
+                  <span>
+                    {{ formatIsoDate(payment.paidOn) }} · {{ methodLabel(payment.method) }}
+                    @if (payment.reference) {
+                      · {{ payment.reference }}
+                    }
+                  </span>
+                  <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">
+                    Registrado por {{ payment.registeredBy }}
+                  </span>
+                </span>
+                <span class="text-right">
+                  <strong class="tabular-nums">{{ formatArs(payment.amount) }}</strong>
+                  @if (payment.unallocated > 0) {
+                    <span class="block text-xs text-[var(--mat-sys-on-surface-variant)]">
+                      {{ formatArs(payment.unallocated) }} a favor
+                    </span>
+                  }
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </mat-card>
+  }
+</div>
