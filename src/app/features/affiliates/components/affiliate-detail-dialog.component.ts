@@ -58,10 +58,11 @@ export class AffiliateDetailDialogComponent {
   protected readonly birthDateLabel = formatDate(this.data.birthDate);
 
   /**
-   * Friendly start-date label (affiliate enrolment date). Same format normalisation
-   * as the birth date — see {@link formatDate} in the shared format module.
+   * Friendly enrolment-date label ("fecha de alta"). Same format normalisation as the birth
+   * date — see {@link formatDate} in the shared format module. Older backends only send the
+   * record creation day (`startDate`).
    */
-  protected readonly startDateLabel = formatDate(this.data.startDate);
+  protected readonly startDateLabel = formatDate(this.data.enrolmentDate ?? this.data.startDate);
 
   /**
    * Whether this affiliate is the soft-deleted variant. The component is reused from

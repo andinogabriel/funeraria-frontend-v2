@@ -56,6 +56,8 @@ describe('AffiliateFormPage', () => {
     const post = h.http.match((r) => r.method === 'POST')[0];
     expect(post.request.body.dni).toBe(40111299);
     expect(post.request.body.healthTierCode).toBe('STANDARD');
+    // A new affiliate is enrolled today unless the operator back-dates it.
+    expect(post.request.body.enrolmentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(post.request.body.holder).toEqual({
       dni: 20111222,
       firstName: 'Rosa',
@@ -65,6 +67,43 @@ describe('AffiliateFormPage', () => {
     post.flush({});
     flushAll(h.http, FORM_CATALOGS);
     expect(h.router.navigateByUrl).toHaveBeenCalled();
+  });
+
+  it('sends a back-dated enrolment date as ISO', () => {
+    const fixture = setup('create');
+    const g = groups(fixture);
+    g.personal.patchValue({
+      firstName: 'Ana',
+      lastName: 'Gomez',
+      dni: 40111299,
+      birthDate: inDays(-10000),
+    });
+    g.classification.patchValue({ genderId: 2, relationshipId: 1 });
+    g.billing.patchValue({ ...BILLING, enrolmentDate: new Date(2024, 1, 1) });
+    flushAll(h.http, FORM_CATALOGS);
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    const post = h.http.match((r) => r.method === 'POST')[0];
+    expect(post.request.body.enrolmentDate).toBe('2024-02-01');
+    post.flush({});
+    flushAll(h.http, FORM_CATALOGS);
+  });
+
+  it('does not submit without an enrolment date', () => {
+    const fixture = setup('create');
+    const g = groups(fixture);
+    g.personal.patchValue({
+      firstName: 'Ana',
+      lastName: 'Gomez',
+      dni: 40111299,
+      birthDate: inDays(-10000),
+    });
+    g.classification.patchValue({ genderId: 2, relationshipId: 1 });
+    g.billing.patchValue({ ...BILLING, enrolmentDate: null });
+    flushAll(h.http, FORM_CATALOGS);
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'POST').length).toBe(0);
   });
 
   it('shows the backend error when create fails', () => {
@@ -100,6 +139,7 @@ describe('AffiliateFormPage', () => {
     expect(g.personal.getRawValue().lastName).toBe('Gomez');
     expect(g.billing.getRawValue().holderDni).toBe(20111222);
     expect(g.billing.getRawValue().healthTierCode).toBe('STANDARD');
+    expect(g.billing.getRawValue().enrolmentDate).toEqual(new Date(2025, 2, 1));
     g.personal.patchValue({ firstName: 'Ana María' });
     g.personal.markAsDirty();
     settle(fixture);

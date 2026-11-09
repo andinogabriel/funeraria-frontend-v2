@@ -478,6 +478,30 @@
         <mat-error>Seleccioná un nivel de salud.</mat-error>
       }
     </mat-form-field>
+
+    <mat-form-field
+      appearance="fill"
+      class="w-full"
+      [appFieldSkeleton]="mode === 'edit' && !recordReady()"
+    >
+      <mat-label>Fecha de alta</mat-label>
+      <input
+        matInput
+        [matDatepicker]="enrolmentPicker"
+        formControlName="enrolmentDate"
+        [max]="today"
+        readonly
+      />
+      <mat-datepicker-toggle matIconSuffix [for]="enrolmentPicker" />
+      <mat-datepicker #enrolmentPicker />
+      <mat-hint>Desde esta fecha corre la carencia.</mat-hint>
+      @if (
+        billing.controls.enrolmentDate.touched &&
+        billing.controls.enrolmentDate.hasError('required')
+      ) {
+        <mat-error>Seleccioná la fecha de alta.</mat-error>
+      }
+    </mat-form-field>
   </form>
 
   @if (quote(); as q) {

@@ -402,6 +402,7 @@ export class AffiliateService {
       ageBandLabel: wire.ageBandLabel ?? null,
       monthlyFee: wire.monthlyFee ?? null,
       feeCalculatedOn: wire.feeCalculatedOn ? toIsoDate(wire.feeCalculatedOn) : null,
+      enrolmentDate: wire.enrolmentDate ? toIsoDate(wire.enrolmentDate) : null,
     };
   }
 
@@ -443,6 +444,8 @@ interface AffiliateWire {
   readonly monthlyFee?: number | null;
   /** `dd-MM-yyyy` per the backend's legacy format. */
   readonly feeCalculatedOn?: string | null;
+  /** `dd-MM-yyyy` per the backend's legacy format. */
+  readonly enrolmentDate?: string | null;
 }
 
 /** `GET /membership/holders/{dni}` as the backend serialises it (affiliates in wire format). */
