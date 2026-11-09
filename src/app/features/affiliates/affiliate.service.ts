@@ -10,6 +10,7 @@ import type {
   AffiliatePage,
   AffiliatePageQuery,
   AffiliateRequest,
+  MembershipHolderDetail,
 } from './affiliate.types';
 
 /**
@@ -42,6 +43,7 @@ import type {
 export class AffiliateService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/v1/affiliates`;
+  private readonly holdersUrl = `${environment.apiBaseUrl}/v1/membership/holders`;
 
   private readonly _list = signal<readonly Affiliate[] | null>(null);
   private readonly _page = signal<AffiliatePage | null>(null);
@@ -294,6 +296,19 @@ export class AffiliateService {
   }
 
   /** Creates a new affiliate and appends it to the cached active list. */
+  /**
+   * Holder (titular) with the affiliates they cover and their monthly total. Used by the
+   * enrolment form to prefill a returning holder; 404 means a new holder (admin-only endpoint).
+   */
+  findHolder(dni: number): Observable<MembershipHolderDetail> {
+    return this.http.get<MembershipHolderDetailWire>(`${this.holdersUrl}/${dni}`).pipe(
+      map((wire) => ({
+        ...wire,
+        affiliates: wire.affiliates.map((entry) => this.normalizeAffiliate(entry)),
+      })),
+    );
+  }
+
   create(request: AffiliateRequest): Observable<Affiliate> {
     return this.http.post<AffiliateWire>(this.baseUrl, request).pipe(
       map((wire) => this.normalizeAffiliate(wire)),
@@ -381,6 +396,12 @@ export class AffiliateService {
       // downstream consumers can rely on the field shape.
       deletedAt: wire.deletedAt ?? null,
       deletedBy: wire.deletedBy ?? null,
+      // Billing fields are absent on affiliates enrolled before billing existed.
+      holder: wire.holder ?? null,
+      healthTier: wire.healthTier ?? null,
+      ageBandLabel: wire.ageBandLabel ?? null,
+      monthlyFee: wire.monthlyFee ?? null,
+      feeCalculatedOn: wire.feeCalculatedOn ? toIsoDate(wire.feeCalculatedOn) : null,
     };
   }
 
@@ -416,6 +437,17 @@ interface AffiliateWire {
   readonly deletedAt?: string | null;
   /** Actor email, only present on the papelera endpoint. */
   readonly deletedBy?: string | null;
+  readonly holder?: Affiliate['holder'];
+  readonly healthTier?: Affiliate['healthTier'];
+  readonly ageBandLabel?: string | null;
+  readonly monthlyFee?: number | null;
+  /** `dd-MM-yyyy` per the backend's legacy format. */
+  readonly feeCalculatedOn?: string | null;
+}
+
+/** `GET /membership/holders/{dni}` as the backend serialises it (affiliates in wire format). */
+interface MembershipHolderDetailWire extends Omit<MembershipHolderDetail, 'affiliates'> {
+  readonly affiliates: readonly AffiliateWire[];
 }
 
 /** Spring Data `Page<AffiliateWire>` envelope as the backend serialises it. */

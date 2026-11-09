@@ -71,6 +71,16 @@ export class AffiliateDetailDialogComponent {
    */
   protected readonly isDeleted = this.data.deletedAt !== null;
 
+  /** Monthly fee in pesos; only read when the affiliate has been priced. */
+  protected readonly feeLabel =
+    this.data.monthlyFee === null
+      ? ''
+      : new Intl.NumberFormat('es-AR', {
+          style: 'currency',
+          currency: 'ARS',
+          maximumFractionDigits: 2,
+        }).format(this.data.monthlyFee);
+
   /** AR-local label for the deletion moment; empty string when `deletedAt` is null. */
   protected readonly deletedAtLabel = this.data.deletedAt
     ? formatDateTime(this.data.deletedAt)

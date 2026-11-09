@@ -1,7 +1,14 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   FormControl,
   NonNullableFormBuilder,
@@ -20,15 +27,22 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { forkJoin, merge, of } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 
 import { CatalogsService } from '../../catalogs/catalogs.service';
 import type { Gender, Relationship } from '../../catalogs/catalogs.types';
 import { readListReturnUrl } from '../../../shared/navigation';
 import { FieldSkeletonDirective } from '../../../shared/skeleton';
+import { MembershipService } from '../../membership/membership.service';
+import type { FeeQuote } from '../../membership/membership.types';
 import { AffiliateService } from '../affiliate.service';
-import type { AffiliateRequest } from '../affiliate.types';
+import type { Affiliate, AffiliateRequest } from '../affiliate.types';
+
+/** What the form knows about the holder DNI typed in the billing step. */
+type HolderLookup =
+  | { readonly kind: 'existing'; readonly activeAffiliates: number; readonly monthlyTotal: number }
+  | { readonly kind: 'new' };
 
 /**
  * Single component for both create and edit because the form layout is identical and
@@ -52,6 +66,14 @@ import type { AffiliateRequest } from '../affiliate.types';
  * Gender and relationship dropdowns read from the shared {@link CatalogsService}
  * cache. The submit button on the last step stays disabled until both catalogs
  * resolve so we never POST a half-set payload.
+ *
+ * <h3>Holder and fee (billing)</h3>
+ *
+ * The third section collects the holder ("titular": who pays and claims) and the health tier.
+ * Typing a holder DNI looks the holder up and prefills a returning one; the fee preview quotes
+ * the tariff live from the birth date and tier, so the operator sees the monthly amount (or that
+ * the person is not insurable) before saving. The backend prices the fee itself; the preview is
+ * informational only.
  */
 @Component({
   selector: 'app-affiliate-form-page',
@@ -82,6 +104,8 @@ export class AffiliateFormPage {
   private readonly route = inject(ActivatedRoute);
   private readonly snackBar = inject(MatSnackBar);
   private readonly breakpointObserver = inject(BreakpointObserver);
+  private readonly membership = inject(MembershipService);
+  private readonly destroyRef = inject(DestroyRef);
 
   /** Drives create vs. edit. Read from the static route data at construction time. */
   protected readonly mode: 'create' | 'edit' =
@@ -106,9 +130,18 @@ export class AffiliateFormPage {
 
   protected readonly title = this.mode === 'create' ? 'Nuevo afiliado' : 'Editar afiliado';
 
+  /** Health tiers from the tariff config; `null` until it loads. */
+  protected readonly healthTiers = computed(() => this.membership.config()?.healthTiers ?? null);
+
   protected readonly catalogsReady = computed(
-    () => this.genders() !== null && this.relationships() !== null,
+    () => this.genders() !== null && this.relationships() !== null && this.healthTiers() !== null,
   );
+
+  /** Live fee preview for the current birth date + tier; `null` while inputs are incomplete. */
+  protected readonly quote = signal<FeeQuote | null>(null);
+
+  /** Result of looking up the typed holder DNI; `null` before any lookup. */
+  protected readonly holderLookup = signal<HolderLookup | null>(null);
 
   /**
    * In edit mode, gates the per-field skeleton on the fields that get
@@ -147,6 +180,22 @@ export class AffiliateFormPage {
     relationshipId: this.fb.control<number | null>(null, { validators: [Validators.required] }),
   });
 
+  /** Step 3: holder (who pays) and the health tier that prices the fee. */
+  protected readonly billing = this.fb.group({
+    holderDni: this.fb.control<number | null>(null, {
+      validators: [Validators.required, Validators.min(1_000_000), Validators.max(99_999_999)],
+    }),
+    holderFirstName: this.fb.control('', {
+      validators: [Validators.required, Validators.maxLength(100)],
+    }),
+    holderLastName: this.fb.control('', {
+      validators: [Validators.required, Validators.maxLength(70)],
+    }),
+    holderPhone: this.fb.control('', { validators: [Validators.maxLength(30)] }),
+    holderEmail: this.fb.control('', { validators: [Validators.email, Validators.maxLength(255)] }),
+    healthTierCode: this.fb.control('', { validators: [Validators.required] }),
+  });
+
   /**
    * `true` on phones / small tablets. Drives the wizard-vs-single-card layout
    * decision: the wizard is great for narrow viewports (one step at a time
@@ -163,6 +212,31 @@ export class AffiliateFormPage {
   constructor() {
     // Load catalogs in parallel; the form selects bind to the resulting signals.
     forkJoin([this.catalogs.loadGenders(), this.catalogs.loadRelationships()]).subscribe();
+    this.membership.loadConfig().subscribe({
+      error: () => this.errorMessage.set('No se pudo cargar el tarifario.'),
+    });
+
+    // Fee preview: re-quote whenever the birth date or the tier changes. switchMap drops a stale
+    // quote when the operator changes the inputs faster than the server answers.
+    merge(
+      this.personal.controls.birthDate.valueChanges,
+      this.billing.controls.healthTierCode.valueChanges,
+    )
+      .pipe(
+        map(() => ({
+          birthDate: this.personal.controls.birthDate.value,
+          tier: this.billing.controls.healthTierCode.value,
+        })),
+        switchMap(({ birthDate, tier }) =>
+          birthDate && tier
+            ? this.membership
+                .quote(ageOn(birthDate, new Date()), tier)
+                .pipe(catchError(() => of(null)))
+            : of(null),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((quote) => this.quote.set(quote));
 
     // If we're in edit mode, hydrate from the service cache. If the cache is cold
     // (deep-link to /afiliados/:dni/editar with no prior list visit), we kick off a
@@ -182,6 +256,7 @@ export class AffiliateFormPage {
             this.errorMessage.set('No se encontró el afiliado solicitado.');
             this.personal.disable();
             this.classification.disable();
+            this.billing.disable();
           }
           this.recordReady.set(true);
         });
@@ -198,23 +273,82 @@ export class AffiliateFormPage {
     void this.router.navigateByUrl(this.listReturnUrl);
   }
 
+  /**
+   * Looks the typed holder DNI up. A returning holder prefills name and contact data and shows
+   * what they already pay; an unknown DNI is a new holder. Errors other than 404 (e.g. 403 for a
+   * self-service user, who cannot browse holders) just leave the fields as typed.
+   */
+  protected onHolderDniLookup(): void {
+    const control = this.billing.controls.holderDni;
+    const dni = control.value;
+    if (dni === null || control.invalid) {
+      this.holderLookup.set(null);
+      return;
+    }
+    this.service.findHolder(dni).subscribe({
+      next: (detail) => {
+        this.billing.patchValue({
+          holderFirstName: detail.holder.firstName,
+          holderLastName: detail.holder.lastName,
+          holderPhone: detail.holder.phone ?? '',
+          holderEmail: detail.holder.email ?? '',
+        });
+        this.holderLookup.set({
+          kind: 'existing',
+          activeAffiliates: detail.activeAffiliates,
+          monthlyTotal: detail.monthlyTotal,
+        });
+      },
+      error: (err: { status?: number }) => {
+        this.holderLookup.set(err.status === 404 ? { kind: 'new' } : null);
+      },
+    });
+  }
+
+  /** Spanish operator message for a non-insurable quote. */
+  protected quoteReasonLabel(reason: string | null): string {
+    switch (reason) {
+      case 'ABOVE_MAX_ISSUE_AGE':
+        return 'La edad supera el máximo de ingreso: no se puede afiliar.';
+      case 'NO_AGE_BAND':
+        return 'No hay una franja etaria para esa edad: no se puede afiliar.';
+      default:
+        return 'No asegurable.';
+    }
+  }
+
+  protected formatCurrency(value: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
+  /** `true` when nothing in any of the three sections changed (edit mode no-op). */
+  protected pristine(): boolean {
+    return this.personal.pristine && this.classification.pristine && this.billing.pristine;
+  }
+
   protected onSubmit(): void {
-    const formValid = this.personal.valid && this.classification.valid;
+    const formValid = this.personal.valid && this.classification.valid && this.billing.valid;
     if (!formValid || this.submitting() || !this.catalogsReady()) {
       this.personal.markAllAsTouched();
       this.classification.markAllAsTouched();
+      this.billing.markAllAsTouched();
       return;
     }
-    // Skip the no-op `PUT` when neither step was touched (see brand-form.page.ts).
-    if (this.mode === 'edit' && this.personal.pristine && this.classification.pristine) {
+    // Skip the no-op `PUT` when no step was touched (see brand-form.page.ts).
+    if (this.mode === 'edit' && this.pristine()) {
       void this.router.navigateByUrl(this.listReturnUrl);
       return;
     }
     const personal = this.personal.getRawValue();
     const classification = this.classification.getRawValue();
+    const billing = this.billing.getRawValue();
     const gender = this.findGender(classification.genderId);
     const relationship = this.findRelationship(classification.relationshipId);
-    if (!gender || !relationship || !personal.dni || !personal.birthDate) {
+    if (!gender || !relationship || !personal.dni || !personal.birthDate || !billing.holderDni) {
       return;
     }
 
@@ -225,6 +359,14 @@ export class AffiliateFormPage {
       birthDate: toIsoDate(personal.birthDate),
       gender: { id: gender.id, name: gender.name },
       relationship: { id: relationship.id, name: relationship.name },
+      holder: {
+        dni: billing.holderDni,
+        firstName: billing.holderFirstName.trim(),
+        lastName: billing.holderLastName.trim(),
+        ...(billing.holderPhone.trim() ? { phone: billing.holderPhone.trim() } : {}),
+        ...(billing.holderEmail.trim() ? { email: billing.holderEmail.trim() } : {}),
+      },
+      healthTierCode: billing.healthTierCode,
     };
 
     this.submitting.set(true);
@@ -282,14 +424,7 @@ export class AffiliateFormPage {
     return Number.isFinite(parsed) ? parsed : null;
   }
 
-  private patchFrom(affiliate: {
-    firstName: string;
-    lastName: string;
-    dni: number;
-    birthDate: string;
-    gender: Gender;
-    relationship: Relationship;
-  }): void {
+  private patchFrom(affiliate: Affiliate): void {
     this.personal.patchValue({
       firstName: affiliate.firstName,
       lastName: affiliate.lastName,
@@ -300,6 +435,20 @@ export class AffiliateFormPage {
       genderId: affiliate.gender.id,
       relationshipId: affiliate.relationship.id,
     });
+    // Legacy affiliates (enrolled before billing) have no holder or tier: the operator must
+    // complete them on the first edit, which also prices the fee.
+    if (affiliate.holder) {
+      this.billing.patchValue({
+        holderDni: affiliate.holder.dni,
+        holderFirstName: affiliate.holder.firstName,
+        holderLastName: affiliate.holder.lastName,
+        holderPhone: affiliate.holder.phone ?? '',
+        holderEmail: affiliate.holder.email ?? '',
+      });
+    }
+    if (affiliate.healthTier) {
+      this.billing.patchValue({ healthTierCode: affiliate.healthTier.code });
+    }
     // DNI is the natural key — once saved we never change it.
     (this.personal.controls.dni as FormControl).disable();
   }
@@ -325,13 +474,26 @@ export class AffiliateFormPage {
       case 400:
         return detail ?? 'Datos inválidos. Revisá el formulario.';
       case 409:
-        return 'Ya existe un afiliado con ese DNI.';
+        // Duplicate DNI or a non-insurable applicant: the backend detail says which.
+        return detail ?? 'Ya existe un afiliado con ese DNI.';
       case 403:
         return 'No tenés permiso para realizar esta acción.';
       default:
         return detail ?? 'Ocurrió un error inesperado. Probá de nuevo.';
     }
   }
+}
+
+/** Whole years between `birthDate` and `on` (attained age), the same rule the backend uses. */
+function ageOn(birthDate: Date, on: Date): number {
+  let age = on.getFullYear() - birthDate.getFullYear();
+  const beforeBirthday =
+    on.getMonth() < birthDate.getMonth() ||
+    (on.getMonth() === birthDate.getMonth() && on.getDate() < birthDate.getDate());
+  if (beforeBirthday) {
+    age -= 1;
+  }
+  return age;
 }
 
 /** Converts a `Date` from the Material datepicker into the backend's request format. */

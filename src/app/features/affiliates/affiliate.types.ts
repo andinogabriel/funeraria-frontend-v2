@@ -1,4 +1,5 @@
 import type { Gender, Relationship } from '../catalogs/catalogs.types';
+import type { HealthTier } from '../membership/membership.types';
 
 /**
  * Affiliate transport types. Mirrors the backend OpenAPI under the `Affiliates` tag
@@ -18,6 +19,27 @@ import type { Gender, Relationship } from '../catalogs/catalogs.types';
  * brief intermediate value inside the service.
  */
 
+/**
+ * Holder ("titular"): the relative who enrols the affiliate, pays the monthly dues and claims the
+ * service. The DNI identifies them; the backend reuses an existing holder with the same DNI.
+ */
+export interface MembershipHolderRequest {
+  readonly dni: number;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phone?: string;
+  readonly email?: string;
+}
+
+export interface MembershipHolder {
+  readonly id: number;
+  readonly dni: number;
+  readonly firstName: string;
+  readonly lastName: string;
+  readonly phone: string | null;
+  readonly email: string | null;
+}
+
 /** Request body for `POST /api/v1/affiliates` and `PUT /api/v1/affiliates/{dni}`. */
 export interface AffiliateRequest {
   readonly id?: number;
@@ -28,6 +50,9 @@ export interface AffiliateRequest {
   readonly dni: number;
   readonly relationship: Pick<Relationship, 'id' | 'name'>;
   readonly gender: Pick<Gender, 'id' | 'name'>;
+  readonly holder: MembershipHolderRequest;
+  /** Tariff health tier code (STANDARD, GRADED, SPECIAL...); prices the monthly fee. */
+  readonly healthTierCode: string;
 }
 
 /**
@@ -57,6 +82,26 @@ export interface Affiliate {
    * Same population semantics as {@link deletedAt}.
    */
   readonly deletedBy: string | null;
+  /** Who pays for this affiliate. `null` for affiliates created before billing existed. */
+  readonly holder: MembershipHolder | null;
+  /** Health tier the fee was priced with. `null` for legacy affiliates. */
+  readonly healthTier: HealthTier | null;
+  /** Age band the fee was priced with (e.g. `36-50`). `null` for legacy affiliates. */
+  readonly ageBandLabel: string | null;
+  /** Monthly fee assigned at enrolment or the last repricing. `null` for legacy affiliates. */
+  readonly monthlyFee: number | null;
+  /** ISO-8601 date (`yyyy-MM-dd`) the fee was calculated. `null` for legacy affiliates. */
+  readonly feeCalculatedOn: string | null;
+}
+
+/** A holder with every affiliate they cover and what they pay per month. */
+export interface MembershipHolderDetail {
+  readonly holder: MembershipHolder;
+  /** Alive affiliates with a fee assigned. */
+  readonly activeAffiliates: number;
+  /** Sum of the fees of {@link activeAffiliates}. */
+  readonly monthlyTotal: number;
+  readonly affiliates: readonly Affiliate[];
 }
 
 /** Server-side paginated response — Spring Data `Page<AffiliateResponseDto>`. */

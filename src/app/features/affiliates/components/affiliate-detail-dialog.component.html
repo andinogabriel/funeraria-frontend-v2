@@ -20,6 +20,30 @@
       <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Parentesco</dt>
       <dd class="text-sm m-0">{{ data.relationship.name }}</dd>
 
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Titular</dt>
+      <dd class="text-sm m-0" data-testid="detail-holder">
+        @if (data.holder; as holder) {
+          {{ holder.firstName }} {{ holder.lastName }}
+          <span class="text-[var(--mat-sys-on-surface-variant)] font-mono tabular-nums">
+            · DNI {{ holder.dni }}
+          </span>
+        } @else {
+          Sin titular asignado
+        }
+      </dd>
+
+      <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Cuota mensual</dt>
+      <dd class="text-sm m-0 tabular-nums" data-testid="detail-fee">
+        @if (data.monthlyFee !== null) {
+          {{ feeLabel }}
+          <span class="text-[var(--mat-sys-on-surface-variant)]">
+            · {{ data.healthTier?.name }}, franja {{ data.ageBandLabel }}
+          </span>
+        } @else {
+          Sin cuota asignada (se calcula al editar el afiliado)
+        }
+      </dd>
+
       <dt class="text-sm text-[var(--mat-sys-on-surface-variant)]">Alta</dt>
       <dd class="text-sm m-0">{{ startDateLabel }}</dd>
 

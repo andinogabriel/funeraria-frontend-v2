@@ -296,6 +296,19 @@ export class AffiliateListPage {
       value: (a) => a.gender.name,
       defaultVisible: false,
     },
+    {
+      key: 'holder',
+      label: 'Titular',
+      value: (a) => (a.holder ? `${a.holder.lastName}, ${a.holder.firstName}` : '—'),
+      sortable: false,
+    },
+    {
+      key: 'monthlyFee',
+      label: 'Cuota',
+      value: (a) => (a.monthlyFee === null ? '—' : formatArs(a.monthlyFee)),
+      cellClass: 'tabular-nums',
+      sortable: false,
+    },
   ]);
 
   protected readonly trackByDni = (_: number, row: Affiliate): number => row.dni;
@@ -512,4 +525,13 @@ export class AffiliateListPage {
       });
     });
   }
+}
+
+/** Monthly fee in pesos for the grid; legacy affiliates without a fee render as a dash. */
+function formatArs(value: number): string {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 2,
+  }).format(value);
 }
