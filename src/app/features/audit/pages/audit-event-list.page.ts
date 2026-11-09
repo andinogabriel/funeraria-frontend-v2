@@ -121,6 +121,8 @@ export class AuditEventListPage {
     'FUNERAL_CREATED',
     'FUNERAL_DELETED',
     'FUNERAL_STATE_CHANGED',
+    'MEMBERSHIP_PAYMENT_REGISTERED',
+    'MEMBERSHIP_DUES_GENERATED',
   ] as const;
 
   private readonly actionOptions = (): readonly DataTableAutocompleteOption[] =>
