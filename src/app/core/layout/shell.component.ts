@@ -22,7 +22,9 @@ import { AuthService } from '../auth/auth.service';
 import { AuthStore } from '../auth/auth.store';
 import { NotificationBellComponent } from '../../features/notifications/components/notification-bell.component';
 import { NotificationService } from '../../features/notifications/notification.service';
+import { CommandPaletteService } from '../command-palette/command-palette.service';
 import { ThemeService, type ThemePreference } from '../theme/theme.service';
+import { isNavItemVisible, NAV_ITEMS } from './nav-items';
 
 /**
  * Authenticated application shell. Renders the persistent navigation surface (sidenav +
@@ -70,6 +72,7 @@ import { ThemeService, type ThemePreference } from '../theme/theme.service';
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
+  host: { '(document:keydown)': 'onDocumentKeydown($event)' },
 })
 export class ShellComponent {
   private readonly auth = inject(AuthService);
@@ -79,6 +82,12 @@ export class ShellComponent {
   protected readonly store = inject(AuthStore);
   protected readonly theme = inject(ThemeService);
   private readonly notificationService = inject(NotificationService);
+  private readonly palette = inject(CommandPaletteService);
+
+  /** Shortcut label for the toolbar search button: Cmd on Apple platforms, Ctrl elsewhere. */
+  protected readonly paletteShortcut = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? '')
+    ? '⌘K'
+    : 'Ctrl+K';
 
   /**
    * `true` when the active session carries `ROLE_ADMIN`. Gates the bell icon — the
@@ -110,64 +119,13 @@ export class ShellComponent {
   }
 
   /**
-   * Top-level nav entries.
-   *
-   * - `requiresAdmin: true` → hide unless session has `ROLE_ADMIN` (backend
-   *   would 403 anyway, but offering a link that always errors is bad UX).
-   * - `requiresUser: true` → hide unless session has `ROLE_USER`. Currently
-   *   only `Mis servicios` uses this (`GET /funerals/by-user` is gated to
-   *   ROLE_USER). An ADMIN that does not also have ROLE_USER sees `/servicios`
-   *   (the full grid) and doesn't need the personal cut.
-   */
-  private readonly allNavItems: readonly NavItem[] = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/afiliados', label: 'Afiliados', icon: 'group' },
-    // `/afiliados/eliminados` (papelera) is reachable via a top-right button on
-    // the `/afiliados` page, gated to admin. Adding it to the sidebar gave it
-    // top-level visual weight equal to "Afiliados" itself, which read as
-    // misleading — the papelera is a sibling action on the parent surface, not
-    // a peer destination.
-    { path: '/servicios', label: 'Servicios', icon: 'church' },
-    { path: '/mis-servicios', label: 'Mis servicios', icon: 'person_pin', requiresUser: true },
-    { path: '/planes', label: 'Planes', icon: 'workspace_premium' },
-    { path: '/items', label: 'Items', icon: 'inventory_2' },
-    { path: '/marcas', label: 'Marcas', icon: 'sell' },
-    { path: '/categorias', label: 'Categorías', icon: 'category' },
-    { path: '/proveedores', label: 'Proveedores', icon: 'local_shipping', requiresAdmin: true },
-    { path: '/ingresos', label: 'Ingresos', icon: 'receipt_long', requiresAdmin: true },
-    {
-      path: '/arqueo',
-      label: 'Arqueo diario',
-      icon: 'account_balance_wallet',
-      requiresAdmin: true,
-    },
-    {
-      path: '/titulares',
-      label: 'Titulares y cuotas',
-      icon: 'family_restroom',
-      requiresAdmin: true,
-    },
-    { path: '/tarifario', label: 'Tarifario', icon: 'payments', requiresAdmin: true },
-    { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
-  ];
-
-  /**
-   * Nav items visible to the current user. Filters the admin-only entries when
-   * the active session lacks `ROLE_ADMIN`. Derived so it reacts to a future
-   * role-switch (refresh token returning new authorities, etc.) without us
-   * having to remount the shell.
+   * Nav items visible to the current user (see {@link NAV_ITEMS} for the role flags). Derived
+   * so it reacts to a role change (a refresh token returning new authorities) without
+   * remounting the shell.
    */
   protected readonly navItems = computed(() => {
-    const auths = this.store.authorities();
-    return this.allNavItems.filter((item) => {
-      if (item.requiresAdmin && !auths.includes('ROLE_ADMIN')) {
-        return false;
-      }
-      if (item.requiresUser && !auths.includes('ROLE_USER')) {
-        return false;
-      }
-      return true;
-    });
+    const authorities = this.store.authorities();
+    return NAV_ITEMS.filter((item) => isNavItemVisible(item, authorities));
   });
 
   protected readonly isHandset = toSignal(
@@ -232,6 +190,21 @@ export class ShellComponent {
     this.sidenavOpened.set(opened);
   }
 
+  /**
+   * Ctrl+K / Cmd+K opens the command palette from anywhere in the authenticated app. The
+   * browser's own binding for the shortcut (focus the address bar search) is suppressed.
+   */
+  protected onDocumentKeydown(event: KeyboardEvent): void {
+    if (this.palette.isShortcut(event)) {
+      event.preventDefault();
+      this.openPalette();
+    }
+  }
+
+  protected openPalette(): void {
+    this.palette.open();
+  }
+
   protected onLogout(): void {
     this.auth.logout().subscribe({
       complete: () => void this.router.navigate(['/login']),
@@ -244,12 +217,4 @@ export class ShellComponent {
       void sidenav.close();
     }
   }
-}
-
-interface NavItem {
-  readonly path: string;
-  readonly label: string;
-  readonly icon: string;
-  readonly requiresAdmin?: boolean;
-  readonly requiresUser?: boolean;
 }

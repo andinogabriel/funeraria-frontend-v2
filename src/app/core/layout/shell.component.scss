@@ -9,3 +9,41 @@
   margin: 2px 8px;
   width: auto;
 }
+
+.palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+  margin-right: 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 999px;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-medium);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--mat-sys-outline);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--mat-sys-primary);
+    outline-offset: 2px;
+  }
+}
+
+.palette-trigger-label {
+  flex: 1;
+  text-align: left;
+}
+
+.palette-trigger-kbd {
+  padding: 0 6px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  font: var(--mat-sys-label-small);
+}

@@ -13,6 +13,7 @@ import {
   USER,
   type PageHarness,
 } from '../../../testing/page-harness';
+import { CommandPaletteService } from '../command-palette/command-palette.service';
 import { ThemeService } from '../theme/theme.service';
 import { ShellComponent } from './shell.component';
 
@@ -80,5 +81,25 @@ describe('ShellComponent', () => {
     }
     settle(fixture);
     expect(h.navigate).toHaveBeenCalled();
+  });
+
+  it('opens the command palette from Ctrl+K and from the toolbar trigger', () => {
+    const fixture = setup(ADMIN);
+    const palette = TestBed.inject(CommandPaletteService);
+    const open = vi.spyOn(palette, 'open').mockImplementation(() => undefined);
+
+    const shortcut = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, cancelable: true });
+    document.dispatchEvent(shortcut);
+    expect(shortcut.defaultPrevented).toBe(true);
+    expect(open).toHaveBeenCalledTimes(1);
+
+    const plain = new KeyboardEvent('keydown', { key: 'k', cancelable: true });
+    document.dispatchEvent(plain);
+    expect(plain.defaultPrevented).toBe(false);
+    expect(open).toHaveBeenCalledTimes(1);
+
+    (fixture.nativeElement.querySelector('[data-testid="palette-trigger"]') as HTMLElement).click();
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(textOf(fixture)).toMatch(/Ctrl\+K|⌘K/);
   });
 });

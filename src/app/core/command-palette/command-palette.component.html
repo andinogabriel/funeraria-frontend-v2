@@ -1,0 +1,74 @@
+<div class="palette">
+  <div class="palette-search">
+    <mat-icon class="material-symbols-outlined palette-search-icon" aria-hidden="true"
+      >search</mat-icon
+    >
+    <input
+      #input
+      class="palette-input"
+      type="text"
+      role="combobox"
+      aria-label="Buscar pantallas, acciones, afiliados o titulares"
+      aria-autocomplete="list"
+      aria-expanded="true"
+      aria-controls="palette-listbox"
+      [attr.aria-activedescendant]="activeId()"
+      placeholder="Buscar pantallas, acciones, afiliados…"
+      autocomplete="off"
+      spellcheck="false"
+      [formControl]="search"
+      (keydown)="onKeydown($event)"
+      data-testid="palette-input"
+    />
+  </div>
+
+  @if (searching()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Buscando" />
+  } @else {
+    <div class="palette-progress-placeholder"></div>
+  }
+
+  <div id="palette-listbox" class="palette-list" role="listbox" aria-label="Resultados">
+    @for (section of sections(); track section.group) {
+      <div role="group" class="palette-group" [attr.aria-labelledby]="'palette-group-' + $index">
+        <div class="palette-group-label" [id]="'palette-group-' + $index" role="presentation">
+          {{ section.group }}
+        </div>
+        @for (item of section.items; track item.entry.id) {
+          <div
+            class="palette-option"
+            role="option"
+            [id]="optionId(item.index)"
+            [attr.aria-selected]="item.index === active()"
+            [class.palette-option-active]="item.index === active()"
+            tabindex="-1"
+            (click)="run(item.entry)"
+            (keydown.enter)="run(item.entry)"
+            (mousemove)="onHover(item.index)"
+            data-testid="palette-option"
+          >
+            <mat-icon class="material-symbols-outlined palette-option-icon" aria-hidden="true">{{
+              item.entry.icon
+            }}</mat-icon>
+            <span class="palette-option-label">{{ item.entry.label }}</span>
+            @if (item.entry.hint) {
+              <span class="palette-option-hint">{{ item.entry.hint }}</span>
+            }
+          </div>
+        }
+      </div>
+    } @empty {
+      @if (!searching()) {
+        <p class="palette-empty" role="status" data-testid="palette-empty">
+          Sin resultados para «{{ term() }}».
+        </p>
+      }
+    }
+  </div>
+
+  <div class="palette-footer" aria-hidden="true">
+    <span><kbd class="palette-kbd">↑</kbd><kbd class="palette-kbd">↓</kbd> navegar</span>
+    <span><kbd class="palette-kbd">Enter</kbd> abrir</span>
+    <span><kbd class="palette-kbd">Esc</kbd> cerrar</span>
+  </div>
+</div>
