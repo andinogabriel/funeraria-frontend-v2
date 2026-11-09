@@ -61,4 +61,47 @@ describe('KpiTileComponent', () => {
     expect(pill?.label).toBe('12%');
     expect(pill?.positive).toBe(true);
   });
+
+  function tile(inputs: Record<string, unknown>) {
+    const fixture = TestBed.createComponent(KpiTileComponent);
+    fixture.componentRef.setInput('icon', 'group');
+    fixture.componentRef.setInput('label', 'Afiliados');
+    for (const [key, value] of Object.entries(inputs)) {
+      fixture.componentRef.setInput(key, value);
+    }
+    fixture.detectChanges();
+    return fixture.componentInstance as unknown as {
+      selectedRangeLabel: () => string | null;
+      onActivate: () => void;
+      onKeydown: (e: KeyboardEvent) => void;
+      tileClick: { subscribe: (fn: () => void) => void };
+    };
+  }
+
+  it('labels the active range, falling back to the first option or none', () => {
+    const ranges = [
+      { value: 'MONTH', label: 'Mes' },
+      { value: 'YEAR', label: 'Año' },
+    ];
+    expect(tile({}).selectedRangeLabel()).toBeNull();
+    expect(tile({ ranges, selectedRange: 'YEAR' }).selectedRangeLabel()).toBe('Año');
+    expect(tile({ ranges, selectedRange: 'NOPE' }).selectedRangeLabel()).toBe('Mes');
+  });
+
+  it('emits clicks and Enter / Space only when interactive', () => {
+    const clicks = vi.fn();
+    const passive = tile({});
+    passive.tileClick.subscribe(clicks);
+    passive.onActivate();
+    passive.onKeydown(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(clicks).not.toHaveBeenCalled();
+
+    const active = tile({ interactive: true });
+    active.tileClick.subscribe(clicks);
+    active.onActivate();
+    active.onKeydown(new KeyboardEvent('keydown', { key: 'Enter' }));
+    active.onKeydown(new KeyboardEvent('keydown', { key: ' ' }));
+    active.onKeydown(new KeyboardEvent('keydown', { key: 'Tab' }));
+    expect(clicks).toHaveBeenCalledTimes(3);
+  });
 });

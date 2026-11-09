@@ -173,4 +173,66 @@ describe('SelectionListCardComponent', () => {
     expect(api().committedFilters().size).toBe(0);
     expect(api().filteredData()).toHaveLength(3);
   });
+
+  it('treats empty filters as pass-through and missing or invalid values as no match', () => {
+    host.rows = [
+      { id: 1, name: 'Alfa', birthdate: '1990-01-15' },
+      { id: 2, name: null as never, birthdate: 'not-a-date' },
+      { id: 3, name: 'Gama', birthdate: null as never },
+    ];
+    fixture.detectChanges();
+
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: '' } });
+    api().onColumnMenuApply({
+      key: 'birthdate',
+      filter: { type: 'dateRange', from: null, to: null },
+    });
+    expect(api().filteredData()).toHaveLength(3);
+
+    api().onColumnMenuApply({ key: 'name', filter: { type: 'text', value: 'a' } });
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.id),
+    ).toEqual([1, 3]);
+
+    api().onClearFilters();
+    api().onColumnMenuApply({
+      key: 'birthdate',
+      filter: { type: 'dateRange', from: '1980-01-01', to: null },
+    });
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.id),
+    ).toEqual([1]);
+
+    api().onClearFilters();
+    api().onColumnMenuApply({
+      key: 'id',
+      filter: { type: 'autocomplete', value: '3', label: 'Tres' },
+    });
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.id),
+    ).toEqual([3]);
+  });
+
+  it('matches an autocomplete filter exactly on a filterable column', () => {
+    host.columns = [
+      ...host.columns,
+      { key: 'code', label: 'Código', value: (r) => (r.id === 2 ? null : `C-${r.id}`) },
+    ];
+    fixture.detectChanges();
+    api().onColumnMenuApply({
+      key: 'code',
+      filter: { type: 'autocomplete', value: 'C-3', label: 'C-3' },
+    });
+    expect(
+      api()
+        .filteredData()
+        .map((r) => r.id),
+    ).toEqual([3]);
+  });
 });

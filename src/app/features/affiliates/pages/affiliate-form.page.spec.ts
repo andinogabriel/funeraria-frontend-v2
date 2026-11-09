@@ -1,5 +1,6 @@
 import type { FormGroup } from '@angular/forms';
 
+import { affiliate } from '../../../../testing/fixtures';
 import { FORM_CATALOGS, inDays } from '../../../../testing/form-catalogs';
 import {
   call,
@@ -149,6 +150,77 @@ describe('AffiliateFormPage', () => {
     }
     flushAll(h.http, FORM_CATALOGS);
     settle(fixture);
+  });
+
+  it('goes back without a PUT when nothing changed in edit mode', () => {
+    const fixture = setup('edit', { dni: '40111222' });
+    call(fixture, 'onSubmit');
+    expect(h.http.match((r) => r.method === 'PUT').length).toBe(0);
+    expect(h.router.navigateByUrl).toHaveBeenCalled();
+  });
+
+  it('confirms an optimistic update in edit mode', () => {
+    const fixture = setup('edit', { dni: '40111222' });
+    const g = groups(fixture);
+    g.personal.patchValue({ firstName: 'Ana María' });
+    g.personal.markAsDirty();
+    settle(fixture);
+    call(fixture, 'onSubmit');
+    expect(h.router.navigateByUrl).toHaveBeenCalled();
+    h.http.expectOne((r) => r.method === 'PUT').flush(affiliate());
+    flushAll(h.http, FORM_CATALOGS);
+    expect(read(fixture, 'submitting')).toBe(false);
+  });
+
+  it('loads a legacy affiliate without holder, tier or enrolment date', () => {
+    h = configurePage({ data: { mode: 'edit' }, params: { dni: '40111222' } });
+    const fixture = render(AffiliateFormPage);
+    flushAll(h.http, [
+      [
+        /\/affiliates/,
+        [affiliate({ holder: null, healthTier: null, enrolmentDate: undefined, monthlyFee: null })],
+      ],
+      ...FORM_CATALOGS,
+    ]);
+    settle(fixture);
+    const billing = groups(fixture).billing.getRawValue();
+    expect(billing.holderDni).toBeNull();
+    expect(billing.healthTierCode).toBeFalsy();
+    expect(billing.enrolmentDate).toEqual(new Date(2026, 0, 10));
+  });
+
+  it('prefills the phone and email of a returning holder', () => {
+    const fixture = setup('create');
+    const g = groups(fixture);
+    g.billing.patchValue({ holderDni: 20111222 });
+    call(fixture, 'onHolderDniLookup');
+    h.http
+      .expectOne((r) => r.url.endsWith('/membership/holders/20111222'))
+      .flush({
+        holder: {
+          id: 7,
+          dni: 20111222,
+          firstName: 'Rosa',
+          lastName: 'Gomez',
+          phone: '221-555',
+          email: 'rosa@mail.com',
+        },
+        activeAffiliates: 1,
+        monthlyTotal: 2000,
+        affiliates: [],
+      });
+    expect(g.billing.getRawValue().holderPhone).toBe('221-555');
+    expect(g.billing.getRawValue().holderEmail).toBe('rosa@mail.com');
+  });
+
+  it('maps every server failure to a message', () => {
+    const fixture = setup('create');
+    expect(call(fixture, 'mapError', 0)).toContain('servidor');
+    expect(call(fixture, 'mapError', 400)).toContain('Datos inválidos');
+    expect(call(fixture, 'mapError', 409)).toContain('Ya existe');
+    expect(call(fixture, 'mapError', 409, 'No asegurable')).toBe('No asegurable');
+    expect(call(fixture, 'mapError', 403)).toContain('permiso');
+    expect(call(fixture, 'mapError', 500)).toContain('inesperado');
   });
 
   it('reports a missing affiliate', () => {

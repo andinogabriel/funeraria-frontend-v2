@@ -64,4 +64,34 @@ describe('LoginPage', () => {
     call(fixture, 'toggleShowPassword');
     expect(read(fixture, 'showPassword')).toBe(!before);
   });
+
+  it('explains why the session ended', () => {
+    expect(read(setup({ reason: 'blocked' }), 'contextMessage')).toContain('bloqueada');
+  });
+
+  it('explains an expired session', () => {
+    expect(read(setup({ reason: 'expired' }), 'contextMessage')).toContain('expiró');
+  });
+
+  it('shows no context without a known reason and toggles the password', () => {
+    const fixture = setup({ reason: 'other' });
+    expect(read(fixture, 'contextMessage')).toBeNull();
+    call(fixture, 'toggleShowPassword');
+    expect(read(fixture, 'showPassword')).toBe(true);
+  });
+
+  it('maps every login failure to a message', () => {
+    const fixture = setup();
+    expect(call(fixture, 'mapError', 400)).toContain('Datos inválidos');
+    expect(call(fixture, 'mapError', 401)).toContain('Credenciales');
+    expect(call(fixture, 'mapError', 429)).toContain('Demasiados intentos');
+    expect(call(fixture, 'mapError', 0)).toContain('servidor');
+    expect(call(fixture, 'mapError', 503)).toContain('inesperado');
+  });
+
+  it('does not submit an empty form', () => {
+    const fixture = setup();
+    call(fixture, 'onSubmit');
+    h.http.expectNone((r) => r.url.endsWith('/users/login'));
+  });
 });
