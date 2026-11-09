@@ -1,0 +1,81 @@
+<section class="trends" aria-labelledby="trends-title">
+  <header class="trends__head">
+    <div class="flex flex-col gap-1">
+      <h2 id="trends-title" class="trends__title">Tendencias</h2>
+      <p class="trends__sub">Mes a mes; el último es el mes en curso, todavía parcial.</p>
+    </div>
+    <mat-button-toggle-group
+      hideSingleSelectionIndicator
+      [value]="window()"
+      (change)="onWindow($event.value)"
+      aria-label="Período de las tendencias"
+    >
+      @for (months of windows; track months) {
+        <mat-button-toggle [value]="months">{{ months }} meses</mat-button-toggle>
+      }
+    </mat-button-toggle-group>
+  </header>
+
+  @switch (state().status) {
+    @case ('loading') {
+      <mat-progress-bar mode="indeterminate" aria-label="Cargando tendencias" />
+    }
+    @case ('error') {
+      <div class="trends__error" role="alert">
+        <span>No se pudieron cargar las tendencias.</span>
+        <button type="button" class="trends__retry" (click)="retry()">Reintentar</button>
+      </div>
+    }
+    @default {
+      <div class="trends__grid">
+        <article class="trends__card" data-testid="trend-services">
+          <header class="trends__card-head">
+            <h3>Servicios por mes</h3>
+            <p class="trends__figure">{{ totals().services }} en el período</p>
+          </header>
+          <app-trend-chart
+            label="Servicios registrados por mes"
+            kind="bar"
+            [months]="months()"
+            [series]="services()"
+          />
+        </article>
+
+        <article class="trends__card" data-testid="trend-revenue">
+          <header class="trends__card-head">
+            <h3>Facturación y compras</h3>
+            <p class="trends__figure">{{ formatArs(totals().revenue) }} facturados</p>
+          </header>
+          <app-trend-chart
+            label="Facturación de servicios y compras a proveedores por mes"
+            [months]="months()"
+            [series]="revenue()"
+            [format]="formatArs"
+          />
+        </article>
+
+        <article class="trends__card" data-testid="trend-dues">
+          <header class="trends__card-head">
+            <h3>Cuotas emitidas y cobradas</h3>
+            <p class="trends__figure">
+              @if (collectionRate(); as rate) {
+                {{ rate }}% cobrado en el período
+              } @else {
+                Sin cuotas emitidas
+              }
+            </p>
+          </header>
+          <app-trend-chart
+            label="Cuotas emitidas y cobranzas recibidas por mes"
+            [months]="months()"
+            [series]="dues()"
+            [format]="formatArs"
+          />
+          <p class="trends__note">
+            Las cobranzas cuentan en el mes en que se pagaron, aunque cancelen cuotas anteriores.
+          </p>
+        </article>
+      </div>
+    }
+  }
+</section>

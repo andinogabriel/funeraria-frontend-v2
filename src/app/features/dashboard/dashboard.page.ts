@@ -14,6 +14,7 @@ import { AuthStore } from '../../core/auth/auth.store';
 import { HeroCarouselComponent, type HeroSlide } from '../../shared/hero-carousel';
 import { ActivityFeedComponent, type ActivityItem } from './components/activity-feed.component';
 import { KpiTileComponent, type KpiRangeOption } from './components/kpi-tile.component';
+import { TrendsPanelComponent } from './components/trends-panel.component';
 import {
   QuickActionsBarComponent,
   type QuickAction,
@@ -54,6 +55,7 @@ import type { ActivityFeedEntry, KpiMetric, MetricKind, MetricRange } from './me
     MatButtonModule,
     MatIconModule,
     QuickActionsBarComponent,
+    TrendsPanelComponent,
   ],
   templateUrl: './dashboard.page.html',
   styleUrl: './dashboard.page.scss',
