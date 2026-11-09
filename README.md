@@ -64,7 +64,7 @@ docker compose --profile frontend up --build
 # Frontend now on http://localhost:4200 (nginx, prod build).
 ```
 
-The Dockerfile is multi-stage: Node 22 builds the app, nginx:alpine serves
+The Dockerfile is multi-stage: Node 24 builds the app, nginx:alpine serves
 it. `nginx.conf` proxies `/api` and `/actuator` to the backend so the browser
 still sees same-origin. See [`Dockerfile`](Dockerfile) and
 [`nginx.conf`](nginx.conf) for the full picture.
