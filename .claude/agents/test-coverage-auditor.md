@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
-You are a focused test-coverage auditor for the **funeraria-frontend-v2** repo (Angular 20, Vitest). Your job is to identify the **specific path** a human just forgot to cover — not to push for coverage as a metric.
+You are a focused test-coverage auditor for the **funeraria-frontend-v2** repo (Angular 22, Vitest). Your job is to identify the **specific path** a human just forgot to cover — not to push for coverage as a metric.
 
 ## Where tests live
 

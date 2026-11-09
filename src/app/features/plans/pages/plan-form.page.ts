@@ -145,8 +145,7 @@ export class PlanFormPage {
       return [];
     }
     const group = this.itemsPlan.at(rowIndex) as
-      | ReturnType<PlanFormPage['createItemGroup']>
-      | undefined;
+      ReturnType<PlanFormPage['createItemGroup']> | undefined;
     if (!group) {
       return [];
     }
