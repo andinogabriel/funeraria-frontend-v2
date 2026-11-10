@@ -69,6 +69,26 @@ it. `nginx.conf` proxies `/api` and `/actuator` to the backend so the browser
 still sees same-origin. See [`Dockerfile`](Dockerfile) and
 [`nginx.conf`](nginx.conf) for the full picture.
 
+### Session and deployment requirements
+
+The access token lives in memory only; the refresh token is an HttpOnly `refresh_token`
+cookie set by the backend (ADR-0023 in the backend repo). On every page load the app trades
+that cookie for a new access token before the first route renders. Three things follow:
+
+- **Serve the SPA and the API from the same origin.** In production nginx proxies `/api`; in
+  development `ng serve` uses `proxy.conf.json`. The backend's CORS policy never allows
+  credentials, so an SPA on another origin (say `app.example.com` calling
+  `api.example.com`, or `ng serve` pointed straight at `:8081`) never gets the cookie and every
+  reload lands on the login page.
+- **HTTPS, or `localhost`.** The cookie is `Secure`. Browsers accept it over plain http only on
+  `localhost`. If the app is reached over plain http by IP or hostname (for example
+  `http://192.168.1.20:4200` on the office LAN), set
+  `SECURITY_REFRESH_TOKEN_COOKIE_SECURE=false` in the backend `.env`, and switch to HTTPS as
+  soon as possible.
+- **Deploy the backend first.** This frontend needs a backend that sends the cookie
+  (backend #120 or later). The reverse is safe: the previous frontend keeps working against the
+  new backend, because the browser sends the cookie on its own.
+
 ### Troubleshooting
 
 - **`Cannot find module @angular/...` after pull**: rerun
@@ -80,6 +100,15 @@ still sees same-origin. See [`Dockerfile`](Dockerfile) and
   required by the currency / date pipes.
 - **Login appears but submit does nothing**: usually a mismatched CSRF
   token from a stale browser session. Hard refresh + clear site data.
+- **Every reload sends me back to the login page**: the `refresh_token` cookie is not being
+  stored or sent. In DevTools > Application > Cookies, check that it exists for the app's
+  origin. If it is missing, either the app is on plain http outside `localhost` (see
+  `SECURITY_REFRESH_TOKEN_COOKIE_SECURE` above) or the SPA and the API are on different
+  origins.
+- **Logged out with "sesión expirada" while using two tabs**: one tab replayed a refresh token
+  that the other had already rotated, more than 30 s later. The backend treats that as theft
+  and closes the session. It should not happen in browsers with Web Locks (all current ones).
+  If it repeats, check the backend audit log for `REFRESH_TOKEN_REUSE_DETECTED`.
 
 ## Scripts
 

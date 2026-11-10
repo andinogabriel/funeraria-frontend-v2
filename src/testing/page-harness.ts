@@ -96,7 +96,6 @@ export function configurePage(options: PageHarnessOptions = {}): PageHarness {
   if (authorities.length > 0) {
     store.setSession({
       authorization: 'Bearer test-token',
-      refreshToken: 'refresh-token',
       expiryDuration: 3_600_000,
       authorities,
     });

@@ -30,7 +30,6 @@ describe('LoginPage', () => {
     expect(req.request.body.deviceInfo.deviceId).toBeTruthy();
     req.flush({
       authorization: 'Bearer t',
-      refreshToken: 'r',
       expiryDuration: 60_000,
       authorities: ['ROLE_ADMIN'],
     });

@@ -102,16 +102,19 @@ describe('errorInterceptor', () => {
   }
 
   it('attempts a refresh on 401 when the request carried an Authorization header', () => {
-    authRefresh.mockReturnValue(of({ accessToken: 'new', refreshToken: 'new' }));
+    authRefresh.mockReturnValue(
+      of({ authorization: 'Bearer rotated', expiryDuration: 60_000, authorities: [] }),
+    );
 
     const { request } = getProtected();
     request.flush(expiredBody, { status: 401, statusText: 'Unauthorized' });
 
     expect(authRefresh).toHaveBeenCalledTimes(1);
 
-    // Refresh succeeded — interceptor replays the original request. We flush
-    // it with a success so the assertion chain completes cleanly.
+    // Refresh succeeded — the interceptor replays the original request,
+    // with the token the refresh returned, not the stale one that just got the 401.
     const replay = httpMock.expectOne('/api/v1/items');
+    expect(replay.request.headers.get('Authorization')).toBe('Bearer rotated');
     replay.flush({});
   });
 
@@ -159,6 +162,20 @@ describe('errorInterceptor', () => {
 
     const request = httpMock.expectOne('/api/v1/items');
     request.flush(expiredBody, { status: 401, statusText: 'Unauthorized' });
+
+    expect(authRefresh).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalled();
+  });
+
+  it('does NOT attempt a refresh when logout itself is rejected (the session is ending anyway)', () => {
+    const onError = vi.fn();
+    http
+      .put('/api/v1/users/logout', {}, { headers: { Authorization: 'Bearer access-token' } })
+      .subscribe({ next: () => undefined, error: onError });
+
+    httpMock
+      .expectOne('/api/v1/users/logout')
+      .flush(expiredBody, { status: 401, statusText: 'Unauthorized' });
 
     expect(authRefresh).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalled();
