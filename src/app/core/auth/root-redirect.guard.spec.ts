@@ -26,7 +26,6 @@ describe('rootRedirectGuard', () => {
     const store = TestBed.inject(AuthStore);
     store.setSession({
       authorization: 'header.payload.sig',
-      refreshToken: 'opaque',
       authorities: ['ROLE_USER'],
       expiryDuration: 60_000,
     });
@@ -42,7 +41,6 @@ describe('rootRedirectGuard', () => {
     const store = TestBed.inject(AuthStore);
     store.setSession({
       authorization: 'header.payload.sig',
-      refreshToken: 'opaque',
       authorities: ['ROLE_USER'],
       // Past expiry: isAuthenticated() should be false.
       expiryDuration: -1_000,

@@ -1,8 +1,15 @@
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  provideHttpClient,
+  withInterceptors,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of, throwError } from 'rxjs';
 
+import { AuthService } from '../auth/auth.service';
 import { AuthStore } from '../auth/auth.store';
 import { authInterceptor } from './auth.interceptor';
 
@@ -30,7 +37,6 @@ describe('authInterceptor', () => {
   function signIn(): void {
     TestBed.inject(AuthStore).setSession({
       authorization: 'Bearer token-1',
-      refreshToken: 'refresh-1',
       expiryDuration: 60_000,
       authorities: ['ROLE_USER'],
     } as Parameters<AuthStore['setSession']>[0]);
@@ -62,5 +68,49 @@ describe('authInterceptor', () => {
     controller.expectNone('/api/v1/items');
     expect(status).toBe(401);
     expect(navigate).toHaveBeenCalledWith(['/login'], expect.anything());
+  });
+
+  describe('with an expired access token and a refresh cookie', () => {
+    let refresh: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      const store = TestBed.inject(AuthStore);
+      store.setSession({ authorization: 'Bearer stale', expiryDuration: -1, authorities: [] });
+      refresh = vi.spyOn(TestBed.inject(AuthService), 'refresh');
+    });
+
+    it('refreshes first and sends the request with the new token', () => {
+      refresh.mockImplementation(() => {
+        TestBed.inject(AuthStore).setSession({
+          authorization: 'Bearer fresh',
+          expiryDuration: 60_000,
+          authorities: ['ROLE_USER'],
+        });
+        return of({ authorization: 'Bearer fresh', expiryDuration: 60_000, authorities: [] });
+      });
+
+      http.get('/api/v1/items').subscribe();
+
+      const req = controller.expectOne('/api/v1/items');
+      expect(req.request.headers.get('Authorization')).toBe('Bearer fresh');
+      req.flush([]);
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('ends the session and never sends the request when the refresh fails', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      refresh.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 401, statusText: 'Unauthorized' })),
+      );
+      let status = 0;
+
+      http.get('/api/v1/items').subscribe({ error: (err) => (status = err.status) });
+
+      controller.expectNone('/api/v1/items');
+      expect(status).toBe(401);
+      expect(TestBed.inject(AuthStore).canRestore()).toBe(false);
+      expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { reason: 'expired' } });
+      expect(warn).toHaveBeenCalledWith('auth.refresh.failed', expect.anything());
+    });
   });
 });
