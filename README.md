@@ -85,6 +85,11 @@ that cookie for a new access token before the first route renders. Three things 
   `http://192.168.1.20:4200` on the office LAN), set
   `SECURITY_REFRESH_TOKEN_COOKIE_SECURE=false` in the backend `.env`, and switch to HTTPS as
   soon as possible.
+- **Image origin in the CSP.** The Content-Security-Policy allows images from the app itself
+  and from `CSP_IMG_SOURCES` (container env, default `https:`). Item and plan images come from
+  the backend storage URL; if that is plain http (local storage on a LAN, e.g.
+  `http://192.168.1.20:8081`), add it there, or the images are blocked. The local
+  `docker-compose.yml` already adds `http://localhost:8081`.
 - **Deploy the backend first.** This frontend needs a backend that sends the cookie
   (backend #120 or later). The reverse is safe: the previous frontend keeps working against the
   new backend, because the browser sends the cookie on its own.
