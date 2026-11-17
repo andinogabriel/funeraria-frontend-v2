@@ -30,6 +30,21 @@ updates:
       # Angular majors are planned migrations (ng update), not a weekly bump.
       - dependency-name: "@angular/*"
         update-types: ["version-update:semver-major"]
+      # Held back by Angular 22 itself; lift each one when the Angular release that
+      # supports it lands. TypeScript: Angular 22 requires <6.1.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # @angular/build 22 peers vitest ^4.
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      # angular-eslint 22 does not support ESLint 10 yet.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # Types follow the runtime: Node 24 LTS (.nvmrc, CI, Dockerfile). Move with Node itself.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -66,3 +81,7 @@ updates:
     commit-message:
       prefix: "build"
       include: "scope"
+    ignore:
+      # Node majors move together with .nvmrc and the CI setup-node version, in one PR.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
