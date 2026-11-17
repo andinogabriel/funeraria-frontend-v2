@@ -122,7 +122,9 @@ describe('AuthService.refresh', () => {
     req.flush(jwt({ authorization: 'Bearer rotated' }));
     await settle();
 
-    expect(result).toHaveBeenCalledWith(expect.objectContaining({ authorization: 'Bearer rotated' }));
+    expect(result).toHaveBeenCalledWith(
+      expect.objectContaining({ authorization: 'Bearer rotated' }),
+    );
     expect(store.session()?.authorization).toBe('Bearer rotated');
   });
 
