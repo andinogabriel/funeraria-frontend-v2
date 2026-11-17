@@ -2,6 +2,10 @@
  * Auth-related transport types. One-to-one match with the backend OpenAPI schemas under
  * `Authentication` so the wire contract is explicit and any drift (e.g. a new field on
  * JwtDto) is caught at compile time the next time the types are regenerated.
+ *
+ * The refresh token never appears here: the backend sends it only in the HttpOnly
+ * `refresh_token` cookie (Path=/api/v1/users), which page script cannot read and the browser
+ * attaches to login, refresh and logout on its own.
  */
 
 /** Identifies the device a session is bound to. Required by every auth-related endpoint. */
@@ -17,9 +21,8 @@ export interface UserLoginRequest {
   readonly deviceInfo: DeviceInfo;
 }
 
-/** Request body for `POST /api/v1/users/refresh`. */
+/** Request body for `POST /api/v1/users/refresh`; the token itself travels in the cookie. */
 export interface TokenRefreshRequest {
-  readonly refreshToken: string;
   readonly deviceInfo: DeviceInfo;
 }
 
@@ -37,15 +40,13 @@ export interface LogoutRequest {
  */
 export interface JwtResponse {
   readonly authorization: string;
-  readonly refreshToken: string;
   readonly expiryDuration: number;
   readonly authorities: readonly string[];
 }
 
-/** In-memory representation of the active session, persisted to localStorage as JSON. */
+/** The active session, held in memory only. */
 export interface AuthSession {
   readonly authorization: string;
-  readonly refreshToken: string;
   readonly authorities: readonly string[];
   /** Wall-clock instant (ms since epoch) at which the access token stops being valid. */
   readonly expiresAt: number;

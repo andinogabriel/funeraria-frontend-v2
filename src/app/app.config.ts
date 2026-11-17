@@ -4,6 +4,8 @@ import {
   ApplicationConfig,
   ErrorHandler,
   LOCALE_ID,
+  inject,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
@@ -12,6 +14,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { MAT_SNACK_BAR_DEFAULT_OPTIONS } from '@angular/material/snack-bar';
 
+import { AuthService } from './core/auth/auth.service';
 import { authInterceptor } from './core/http/auth.interceptor';
 import { correlationIdInterceptor } from './core/http/correlation-id.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
@@ -53,6 +56,9 @@ export const appConfig: ApplicationConfig = {
     { provide: ErrorHandler, useClass: TelemetryErrorHandler },
     provideWebVitalsReporting(),
     provideZonelessChangeDetection(),
+    // The access token lives in memory only, so a reload starts signed out; trade the HttpOnly
+    // refresh cookie for a new token before the first route (and its guard) runs.
+    provideAppInitializer(() => inject(AuthService).restoreSession()),
     provideRouter(routes, withComponentInputBinding(), withViewTransitions()),
     provideHttpClient(
       withFetch(),
