@@ -97,6 +97,12 @@ export const AUTHENTICATED_ROUTES: Routes = [
           import('./features/reports/pages/daily-report.page').then((m) => m.DailyReportPage),
       },
       {
+        // The signed-in user's own device sessions (backend ADR-0024). Open to every role.
+        path: 'sesiones',
+        loadComponent: () =>
+          import('./features/account/pages/active-sessions.page').then((m) => m.ActiveSessionsPage),
+      },
+      {
         // Admin-only notification center. Backend gates with `ROLE_ADMIN`.
         // Reached from the bell drop-down's "Ver todas" link in the toolbar.
         path: 'notificaciones',
