@@ -80,6 +80,11 @@ jobs:
           tags: funeraria-frontend-v2:ci
           push: false
           load: true
+          # Always pull the current base and rebuild the runtime stage: its `apk upgrade` layer
+          # is otherwise restored from the GHA cache with the packages of the day it was first
+          # built, and Trivy then fails on CVEs that Alpine has already fixed.
+          pull: true
+          no-cache-filters: runtime
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
