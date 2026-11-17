@@ -40,6 +40,9 @@ services:
       # compose-shared-network path. If you need to override (eg. backend on
       # host), use the alternative `extra_hosts` block below.
       BACKEND_HOST: ${BACKEND_HOST:-backend}
+      # Extra img-src sources for the CSP. Item and plan images come from the backend storage
+      # URL: plain http on this local stack, https (S3) in production.
+      CSP_IMG_SOURCES: ${CSP_IMG_SOURCES:-https: http://localhost:8081}
     # Uncomment when running with backend on the host:
     # extra_hosts:
     #   - "backend:host-gateway"

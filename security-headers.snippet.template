@@ -1,0 +1,38 @@
+# =============================================================================
+# Security response headers, included from EVERY location block in nginx.conf.
+#
+# Why an include instead of a single server-level block: nginx only inherits
+# `add_header` from the enclosing level when the current level declares none.
+# Every location here sets its own Cache-Control, so server-level headers were
+# silently dropped from index.html and the hashed assets. Including this file in
+# each location keeps the headers on every response.
+#
+# This is an nginx-image template: at container start, envsubst renders it to
+# /etc/nginx/conf.d/security-headers.snippet, replacing only variables that exist
+# in the environment (CSP_IMG_SOURCES). nginx's own variables, such as
+# $request_id, are left for nginx to expand per request.
+#
+# Content-Security-Policy notes:
+#   - Per-request nonce. index.html carries the placeholder __CSP_NONCE__ (on
+#     <app-root ngCspNonce>, which makes the Angular build stamp it on every inline
+#     <style> and <script>). nginx swaps it for $request_id (128 random bits)
+#     through sub_filter, and the same value goes into this header. Angular reads
+#     ngCspNonce at runtime and puts it on the component <style> elements it
+#     injects, so style-src needs no 'unsafe-inline'. [style.x] bindings use the
+#     CSSOM, which CSP does not restrict.
+#   - script-src keeps the sha256 of the inline theme bootstrap as a fallback (the
+#     csp-hash spec fails the build if it drifts).
+#   - Trusted Types: DOM XSS sinks (innerHTML, script src, ...) only accept values
+#     from the Angular policies, so a string can never become script by accident.
+#   - img-src: item and plan images come from the backend storage URL, which is
+#     https (S3) in production but plain http on a LAN or local Docker stack. Set
+#     CSP_IMG_SOURCES to the extra sources (default "https:").
+#   - The Google Fonts stylesheet is inlined at build time; only the font files
+#     load from fonts.gstatic.com.
+# =============================================================================
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'nonce-$request_id' 'sha256-MbyaNg7sSDzMIwxoQOgSlJsf2z6elZbThXilC242RdA='; style-src 'self' 'nonce-$request_id'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: ${CSP_IMG_SOURCES}; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types angular angular#bundler" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
