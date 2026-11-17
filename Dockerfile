@@ -61,7 +61,10 @@ USER 101
 # proxy targets (resolved through the `backend` service name when composed,
 # overridable via env).
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
+# Rendered by the image entrypoint (envsubst) into /etc/nginx/conf.d/security-headers.snippet
+# before nginx starts; CSP_IMG_SOURCES feeds the img-src directive.
+COPY security-headers.snippet.template /etc/nginx/templates/security-headers.snippet.template
+ENV CSP_IMG_SOURCES="https:"
 
 # The Angular CLI nests the browser bundle under /<project>/browser when the
 # `outputMode` defaults are in effect. Copy only that directory so the image
