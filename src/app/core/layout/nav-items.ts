@@ -41,6 +41,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   { path: '/tarifario', label: 'Tarifario', icon: 'payments', requiresAdmin: true },
   { path: '/auditoria', label: 'Auditoría', icon: 'policy', requiresAdmin: true },
+  { path: '/sesiones', label: 'Sesiones activas', icon: 'devices' },
 ];
 
 /** Whether a session with these authorities may see the entry. */

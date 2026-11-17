@@ -1,0 +1,88 @@
+<div class="flex flex-col gap-6 max-w-3xl">
+  <header class="flex flex-wrap items-center gap-3">
+    <mat-icon class="material-symbols-outlined !text-3xl !w-8 !h-8 text-[var(--mat-sys-primary)]">
+      devices
+    </mat-icon>
+    <div class="flex flex-col">
+      <h1 class="text-2xl lg:text-3xl font-semibold m-0 leading-tight">Sesiones activas</h1>
+      <p class="text-sm text-[var(--mat-sys-on-surface-variant)] m-0">
+        Navegadores donde tu cuenta tiene la sesión iniciada. Si no reconocés alguno, cerralo y
+        cambiá tu contraseña.
+      </p>
+    </div>
+    <span class="flex-1"></span>
+    @if (othersCount() > 0) {
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="onCloseOthers()"
+        [disabled]="closing() !== null"
+      >
+        <mat-icon class="material-symbols-outlined">logout</mat-icon>
+        Cerrar las demás
+      </button>
+    }
+  </header>
+
+  <mat-card class="!rounded-xl">
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    @if (error(); as message) {
+      <div class="flex flex-col items-start gap-3 p-6" role="alert">
+        <p class="m-0">{{ message }}</p>
+        <button mat-stroked-button type="button" (click)="load()">Reintentar</button>
+      </div>
+    } @else if (!loading() && rows().length === 0) {
+      <p class="m-0 p-6 text-[var(--mat-sys-on-surface-variant)]">No hay sesiones activas.</p>
+    } @else {
+      <ul class="list-none m-0 p-0" aria-label="Sesiones activas">
+        @for (row of rows(); track row.session.id) {
+          <li
+            class="flex flex-wrap items-center gap-4 px-4 sm:px-6 py-4 border-b last:border-b-0 border-[var(--mat-sys-outline-variant)]"
+          >
+            <mat-icon
+              class="material-symbols-outlined text-[var(--mat-sys-on-surface-variant)]"
+              aria-hidden="true"
+            >
+              {{ row.device.mobile ? 'smartphone' : 'computer' }}
+            </mat-icon>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="font-medium">
+                {{ row.device.browser }} en {{ row.device.os }}
+                @if (row.session.current) {
+                  <span
+                    class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--mat-sys-primary-container)] text-[var(--mat-sys-on-primary-container)]"
+                  >
+                    Este navegador
+                  </span>
+                }
+              </span>
+              <span class="text-sm text-[var(--mat-sys-on-surface-variant)] tabular-nums">
+                Inició sesión {{ formatDateTime(row.session.createdAt) }} · Última actividad
+                {{ formatDateTime(row.session.lastSeenAt) }}
+                @if (row.session.ipAddress) {
+                  · IP {{ row.session.ipAddress }}
+                }
+              </span>
+            </div>
+            @if (!row.session.current) {
+              <button
+                mat-button
+                type="button"
+                (click)="onClose(row)"
+                [disabled]="closing() !== null"
+                [attr.aria-label]="
+                  'Cerrar la sesión de ' + row.device.browser + ' en ' + row.device.os
+                "
+              >
+                Cerrar sesión
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </mat-card>
+</div>
